@@ -24,37 +24,37 @@ function _fetch_static()
   mkdir -p bin
 
   # Fetch busybox
-  wget -O ./bin/busybox "https://github.com/ruanformigoni/busybox-static-musl/releases/download/7e2c5b6/busybox-x86_64"
+  wget -nc -O ./bin/busybox "https://github.com/ruanformigoni/busybox-static-musl/releases/download/7e2c5b6/busybox-x86_64"
 
   # Fetch lsof
-  wget -O./bin/lsof "https://github.com/ruanformigoni/lsof-static-musl/releases/download/720c914/lsof-x86_64"
+  wget -nc -O./bin/lsof "https://github.com/ruanformigoni/lsof-static-musl/releases/download/720c914/lsof-x86_64"
 
   # Fetch bwrap
-  wget -O ./bin/bwrap "https://github.com/ruanformigoni/bubblewrap-musl-static/releases/download/396c9d1/bwrap-x86_64"
+  wget -nc -O ./bin/bwrap "https://github.com/ruanformigoni/bubblewrap-musl-static/releases/download/396c9d1/bwrap-x86_64"
 
   # Fetch proot
-  wget -O ./bin/proot "https://github.com/ruanformigoni/proot-static-musl/releases/download/bf747c8/proot-x86_64"
+  wget -nc -O ./bin/proot "https://github.com/ruanformigoni/proot-static-musl/releases/download/bf747c8/proot-x86_64"
 
   # Fetch unionfs
-  wget -O ./bin/unionfs "https://github.com/ruanformigoni/unionfs-fuse-static-musl/releases/download/71e9b09/unionfs"
+  wget -nc -O ./bin/unionfs "https://github.com/ruanformigoni/unionfs-fuse-static-musl/releases/download/71e9b09/unionfs"
 
   # Fetch overlayfs
-  wget -O ./bin/overlayfs "https://github.com/ruanformigoni/fuse-overlayfs-static-musl/releases/download/6da6352/fuse-overlayfs-x86_64"
+  wget -nc -O ./bin/overlayfs "https://github.com/ruanformigoni/fuse-overlayfs-static-musl/releases/download/6da6352/fuse-overlayfs-x86_64"
 
   # Fetch ciopfs
-  wget -O ./bin/ciopfs "https://github.com/ruanformigoni/ciopfs-static-musl/releases/download/39d5d5a/ciopfs-x86_64"
+  wget -nc -O ./bin/ciopfs "https://github.com/ruanformigoni/ciopfs-static-musl/releases/download/39d5d5a/ciopfs-x86_64"
   # cp "$HOME"/Repositories/ciopfs/ciopfs ./bin/ciopfs
 
   # Fetch squashfuse
   # wget -O ./bin/squashfuse "https://github.com/ruanformigoni/squashfuse-static-musl/releases/download/f2b4067/squashfuse-x86_64"
 
   # Fetch dwarfs
-  wget -O bin/dwarfs_aio "https://github.com/ruanformigoni/dwarfs/releases/download/84e4b830/dwarfs-universal"
+  wget -nc -O bin/dwarfs_aio "https://github.com/ruanformigoni/dwarfs/releases/download/84e4b830/dwarfs-universal"
   ln -s dwarfs_aio bin/mkdwarfs
   ln -s dwarfs_aio bin/dwarfs
 
   # Fetch bash
-  wget -O ./bin/bash "https://github.com/ruanformigoni/bash-static-musl/releases/download/b604d6c/bash-x86_64"
+  wget -nc -O ./bin/bash "https://github.com/ruanformigoni/bash-static-musl/releases/download/b604d6c/bash-x86_64"
 
   # # Setup xdg scripts
   # cp "$FIM_DIR"/src/xdg/xdg-* ./bin
@@ -134,7 +134,7 @@ function _create_subsystem_blueprint()
   (
     cd "$FIM_DIR"
     docker build . --build-arg FIM_DIST=BLUEPRINT --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/Release/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/boot /host/bin
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/janitor /host/bin
   )
 
@@ -243,7 +243,7 @@ function _create_subsystem_alpine()
   (
     cd "$FIM_DIR"
     docker build . --build-arg FIM_DIST=ALPINE --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/Release/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/boot /host/bin
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/janitor /host/bin
   )
 
@@ -299,7 +299,8 @@ function _create_subsystem_arch()
   git clone "https://github.com/ruanformigoni/arch-bootstrap.git"
 
   # Build
-  sed -i 's|DEFAULT_REPO_URL=".*"|DEFAULT_REPO_URL="http://linorg.usp.br/archlinux"|' ./arch-bootstrap/arch-bootstrap.sh
+  # sed -i 's|DEFAULT_REPO_URL=".*"|DEFAULT_REPO_URL="http://mirror.ufscar.br/archlinux"|' ./arch-bootstrap/arch-bootstrap.sh
+  # sed -i 's|DEFAULT_REPO_URL=".*"|DEFAULT_REPO_URL="http://linorg.usp.br/archlinux"|' ./arch-bootstrap/arch-bootstrap.sh
   sed -Ei 's|^\s+curl|curl --retry 5|' ./arch-bootstrap/arch-bootstrap.sh
   sed 's/^/-- /' ./arch-bootstrap/arch-bootstrap.sh
   ./arch-bootstrap/arch-bootstrap.sh arch
@@ -338,7 +339,7 @@ function _create_subsystem_arch()
   :shopt -s nullglob
   :for i in $(grep -rin -m1 -l "ConditionNeedsUpdate" /usr/lib/systemd/system/); do
   :  sed -Ei "s/ConditionNeedsUpdate=.*/ConditionNeedsUpdate=/" "$i"
-  :done
+  :done 
   :grep -rin "ConditionNeedsUpdate" /usr/lib/systemd/system/
   :
   :mkdir -p /etc/pacman.d/hooks
@@ -460,7 +461,7 @@ function _create_subsystem_arch()
   (
     cd "$FIM_DIR"
     docker build . --build-arg FIM_DIST=ARCH --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/Release/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/boot /host/bin
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/janitor /host/bin
   )
 

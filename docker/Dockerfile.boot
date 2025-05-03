@@ -7,15 +7,10 @@ RUN echo https://dl-cdn.alpinelinux.org/alpine/edge/testing/ >> /etc/apk/reposit
 
 # Install deps
 RUN apk update && apk upgrade
-RUN apk add --no-cache build-base git libbsd-dev py3-pip cmake clang clang-dev \
+RUN apk add --no-cache build-base git libbsd-dev cmake clang clang-dev \
   make e2fsprogs-dev e2fsprogs-libs e2fsprogs-static libcom_err musl musl-dev \
   bash pcre-tools boost-dev libjpeg-turbo-dev libjpeg-turbo-static libpng-dev \
-  libpng-static zlib-static upx
-
-# Install conan
-RUN python3 -m venv /conan
-RUN . /conan/bin/activate && pip3 install conan
-ENV CONAN "/conan/bin/conan"
+  libpng-static zlib-static upx nlohmann-json
 
 # Copy boot directory
 ARG FIM_DIR
@@ -26,14 +21,12 @@ ARG FIM_DIST
 ENV FIM_DIST=$FIM_DIST
 
 # Compile
-RUN "$CONAN" profile detect
-RUN "$CONAN" install . --build=missing -g CMakeDeps -g CMakeToolchain
-RUN cmake --preset conan-release -DCMAKE_BUILD_TYPE=Release
-RUN cmake --build --preset conan-release
-RUN strip -s ./build/Release/boot
+RUN cmake -H. -Bbuild
+RUN cmake --build build
+RUN strip -s ./build/boot
 
 # Include magic bytes
-RUN ./build/Release/magic ./build/Release/boot
+RUN ./build/magic ./build/boot
 
 # Compile janitor
 RUN g++ --std=c++23 -O3 -static -o janitor janitor.cpp
