@@ -5,10 +5,8 @@
 
 #include <filesystem>
 
-#include "../cpp/lib/env.hpp"
 #include "../cpp/lib/log.hpp"
 #include "../cpp/lib/subprocess.hpp"
-#include "../cpp/common.hpp"
 #include "../cpp/macro.hpp"
 
 constexpr std::string_view const profile_bwrap =

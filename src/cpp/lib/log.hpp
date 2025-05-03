@@ -10,7 +10,6 @@
 
 #include "../common.hpp"
 #include "../std/concept.hpp"
-#include "../std/filesystem.hpp"
 #include "../std/exception.hpp"
 
 namespace ns_log

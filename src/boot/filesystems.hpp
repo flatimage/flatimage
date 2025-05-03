@@ -8,9 +8,9 @@
 #include <memory>
 #include <fcntl.h>
 
+#include "../cpp/std/filesystem.hpp"
 #include "../cpp/lib/overlayfs.hpp"
 #include "../cpp/lib/unionfs.hpp"
-#include "../cpp/lib/squashfs.hpp"
 #include "../cpp/lib/dwarfs.hpp"
 #include "../cpp/lib/ciopfs.hpp"
 #include "./config/config.hpp"
@@ -254,7 +254,7 @@ inline uint64_t Filesystems::mount_dwarfs(fs::path const& path_dir_mount, fs::pa
 inline void Filesystems::mount_unionfs(std::vector<fs::path> const& vec_path_dir_layer
   , fs::path const& path_dir_data
   , fs::path const& path_dir_mount
-  , fs::path const& path_dir_workdir)
+  , [[maybe_unused]] fs::path const& path_dir_workdir)
 {
   m_unionfs = std::make_unique<ns_unionfs::UnionFs>(vec_path_dir_layer
     , path_dir_data

@@ -7,6 +7,7 @@
 
 #include <unistd.h>
 #include <filesystem>
+#include <ranges>
 
 #include "../../cpp/lib/env.hpp"
 

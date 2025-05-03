@@ -13,7 +13,6 @@
 #include "../common.hpp"
 #include "../macro.hpp"
 #include "log.hpp"
-#include "subprocess.hpp"
 
 // Environment variable handling {{{
 namespace ns_env

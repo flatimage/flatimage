@@ -4,7 +4,6 @@
 ///
 
 #include <thread>
-#include <chrono>
 #include <filesystem>
 #include <csignal>
 
@@ -12,7 +11,6 @@
 #include "../cpp/lib/env.hpp"
 #include "../cpp/lib/fuse.hpp"
 #include "../cpp/macro.hpp"
-#include "../cpp/common.hpp"
 
 namespace fs = std::filesystem;
 

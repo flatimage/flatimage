@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <cmath>
 #include <filesystem>
 
 #include "../../cpp/lib/subprocess.hpp"

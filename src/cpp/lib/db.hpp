@@ -14,7 +14,6 @@
 #include "../macro.hpp"
 #include "../std/concept.hpp"
 
-#include "log.hpp"
 
 namespace ns_db
 {

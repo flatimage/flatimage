@@ -3,7 +3,6 @@
 /// @file        : portal
 ///
 
-#include <thread>
 #include <filesystem>
 
 #include "../cpp/lib/env.hpp"

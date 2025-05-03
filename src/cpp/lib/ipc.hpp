@@ -28,7 +28,7 @@ struct message_buffer
 class Ipc
 {
   private:
-    key_t m_key;
+    [[maybe_unused]] key_t m_key;
     int m_message_queue_id;
     message_buffer m_buffer;
     bool m_is_guest;

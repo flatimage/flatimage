@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <cstring>
+
 #include "../reserved.hpp"
 #include "../match.hpp"
 

@@ -13,6 +13,7 @@
 
 #include "../std/vector.hpp"
 #include "../std/functional.hpp"
+#include "../std/filesystem.hpp"
 #include "../macro.hpp"
 #include "log.hpp"
 #include "db.hpp"

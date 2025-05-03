@@ -3,9 +3,10 @@
 // @file        : portal_host
 ///
 
+#include <atomic>
 #include <fcntl.h>
+#include <sys/prctl.h>
 #include <sys/wait.h>
-#include <thread>
 #include <vector>
 #include <string>
 #include <csignal>

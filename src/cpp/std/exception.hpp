@@ -6,7 +6,7 @@
 #pragma once
 
 #include <optional>
-#include <sstream>
+#include <string>
 #include <expected>
 
 namespace ns_exception

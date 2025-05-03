@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "lib/log.hpp"
+
 // Ec wrapper
 #define lec(fun, ...) \
   ns_log::ec([]<typename... Args>(Args&&... args){ return fun(std::forward<Args>(args)...); }, __VA_ARGS__)

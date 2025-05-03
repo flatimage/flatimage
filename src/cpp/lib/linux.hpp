@@ -10,7 +10,6 @@
 #include <filesystem>
 #include <unistd.h>
 
-#include "log.hpp"
 #include "../common.hpp"
 #include "../macro.hpp"
 

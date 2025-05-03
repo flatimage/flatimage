@@ -6,7 +6,6 @@
 #pragma once
 
 #include <filesystem>
-#include "log.hpp"
 #include "fuse.hpp"
 #include "subprocess.hpp"
 #include "../macro.hpp"

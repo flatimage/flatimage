@@ -10,7 +10,6 @@
 #include <filesystem>
 #include <unistd.h>
 
-#include "log.hpp"
 #include "../macro.hpp"
 
 namespace ns_fifo
