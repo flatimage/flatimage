@@ -320,22 +320,21 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
 inline Bwrap& Bwrap::with_binds_from_file(fs::path const& path_file_bindings)
 {
   // Load bindings from the filesystem if any
-  ns_exception::ignore([&]
+  auto db = ns_db::read_file(path_file_bindings).value_or(ns_db::Db());
+  for(auto&& [key,binding] : db.items())
   {
-    auto db = ns_db::Db(path_file_bindings, ns_db::Mode::READ);
-    for(auto&& key : ns_db::Db(path_file_bindings, ns_db::Mode::READ).keys())
-    {
-      auto const& binding = db[key];
-      m_args.push_back(ns_match::match(std::string{binding["type"]}
-        , ns_match::equal("ro") >>= std::string{"--ro-bind-try"}
-        , ns_match::equal("rw") >>= std::string{"--bind-try"}
-        , ns_match::equal("dev") >>= std::string{"--dev-bind-try"}
-      ));
-      m_args.push_back(ns_env::expand(binding["src"]).value_or(binding["src"]));
-      m_args.push_back(ns_env::expand(binding["dst"]).value_or(binding["dst"]));
-    } // for
-  });
-
+    auto type = binding("type").template value<std::string>();
+    auto src = binding("src").template value<std::string>();
+    auto dst = binding("dst").template value<std::string>();
+    econtinue_if(not type or not src or not dst, "Missing field in binding database");
+    m_args.push_back(ns_match::match(type.value()
+      , ns_match::equal("ro") >>= std::string{"--ro-bind-try"}
+      , ns_match::equal("rw") >>= std::string{"--bind-try"}
+      , ns_match::equal("dev") >>= std::string{"--dev-bind-try"}
+    ));
+    m_args.push_back(ns_env::expand(src.value()).value_or(src.value()));
+    m_args.push_back(ns_env::expand(dst.value()).value_or(dst.value()));
+  } // for
   return *this;
 } // with_binds_from_file() }}}
 

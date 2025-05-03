@@ -6,8 +6,9 @@
 #pragma once
 
 #include <string>
+#include <set>
 #include "../db.hpp"
-#include "../../std/string.hpp"
+#include "../../std/enum.hpp"
 
 namespace ns_db::ns_desktop
 {
@@ -25,19 +26,19 @@ struct Desktop
     Desktop(std::string_view raw_json)
     {
       // Open DB
-      auto db = ns_db::Db(raw_json);
+      auto db = ns_db::from_string(raw_json).value();
       // Parse name (required)
-      m_name = db["name"];
+      m_name = db.template value<std::string>("name").value();
       // Parse enabled integrations (optional)
-      if (db.contains("integrations"))
+      if (auto integrations = db.template value<std::vector<std::string>>("integrations"))
       {
-        std::ranges::for_each(db["integrations"].values(), [&](auto&& e){ m_set_integrations.insert(e); });
+        std::ranges::for_each(integrations.value(), [&](auto&& e){ m_set_integrations.insert(e); });
       } // if
       // Parse icon path (required)
-      m_path_file_icon = db["icon"];
+      m_path_file_icon = db.template value<std::string>("icon").value();
       // Parse categories (required)
-      ns_db::Db const& db_categories = db["categories"];
-      std::ranges::for_each(db_categories.values(), [&](auto&& e){ m_set_categories.insert(e); });
+      auto db_categories = db.template value<std::vector<std::string>>("categories").value();
+      std::ranges::for_each(db_categories, [&](auto&& e){ m_set_categories.insert(e); });
     } // Desktop
   public:
     std::string const& get_name() const { return m_name; }
@@ -73,7 +74,7 @@ inline std::expected<std::string,std::string> serialize(Desktop const& desktop) 
 {
   return ns_exception::to_expected([&]
   {
-    auto db = ns_db::Db("{}");
+    auto db = ns_db::Db();
     db("name") = desktop.m_name;
     db("integrations") = desktop.m_set_integrations;
     db("icon") = desktop.m_path_file_icon;

@@ -155,7 +155,7 @@ int main(int argc, char** argv)
   ofile_env.close();
 
   // Send message
-  auto db = ns_db::Db("{}");
+  auto db = ns_db::Db();
   db("command") = std::vector(argv+1, argv+argc);
   db("stdout") = path_file_fifo_stdout->c_str();
   db("stderr") = path_file_fifo_stderr->c_str();

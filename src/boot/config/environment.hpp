@@ -7,10 +7,10 @@
 
 #include <ranges>
 #include <filesystem>
+#include <format>
 
-#include "../../cpp/std/functional.hpp"
+#include "../../cpp/lib/env.hpp"
 #include "../../cpp/lib/db.hpp"
-#include "../../cpp/lib/subprocess.hpp"
 
 namespace ns_config::ns_environment
 {
@@ -20,50 +20,76 @@ namespace
 
 namespace fs = std::filesystem;
 
-inline std::vector<std::string> keys(std::vector<std::string> const& entries)
+inline std::vector<std::pair<std::string,std::string>> key_value(std::vector<std::string> const& entries)
 {
   return entries
-    | std::views::transform([](auto&& e){ return e.substr(0, e.find('=')); })
-    | std::ranges::to<std::vector<std::string>>();
-} // keys
+    | std::views::transform([](auto&& e)
+      {
+        auto it = e.find('=');
+        ethrow_if(it == std::string::npos, "Failed to read equal sign separator");
+        return std::make_pair(e.substr(0, it), e.substr(it+1, std::string::npos));
+      })
+    | std::ranges::to<std::vector<std::pair<std::string,std::string>>>();
+} // key_value
 
-inline std::vector<std::string> validate(std::vector<std::string> const& entries)
+inline void validate(std::vector<std::string> const& entries)
 {
-  return entries
-    | std::views::filter([](auto&& e){ return std::ranges::count_if(e, [](char c){ return c == '='; }) > 0; })
-    | std::ranges::to<std::vector<std::string>>();
+  for (auto&& entry : entries)
+  {
+    ethrow_if(std::ranges::count_if(entry, [](char c){ return c == '='; }) == 0
+      , std::format("Argument '{}' is invalid", entry)
+    );
+  } // for
 } // validate
 
 } // namespace
 
 inline void del(fs::path const& path_file_config_environment, std::vector<std::string> const& entries)
 {
-  for(auto&& entry : entries)
+  auto db = ns_db::read_file(path_file_config_environment).value_or(ns_db::Db());
+  std::ranges::for_each(entries, [&](auto&& entry)
   {
-    ns_db::Db(path_file_config_environment, ns_db::Mode::UPDATE).array_erase_if(ns_functional::StartsWith(entry + "="));
-  } // for
-}
-
-inline void set(fs::path const& path_file_config_environment, std::vector<std::string> entries)
-{
-  entries = validate(entries);
-  if ( fs::exists(path_file_config_environment) )
-  {
-    ns_exception::ignore([&]{ del(path_file_config_environment, keys(entries)); });
-  } // if
-  ns_db::Db(path_file_config_environment, ns_db::Mode::CREATE).set_insert(entries);
+    if( db.erase(entry) )
+    {
+      ns_log::info()("Erase key '{}'", entry);
+    }
+    else
+    {
+      ns_log::info()("Key '{}' not found for deletion", entry);
+    }
+  });
+  ereturn_if(not ns_db::write_file(path_file_config_environment, db), "Failure to write deletions to database");
 }
 
 inline void add(fs::path const& path_file_config_environment, std::vector<std::string> entries)
 {
-  entries = validate(entries);
-  ns_exception::ignore([&]{ del(path_file_config_environment, keys(entries)); });
-  ns_db::Db(path_file_config_environment, ns_db::Mode::UPDATE_OR_CREATE).set_insert(entries);
+  validate(entries);
+  del(path_file_config_environment, entries);
+  auto db = ns_db::read_file(path_file_config_environment).value_or(ns_db::Db());
+  for (auto&& [key,value] : key_value(entries))
+  {
+    db(key) = value;
+    ns_log::info()("Included variable '{}' with value '{}'", key, value);
+  }
+  ereturn_if(not ns_db::write_file(path_file_config_environment, db), "Failure to modify database");
+}
+
+inline void set(fs::path const& path_file_config_environment, std::vector<std::string> entries)
+{
+  fs::remove(path_file_config_environment);
+  add(path_file_config_environment, entries);
 }
 
 inline std::vector<std::string> get(fs::path const& path_file_config_environment)
 {
-  std::vector<std::string> environment = ns_db::Db(path_file_config_environment, ns_db::Mode::READ).as_vector();
+  // Get environment
+  auto db_environment = ns_db::read_file(path_file_config_environment).value_or(ns_db::Db());
+  // Merge variables with values
+  std::vector<std::string> environment;
+  for (auto&& [key,value] : db_environment.items())
+  {
+    environment.push_back(std::format("{}={}", key, value.template value<std::string>().value()));
+  } // for
   // Expand variables
   for(auto& variable : environment)
   {

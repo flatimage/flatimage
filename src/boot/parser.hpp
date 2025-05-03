@@ -477,57 +477,56 @@ inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
   // Enable or disable casefold (useful for wine)
   else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdCaseFold>(*variant_cmd) )
   {
-    ns_db::from_file(config.path_file_config_casefold, [&](auto& db)
-    {
-      db("enable") = std::string{cmd->op};
-    }, ns_db::Mode::UPDATE_OR_CREATE);
+    // Open database
+    auto db = ns_db::read_file(config.path_file_config_casefold).value_or(ns_db::Db());
+    // Update fields
+    db("enable") = cmd->op;
+    // Write fields
+    auto result_write = ns_db::write_file(config.path_file_config_casefold, db);
+    ethrow_if(not result_write, result_write.error());
   } // else if
   // Update default command on database
   else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdBoot>(*variant_cmd) )
   {
     // Mount filesystem as RW
     [[maybe_unused]] auto mount = ns_filesystems::Filesystems(config);
-    // Update database
-    ns_db::from_file(config.path_file_config_boot, [&](auto& db)
-    {
-      db("program") = cmd->program;
-      db("args") = cmd->args;
-    }, ns_db::Mode::UPDATE_OR_CREATE);
+    // Open database
+    auto db = ns_db::read_file(config.path_file_config_boot).value_or(ns_db::Db());
+    // Update fields
+    db("program") = cmd->program;
+    db("args") = cmd->args;
+    // Write fields
+    auto result_write = ns_db::write_file(config.path_file_config_boot, db);
+    ethrow_if(not result_write, result_write.error());
   } // else if
   // Update default command on database
   else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdNone>(*variant_cmd) )
   {
     // Execute default command
-    f_bwrap(
-      [&]
+    f_bwrap([&]
       {
-        return ns_exception::value_or([&]
-        {
-          std::string program;
-          ns_db::from_file(config.path_file_config_boot, [&](auto& db)
-          {
-            program = db["program"];
-          }, ns_db::Mode::READ);
-          return ns_env::expand(program).value_or(program);
-        }, std::string{"bash"});
+        // Read boot configuration file
+        auto db = ns_db::read_file(config.path_file_config_boot);
+        dreturn_if(not db, db.error(), std::string{"bash"});
+        // Read startup program
+        auto program = db->template value<std::string>("program");
+        dreturn_if(not program, program.error(), std::string{"bash"});
+        // Expand program if it is an environment variable or shell expression
+        return ns_env::expand(program.value()).value_or(program.value());
       }
       ,
       [&]
       {
-        return ns_exception::or_default([&]
-        {
-          std::vector<std::string> args;
-          ns_db::from_file(config.path_file_config_boot, [&](auto& db)
-          {
-            args = db["args"].as_vector();
-          }, ns_db::Mode::READ);
-          // Append arguments from argv
-          if ( argc > 1 )
-          {
-            std::for_each(argv+1, argv+argc, [&](auto&& e){ args.push_back(e); });
-          } // if
-          return args;
-        });
+        using Args = std::vector<std::string>;
+        // Read boot configuration file
+        auto db = ns_db::read_file(config.path_file_config_boot);
+        dreturn_if(not db, db.error(), Args{});
+        // Read arguments
+        auto args = db->template value<Args>("args");
+        dreturn_if(not args, args.error(), Args{});
+        // Append arguments from argv
+        std::copy(argv+1, argv+argc, std::back_inserter(args.value()));
+        return args.value();
       }
     );
   } // else if

@@ -8,6 +8,7 @@
 #include <string>
 #include <type_traits>
 #include <variant>
+#include <vector>
 
 namespace ns_concept
 {
@@ -66,6 +67,18 @@ concept IsContainerOf = requires
   requires std::same_as<typename T::value_type, U>;
   requires Iterable<T>;
 };
+
+// Helper to check if a type is a specialization of std::vector
+template <typename>
+struct is_vector : std::false_type {};
+
+template <typename T, typename Allocator>
+struct is_vector<std::vector<T, Allocator>> : std::true_type {};
+
+// Define a concept based on the helper trait
+template <typename T>
+concept IsVector = is_vector<T>::value;
+
 
 template<typename T>
 concept StringConvertible = std::is_convertible_v<std::decay_t<T>, std::string>;

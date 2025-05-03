@@ -7,11 +7,15 @@
 #pragma once
 
 #include <filesystem>
+#include <algorithm>
 #include "../../cpp/lib/db.hpp"
+#include "../../cpp/lib/db/bind.hpp"
+#include "../../cpp/std/enum.hpp"
 #include "../../cpp/std/variant.hpp"
 
 namespace ns_cmd::ns_bind
 {
+
 ENUM(CmdBindOp,ADD,DEL,LIST);
 ENUM(CmdBindType,RO,RW,DEV);
 
@@ -33,14 +37,14 @@ namespace fs = std::filesystem;
 // fn: get_highest_index() {{{
 inline index_t get_highest_index(ns_db::Db const& db)
 {
-  auto bindings = db.items()
-    | std::views::transform([](auto&& e){ return e.key(); })
-    | std::views::transform([](auto&& e){ return std::stoi(e); });
-  auto it = std::max_element(bindings.begin()
-    , bindings.end()
-    , [](auto&& a, auto&& b){ return a < b; }
-  );
-  return ( it == bindings.end() )? 0 : *it;
+  auto keys = db.keys();
+  auto bindings = keys
+    | std::views::filter([](auto&& e){ return not e.empty() and std::ranges::all_of(e, ::isdigit); })
+    | std::views::transform([](auto&& e){ return std::stoi(e); })
+    | std::ranges::to<std::vector<int>>();
+  elog_if(keys.size() != bindings.size(), "Invalid indices in bindings database");
+  auto it = std::ranges::max_element(bindings, std::less<>{});
+  return ( it == bindings.end() )? -1 : *it;
 } // fn: get_highest_index() }}}
 
 } // namespace
@@ -50,54 +54,52 @@ inline void add(fs::path const& path_file_config, CmdBind const& cmd)
 {
   // Get src and dst paths
   auto binds = ns_variant::get_if_holds_alternative<bind_t>(cmd.data);
-  ereturn_if(not binds, "Invalid data type for 'add' command");
-
+  ethrow_if(not binds, "Invalid data type for 'add' command");
+  // Open database or reset if doesnt exist or is corrupted
+  auto db = ns_db::read_file(path_file_config).value_or(ns_db::Db());
   // Find out the highest bind index
-  auto db = ns_db::Db(path_file_config, ns_db::Mode::UPDATE_OR_CREATE);
-  index_t idx = get_highest_index(db) + 1;
+  std::string idx = std::to_string(get_highest_index(db) + 1);
   ns_log::info()("Binding index is '{}'", idx);
-
   // Include bindings
   db(idx)("type") = (binds->type == CmdBindType::RO)? "ro"
     : (binds->type == CmdBindType::RW)? "rw"
     : "dev";
   db(idx)("src") = binds->src;
   db(idx)("dst") =  binds->dst;
+  // Write database
+  auto result_write = ns_db::write_file(path_file_config, db);
+  ethrow_if(not result_write, result_write.error());
 } // fn: add() }}}
 
 // fn: del() {{{
-inline decltype(auto) del(fs::path const& path_file_config, CmdBind const& cmd)
+inline void del(fs::path const& path_file_config, CmdBind const& cmd)
 {
-  // Get index to delete
-  auto index = ns_variant::get_if_holds_alternative<index_t>(cmd.data);
-  ereturn_if(not index, "Invalid data type for 'del' command");
-
-  // Open db
-  auto db = ns_db::Db(path_file_config, ns_db::Mode::UPDATE_OR_CREATE);
-
-  // Check if it exists
-  auto items = db.items();
-  auto it = std::ranges::find_if(items, [&](auto&& e){ return std::stoi(e.key()) == index; });
-  ereturn_if(it == items.end(), "Specified index does not exist");
-
-  // Erase value by overwriting
-  while( std::next(it) != items.end() )
-  {
-    it.value() = std::next(it).value();
-    ++it;
-  } // while
-
-  // Erase last index
-  db.obj_erase(get_highest_index(db));
+  // Get index to erase
+  auto index = std::get_if<index_t>(&cmd.data);
+  ereturn_if(not index, "Failed to read index value from bind database");
+  //  Open file
+  std::ifstream file{path_file_config};
+  ereturn_if(not file, "Failed to open database to delete entry");
+  // Deserialize bindings
+  auto expected_binds = ns_db::ns_bind::deserialize(file);
+  ereturn_if(not expected_binds, expected_binds.error());
+  // Erase index if exists
+  expected_binds->erase(*index);
+  // Write back to file
+  auto serialized = ns_db::ns_bind::serialize(expected_binds.value());
+  ereturn_if(not serialized, "Could not serialize bindings");
+  ereturn_if(not ns_db::write_file(path_file_config, serialized.value()),
+    "Failed to write bindings database"
+  );
 } // fn: del() }}}
 
 // fn: list() {{{
-inline decltype(auto) list(fs::path const& path_file_config)
+inline void list(fs::path const& path_file_config)
 {
   // Open db
-  auto db = ns_db::Db(path_file_config, ns_db::Mode::UPDATE_OR_CREATE);
+  auto db = ns_db::read_file(path_file_config).value_or(ns_db::Db());
   // Print entries to stdout
-  println(db.dump(2));
+  println(db.dump());
 } // fn: list() }}}
 
 } // namespace ns_cmd::ns_bind

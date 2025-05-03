@@ -68,7 +68,7 @@ void fork_execve(std::string msg)
   auto db = ns_db::Db(msg);
 
   // Get command
-  std::vector<std::string> vec_argv = db["command"].as_vector();
+  auto vec_argv = db.template value<std::vector<std::string>>("command").value();
 
   // Ignore on empty command
   if ( vec_argv.empty() ) { return; }
@@ -83,18 +83,20 @@ void fork_execve(std::string msg)
   // Is parent
   if (pid > 0)
   {
+    auto pid = db("pid").template value<std::string>().value();
     // Write pid to fifo
-    auto expected_bytes_pid = ns_fifo::open_and_write(db["pid"].as_string().c_str(), std::span(&pid, sizeof(pid)));
+    auto expected_bytes_pid = ns_fifo::open_and_write(pid.c_str(), std::span(&pid, sizeof(pid)));
     elog_if(not expected_bytes_pid, expected_bytes_pid.error());
     elog_if(*expected_bytes_pid != sizeof(pid), "Could not write pid");
     // Wait for child to finish
     int status;
-    ereturn_if(waitpid(pid, &status, 0) < 0, "waitpid failed");
+    ereturn_if(waitpid(std::stoi(pid), &status, 0) < 0, "waitpid failed");
     // Get exit code
     int code = (not WIFEXITED(status))? 1 : WEXITSTATUS(status);
     ns_log::debug()("Exit code: {}", code);
     // Send exit code of child through a fifo
-    auto expected_bytes_code = ns_fifo::open_and_write(std::string(db["exit"]), std::span(&code, sizeof(code)));
+    auto code_exit = db("exit").template value<std::string>().value();
+    auto expected_bytes_code = ns_fifo::open_and_write(code_exit, std::span(&code, sizeof(code)));
     ereturn_if(not expected_bytes_code, expected_bytes_code.error());
     ereturn_if(*expected_bytes_code != sizeof(code), "Could not write exit code");
     return;
@@ -106,8 +108,10 @@ void fork_execve(std::string msg)
   ns_log::debug()("{} dies with {}", getpid(), ppid);
 
   // Open stdout/stderr FIFOs
-  int fd_stdout = open(db["stdout"].as_string().c_str(), O_WRONLY);
-  int fd_stderr = open(db["stderr"].as_string().c_str(), O_WRONLY);
+  auto str_stdout = db("stdout").template value<std::string>().value();
+  auto str_stderr = db("stderr").template value<std::string>().value();
+  int fd_stdout = open(str_stdout.c_str(), O_WRONLY);
+  int fd_stderr = open(str_stderr.c_str(), O_WRONLY);
   eabort_if(fd_stdout < 0 or fd_stderr < 0, strerror(errno));
 
   // Redirect stdout and stderr
@@ -134,7 +138,7 @@ void fork_execve(std::string msg)
   } // for
 
   // Fetch environment from db
-  fs::path path_file_environment = db["environment"].as_string();
+  fs::path path_file_environment = db.template value<std::string>("environment").value();
   std::vector<std::string> vec_environment;
   std::ifstream file_environment(path_file_environment);
   eabort_if(not file_environment.is_open(), "Could not open {}"_fmt(path_file_environment));
@@ -166,12 +170,12 @@ decltype(auto) validate(std::string_view msg) noexcept
   try
   {
     auto db = ns_db::Db(msg);
-    return db["command"].is_array()
-      and db["stdout"].is_string()
-      and db["stderr"].is_string()
-      and db["exit"].is_string()
-      and db["pid"].is_string()
-      and db["environment"].is_string();
+    return db.value("command").value().data().is_array()
+      and db.value("stdout").value().data().is_string()
+      and db.value("stderr").value().data().is_string()
+      and db.value("exit").value().data().is_string()
+      and db.value("pid").value().data().is_string()
+      and db.value("environment").value().data().is_string();
   } // try
   catch(...)
   {
