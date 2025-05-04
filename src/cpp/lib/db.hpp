@@ -244,7 +244,7 @@ bool Db::erase(T&& t)
   }
 
   // Erase returns the number of elements removed
-  return json.erase(key) > 1;
+  return json.erase(key) > 0;
 } // erase() }}}
 
 // clear() {{{
