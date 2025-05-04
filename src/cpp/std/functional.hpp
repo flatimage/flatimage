@@ -17,7 +17,7 @@ struct PrintLn
 {
   template<typename T>
   requires ( ns_concept::StringRepresentable<T> or ns_concept::IterableConst<T> )
-  void operator()(T&& t) { print("{}\n", ns_string::to_string(t)); }
+  void operator()(T&& t) { std::cout << ns_string::to_string(t) << std::endl; }
 }; // }}}
 
 // class PushBack {{{
