@@ -509,7 +509,7 @@ inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
         auto db = ns_db::read_file(config.path_file_config_boot);
         dreturn_if(not db, db.error(), std::string{"bash"});
         // Read startup program
-        auto program = db->template value<std::string>("program");
+        auto program = (*db)("program").template value<std::string>();
         dreturn_if(not program, program.error(), std::string{"bash"});
         // Expand program if it is an environment variable or shell expression
         return ns_env::expand(program.value()).value_or(program.value());
@@ -522,7 +522,7 @@ inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
         auto db = ns_db::read_file(config.path_file_config_boot);
         dreturn_if(not db, db.error(), Args{});
         // Read arguments
-        auto args = db->template value<Args>("args");
+        auto args = (*db)("args").template value<Args>();
         dreturn_if(not args, args.error(), Args{});
         // Append arguments from argv
         std::copy(argv+1, argv+argc, std::back_inserter(args.value()));
