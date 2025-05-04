@@ -20,7 +20,7 @@ struct Desktop
 {
   private:
     std::string m_name;
-    fs::path m_path_file_icon;
+    std::expected<fs::path, std::string> m_path_file_icon;
     std::set<IntegrationItem> m_set_integrations;
     std::set<std::string> m_set_categories;
     Desktop(std::string_view raw_json)
@@ -28,21 +28,21 @@ struct Desktop
       // Open DB
       auto db = ns_db::from_string(raw_json).value();
       // Parse name (required)
-      m_name = db.template value<std::string>("name").value();
+      m_name = db("name").template value<std::string>().value();
       // Parse enabled integrations (optional)
-      if (auto integrations = db.template value<std::vector<std::string>>("integrations"))
+      if (auto integrations = db("integrations").template value<std::vector<std::string>>())
       {
         std::ranges::for_each(integrations.value(), [&](auto&& e){ m_set_integrations.insert(e); });
       } // if
-      // Parse icon path (required)
-      m_path_file_icon = db.template value<std::string>("icon").value();
+      // Parse icon path (optional)
+      m_path_file_icon = db("icon").template value<std::string>();
       // Parse categories (required)
-      auto db_categories = db.template value<std::vector<std::string>>("categories").value();
+      auto db_categories = db("categories").template value<std::vector<std::string>>().value();
       std::ranges::for_each(db_categories, [&](auto&& e){ m_set_categories.insert(e); });
     } // Desktop
   public:
     std::string const& get_name() const { return m_name; }
-    fs::path const& get_path_file_icon() const { return m_path_file_icon; }
+    std::expected<fs::path, std::string> const& get_path_file_icon() const { return m_path_file_icon; }
     std::set<IntegrationItem> const& get_integrations() const { return m_set_integrations; }
     std::set<std::string> const& get_categories() const { return m_set_categories; }
     void set_name(std::string_view str_name) { m_name = str_name; }
@@ -77,7 +77,10 @@ inline std::expected<std::string,std::string> serialize(Desktop const& desktop) 
     auto db = ns_db::Db();
     db("name") = desktop.m_name;
     db("integrations") = desktop.m_set_integrations;
-    db("icon") = desktop.m_path_file_icon;
+    if (desktop.m_path_file_icon)
+    {
+      db("icon") = desktop.m_path_file_icon.value();
+    }
     db("categories") = desktop.m_set_categories;
     return db.dump();
   });
