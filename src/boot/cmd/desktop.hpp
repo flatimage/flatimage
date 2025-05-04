@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 
 #include "../../cpp/lib/reserved/desktop.hpp"
@@ -357,9 +358,12 @@ void integrate_bash(fs::path const& path_dir_home)
     dreturn_if(search != std::ranges::end(vec_path_dirs), "Found '{}' in XDG_DATA_DIRS"_fmt(path_dir_data));
   } // if
 
-  // Backup
-  fs::copy_file(path_file_bashrc, path_file_bashrc_backup);
-  ns_log::info()("Saved a backup of ~/.bashrc in '{}'", path_file_bashrc_backup);
+  // Backup if exists
+  if (fs::exists(path_file_bashrc))
+  {
+    fs::copy_file(path_file_bashrc, path_file_bashrc_backup);
+    ns_log::info()("Saved a backup of ~/.bashrc in '{}'", path_file_bashrc_backup);
+  }
 
   // Integrate
   std::ofstream of_bashrc{path_file_bashrc, std::ios::app};
@@ -459,7 +463,9 @@ inline void setup(ns_config::FlatimageConfig const& config, fs::path const& path
   auto expected_desktop = ns_db::ns_desktop::deserialize(file_json_src);
   ereturn_if(not expected_desktop, "Failed to deserialize json: {}"_fmt(expected_desktop.error()));
   // Application icon
-  fs::path path_file_icon = expected_desktop->get_path_file_icon();
+  auto expected_path_file_icon = expected_desktop->get_path_file_icon();
+  ereturn_if(not expected_path_file_icon, "Could not retrieve icon path field from json");
+  fs::path path_file_icon = expected_path_file_icon.value();
   std::string str_ext = (path_file_icon.extension() == ".svg")? "svg"
     : (path_file_icon.extension() == ".png")? "png"
     : (path_file_icon.extension() == ".jpg" or path_file_icon.extension() == ".jpeg")? "jpg"
@@ -481,9 +487,14 @@ inline void setup(ns_config::FlatimageConfig const& config, fs::path const& path
   // Serialize json
   auto expected_str_raw_json = ns_db::ns_desktop::serialize(*expected_desktop);
   ereturn_if(not expected_desktop, "Failed to serialize desktop integration: {}"_fmt(expected_str_raw_json.error()));
+  // Delete icon field
+  auto db = ns_db::from_string(expected_str_raw_json.value());
+  ereturn_if(not db, std::format("Could not parse serialized json source: {}", db.error()));
+  ereturn_if(not db->erase("icon"), "Could not erase icon field");
   // Write json configuration
-  auto error = write_json_to_binary(config, *expected_str_raw_json);
+  auto error = write_json_to_binary(config, db->dump());
   ereturn_if(error, "Failed to write json: {}"_fmt(error));
+  println(db->dump());
 } // setup() }}}
 
 // enable() {{{
@@ -493,11 +504,16 @@ inline void enable(ns_config::FlatimageConfig const& config, std::set<Integratio
   auto expected_json = read_json_from_binary(config);
   ereturn_if(not expected_json, "Could not read desktop json: {}"_fmt(expected_json.error()));
   // Deserialize json
-  auto desktop = ns_db::ns_desktop::deserialize(*expected_json);
+  auto desktop = ns_db::ns_desktop::deserialize(expected_json.value());
+  ereturn_if(not desktop, "Could not deserialize desktop json data");
   // Update integrations value
   desktop->set_integrations(set_integrations);
+  std::ranges::transform(set_integrations
+    , std::ostream_iterator<std::string>(std::cout, "\n")
+    , [](auto&& item){ return std::string{item}; }
+  );
   // Serialize json
-  auto expected_str_raw_json = ns_db::ns_desktop::serialize(*desktop);
+  auto expected_str_raw_json = ns_db::ns_desktop::serialize(desktop.value());
   ereturn_if(not expected_str_raw_json, "Could not serialize json to enable desktop integration");
   // Write json
   auto error = write_json_to_binary(config, *expected_str_raw_json);
