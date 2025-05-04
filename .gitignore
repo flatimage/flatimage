@@ -1,0 +1,8 @@
+src/conan-libs
+.gdb_history
+build
+test/*
+!test/*.svg
+!test/*.png
+!test/*.py
+!test/*.sh
