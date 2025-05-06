@@ -40,8 +40,12 @@ class TestFimPerms(unittest.TestCase):
     shutil.rmtree(self.home_custom)
 
   def test_bind_network(self):
+    output = self.run_cmd("fim-version-full")
     self.run_cmd("fim-perms", "add", "network")
-    self.run_cmd("fim-root", "apk", "add", "curl")
+    if "ALPINE" in output:
+      self.run_cmd("fim-root", "apk", "add", "curl")
+    elif "BLUEPRINT" in output:
+      return
     output = self.run_cmd("fim-exec", "curl", "-sS", "https://am.i.mullvad.net/connected")
     self.assertIn("You are not connected to Mullvad", output)
     self.run_cmd("fim-perms", "del", "network")

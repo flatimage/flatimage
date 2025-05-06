@@ -21,7 +21,6 @@ class TestFimCommit(unittest.TestCase):
     (self.dir_bin).mkdir(parents=True, exist_ok=True)
     hello_script = self.dir_bin / "hello-world.sh"
     with open(hello_script, "w") as f:
-      f.write("#!/bin/bash\n")
       f.write('echo "{}"\n'.format(content))
     os.chmod(hello_script, 0o755)
     
@@ -48,9 +47,9 @@ class TestFimCommit(unittest.TestCase):
     # Remove directory from host
     shutil.rmtree(self.dir_image, ignore_errors=True)
     # Execute hello-world script which is compressed in the container
-    output = self.run_cmd("fim-exec", "hello-world.sh")
+    output = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
     os.environ["FIM_DEBUG"] = "1"
-    debug = self.run_cmd("fim-exec", "hello-world.sh")
+    debug = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
     del os.environ["FIM_DEBUG"]
     return (output, debug.splitlines())
 

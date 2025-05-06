@@ -29,11 +29,17 @@ class TestFimRoot(unittest.TestCase):
   def test_root(self):
     output = self.run_cmd("fim-root", "echo", "test")
     self.assertEqual(output, "test")
-    output = self.run_cmd("fim-root", "sh", "-c" "cat /etc/*-release")
+    output = self.run_cmd("fim-version-full")
     self.run_cmd("fim-perms", "set", "network")
-    if "Alpine" in output:
+    if "ALPINE" in output:
+      print("Distribution is alpine")
       output = self.run_cmd("fim-root", "apk", "add", "curl")
       self.assertTrue("Installing curl" in output)
-    elif "Arch":
+    elif "ARCH" in output:
+      print("Distribution is arch")
       output = self.run_cmd("fim-root", "pacman", "-Sy", "--noconfirm", "curl")
       self.assertTrue("Overriding the desktop file MIME type cache..." in output)
+    elif "BLUEPRINT":
+      print("Distribution is blueprint")
+    else:
+      assert False, "Invalid distribution label"
