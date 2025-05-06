@@ -45,13 +45,15 @@ class Db
   public:
     // Constructors
     Db() noexcept;
-    Db(json_t json) noexcept;
-    Db(std::reference_wrapper<json_t> json) noexcept;
+    template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
+    explicit Db(T&& json) noexcept;
+    template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
+    explicit Db(std::reference_wrapper<T> const& json) noexcept;
     // Element access
     [[nodiscard]] std::vector<std::string> keys() const noexcept;
     [[nodiscard]] std::vector<std::pair<std::string, Db>> items() const noexcept;
-    template<typename V = Db, IsString... Ks>
-    [[nodiscard]] std::expected<V,std::string> value(Ks&&... ks) noexcept;
+    template<typename V = Db>
+    [[nodiscard]] std::expected<V,std::string> value() noexcept;
     template<typename V>
     [[nodiscard]] V value_or_default(IsString auto&& k, V&& v = V{}) const noexcept;
     template<typename F, IsString Ks>
@@ -83,13 +85,15 @@ inline Db::Db() noexcept
 } // Db::Db() }}}
 
 // Db::Db() {{{
-inline Db::Db(std::reference_wrapper<json_t> json) noexcept
+template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
+inline Db::Db(std::reference_wrapper<T> const& json) noexcept
 {
   m_json = json;
 } // Db::Db() }}}
 
 // Db::Db() {{{
-inline Db::Db(json_t json) noexcept
+template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
+inline Db::Db(T&& json) noexcept
 {
   m_json = json;
 } // Db::Db() }}}
@@ -123,51 +127,31 @@ inline std::vector<std::string> Db::keys() const noexcept
 inline std::vector<std::pair<std::string,Db>> Db::items() const noexcept
 {
   return data().items()
-    | std::views::transform([](auto&& e){ return std::make_pair(e.key(), e.value()); })
+    | std::views::transform([](auto&& e){ return std::make_pair(e.key(), Db{e.value()}); })
     | std::ranges::to<std::vector<std::pair<std::string,Db>>>();
 } // items() }}}
 
 // value() {{{
-template<typename V, IsString... Ks>
-std::expected<V, std::string> Db::value(Ks&&... ks) noexcept
+template<typename V>
+std::expected<V, std::string> Db::value() noexcept
 {
-  // Use keys to access nested json elements
-  auto f_access_impl = [&]<typename T, typename U>(T& value, U&& u)
-  {
-    // ns_log::write('i', "Access '{}'"_fmt(u));
-    // Check if json is still valid
-    qreturn_if(not value.has_value());
-    // Get json database
-    json_t& db = value->get();
-    // Access value
-    value = ( db.contains(u) )?
-        std::expected<std::reference_wrapper<json_t>,std::string>(std::reference_wrapper(db[u]))
-      : std::unexpected("Could not access key '{}' in database"_fmt(u));
-  }; // f_access
-  auto f_access = [&]<typename T, typename... U>(T& value, U&&... u)
-  {
-    ( f_access_impl(value, std::forward<U>(u)), ... );
-  }; // f_access
-  std::expected<std::reference_wrapper<json_t>,std::string> expected_json = std::reference_wrapper(data());
-  f_access(expected_json, std::forward<Ks>(ks)...);
-  // Check if access was successful
-  // Return a novel db with a non-owning view over the accessed data or use to create a type V
+  json_t& json = data();
   if constexpr ( std::same_as<V,Db> )
   {
-    return Db{expected_json->get()};
+    return Db{json};
   } // if
   else if constexpr ( ns_concept::IsVector<V> )
   {
-    json_t json = expected_json->get();
     qreturn_if(not json.is_array(), std::unexpected("Tried to create array with non-array entry"));
     return std::ranges::subrange(json.begin(), json.end())
       | std::views::transform([](auto&& e){ return typename std::remove_cvref_t<V>::value_type(e); })
       | std::ranges::to<V>();
-  } // if
+  } // else if
   else
   {
-    json_t& json = data();
-    return ( json.is_string() )? std::expected<V,std::string>(std::string{json}) : std::unexpected("Json element is not a string");
+    return ( json.is_string() )?
+        std::expected<V,std::string>(std::string{json})
+      : std::unexpected("Json element is not a string");
   } // else
 } // value() }}}
 
