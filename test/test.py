@@ -13,6 +13,7 @@ import desktop
 import environment
 import exec
 import layer
+import metadata
 import permissions
 import root
 
@@ -37,6 +38,7 @@ class Suite(unittest.TestSuite):
 
 def suite():
   suite = Suite()
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(metadata.TestFimMetadata))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(bindings.TestFimBind))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(boot.TestFimBoot))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(commit.TestFimCommit))

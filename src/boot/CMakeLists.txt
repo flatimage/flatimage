@@ -44,11 +44,11 @@ execute_process(
   OUTPUT_VARIABLE VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-add_definitions("-DVERSION=\"${VERSION}\"")
+add_definitions("-DFIM_VERSION=\"${VERSION}\"")
 message(STATUS "VERSION: ${VERSION}")
 ## Timestamp
 string(TIMESTAMP TIMESTAMP "%Y%m%d%H%M%S")
-add_definitions("-DTIMESTAMP=\"${TIMESTAMP}\"")
+add_definitions("-DFIM_TIMESTAMP=\"${TIMESTAMP}\"")
 message(STATUS "TIMESTAMP: ${TIMESTAMP}")
 ## Commit
 execute_process(
@@ -57,7 +57,7 @@ execute_process(
   OUTPUT_VARIABLE GIT_COMMIT_HASH
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-add_definitions("-DCOMMIT=\"${GIT_COMMIT_HASH}\"")
+add_definitions("-DFIM_COMMIT=\"${GIT_COMMIT_HASH}\"")
 message(STATUS "GIT COMMIT HASH: ${GIT_COMMIT_HASH}")
 
 # External libraries

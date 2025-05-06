@@ -3,21 +3,6 @@
 // @file        : boot
 ///
 
-// Version
-#ifndef VERSION
-#define VERSION "unknown"
-#endif
-
-// Git commit hash
-#ifndef COMMIT
-#define COMMIT "unknown"
-#endif
-
-// Compilation timestamp
-#ifndef TIMESTAMP
-#define TIMESTAMP "unknown"
-#endif
-
 #include <elf.h>
 #include <cstdlib>
 #include <unistd.h>
@@ -31,6 +16,7 @@
 #include "../cpp/lib/elf.hpp"
 
 #include "config/config.hpp"
+#include "metadata.hpp"
 #include "parser.hpp"
 #include "portal.hpp"
 
@@ -92,7 +78,7 @@ void relocate(char** argv)
   );
 
   // Make the temporary directory name
-  fs::path path_dir_app = path_dir_base / "app" / "{}_{}"_fmt(COMMIT, TIMESTAMP);
+  fs::path path_dir_app = path_dir_base / "app" / "{}_{}"_fmt(FIM_COMMIT, FIM_TIMESTAMP);
   ethrow_if(not fs::exists(path_dir_app) and not fs::create_directories(path_dir_app)
     , "Failed to create directory {}"_fmt(path_dir_app)
   );
@@ -273,10 +259,23 @@ int main(int argc, char** argv)
   // Print version and exit
   if ( argc > 1 && std::string{argv[1]} == "fim-version" )
   {
-    println(VERSION);
+    println(FIM_VERSION);
     return EXIT_SUCCESS;
   } // if
-  ns_env::set("FIM_VERSION", VERSION, ns_env::Replace::Y);
+  else if ( argc > 1 && std::string{argv[1]} == "fim-version-full" )
+  {
+    ns_db::Db db;
+    db("VERSION") = FIM_VERSION;
+    db("COMMIT") = FIM_COMMIT;
+    db("DISTRIBUTION") = FIM_DIST;
+    db("TIMESTAMP") = FIM_TIMESTAMP;
+    std::cout << db.dump() << std::endl;
+    return EXIT_SUCCESS;
+  } // if
+  ns_env::set("FIM_VERSION", FIM_VERSION, ns_env::Replace::Y);
+  ns_env::set("FIM_COMMIT", FIM_COMMIT, ns_env::Replace::Y);
+  ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
+  ns_env::set("FIM_TIMESTAMP", FIM_TIMESTAMP, ns_env::Replace::Y);
 
   // Check if linux has the fuse module loaded
   auto expected_module_check = ns_linux::module_check("fuse");

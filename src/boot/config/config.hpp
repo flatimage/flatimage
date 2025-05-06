@@ -10,10 +10,7 @@
 #include <ranges>
 
 #include "../../cpp/lib/env.hpp"
-
-#ifndef FIM_DIST
-#define FIM_DIST "TRUNK"
-#endif
+#include "../metadata.hpp"
 
 namespace ns_config
 {
