@@ -5,9 +5,13 @@
 
 #pragma once
 
+#include <chrono>
+#include <csignal>
 #include <cstring>
+#include <fcntl.h>
 #include <string>
 #include <filesystem>
+#include <thread>
 #include <unistd.h>
 
 #include "../common.hpp"
@@ -21,7 +25,108 @@ namespace
 
 namespace fs = std::filesystem;
 
+struct InterruptTimer
+{
+  struct sigaction  old_sa{};
+  struct itimerval  old_timer{};
+
+  InterruptTimer(std::chrono::milliseconds const& timeout)
+  {
+    // save old handler
+    if (sigaction(SIGALRM, nullptr, &old_sa) < 0)
+    {
+      throw std::runtime_error(std::format("Failed to save action: {}", strerror(errno)));
+    }
+    // save old timer
+    if (setitimer(ITIMER_REAL, nullptr, &old_timer) < 0)
+    {
+      throw std::runtime_error(std::format("Failed to save timer: {}", strerror(errno)));
+    }
+    // Set mask for novel action
+    struct sigaction sa{};
+    sa.sa_handler = [](int){};
+    if (sigemptyset(&sa.sa_mask) < 0)
+    {
+      throw std::runtime_error(std::format("Failed to set mask: {}", strerror(errno)));
+    }
+    // Install novel action
+    sa.sa_flags = 0;
+    if (sigaction(SIGALRM, &sa, nullptr) < 0)
+    {
+      throw std::runtime_error(std::format("Failed to set action: {}", strerror(errno)));
+    }
+    // Arm new timer
+    // e.g. 1500 ms
+    struct itimerval tm{};
+    tm.it_value.tv_sec  = timeout.count()/1000; // integer seconds -> 1
+    tm.it_value.tv_usec = (timeout.count()%1000)*1000; // remaining ms -> 500 ms, convert to μs -> 500 000 μs
+    tm.it_interval.tv_sec = 0;
+    tm.it_interval.tv_usec = 0;
+    if (setitimer(ITIMER_REAL, &tm, nullptr) < 0)
+    {
+      throw std::runtime_error(std::format("Could not arm timer: {}", strerror(errno)));
+    }
+  }
+
+  ~InterruptTimer()
+  {
+    // restore old handler
+    sigaction(SIGALRM, &old_sa, nullptr);
+    // restore old timer
+    setitimer(ITIMER_REAL, &old_timer, nullptr);
+  }
+};
+
 }
+
+// read_with_timeout() {{{
+template<typename Data>
+[[nodiscard]] inline ssize_t read_with_timeout(int fd
+  , std::chrono::milliseconds const& timeout
+  , std::span<Data> buf)
+{
+  using Element = typename std::decay_t<typename decltype(buf)::value_type>;
+  InterruptTimer interrupt(timeout);
+  return ::read(fd, buf.data(), buf.size()*sizeof(Element));
+} // function: read_with_timeout }}}
+
+// open_with_timeout() {{{
+[[nodiscard]] inline int open_with_timeout(
+  fs::path const&            path_file_src,
+  std::chrono::milliseconds  timeout,
+  int                         oflag)
+{
+  InterruptTimer interrupt(timeout);
+  return ::open(path_file_src.c_str(), oflag);
+}
+// open_with_timeout() }}}
+
+// open_read_with_timeout() {{{
+template<typename Data>
+[[nodiscard]] inline ssize_t open_read_with_timeout(fs::path const& path_file_src
+  , std::chrono::milliseconds const& timeout
+  , std::span<Data> buf)
+{
+  int fd = open_with_timeout(path_file_src, timeout, O_RDONLY);
+  qreturn_if(fd < 0, fd);
+  ssize_t bytes_read = read_with_timeout(fd, timeout, buf);
+  close(fd);
+  return bytes_read;
+} // function: open_read_with_timeout }}}
+
+// open_write_with_timeout() {{{
+template<typename Data>
+[[nodiscard]] inline ssize_t open_write_with_timeout(fs::path const& path_file_src
+  , std::chrono::milliseconds const& timeout
+  , std::span<Data> buf)
+{
+  using Element = typename std::decay_t<typename decltype(buf)::value_type>;
+  int fd = open_with_timeout(path_file_src, timeout, O_WRONLY);
+  qreturn_if(fd < 0, fd);
+  ssize_t bytes_written = write(fd, buf.data(), buf.size()*sizeof(Element));
+  close(fd);
+  return bytes_written;
+} // function: open_write_with_timeout }}}
 
 // mkdtemp() {{{
 // Creates a temporary directory in path_dir_parent with the template provided by 'dir_template'
