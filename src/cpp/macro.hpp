@@ -11,6 +11,15 @@
 #define lec(fun, ...) \
   ns_log::ec([]<typename... Args>(Args&&... args){ return fun(std::forward<Args>(args)...); }, __VA_ARGS__)
 
+// Pop rust-style for std::expected
+#define pop(expr)                                    \
+({                                                   \
+  auto _res = (expr);                                \
+  if (!_res)                                         \
+    return std::unexpected(_res.error());            \
+  _res.value();                                      \
+})
+
 // Throw
 #define qthrow_if(cond, msg) \
   if (cond) { throw std::runtime_error(msg); }
@@ -79,9 +88,9 @@
 #define dcontinue_if(cond, msg) \
   if ( (cond) ) { ns_log::debug()(msg); continue; }
 
-// Abort
-#define eabort_if(cond, msg) \
-  if ( (cond) ) { ns_log::error()(msg); std::abort(); }
+// Exit from child
+#define e_exitif(cond, msg) \
+  if ( (cond) ) { ns_log::error()(msg); _exit(1); }
 
 // Conditional log
 #define elog_if(cond, msg) \
