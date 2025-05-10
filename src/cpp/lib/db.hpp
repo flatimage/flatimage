@@ -37,6 +37,8 @@ concept IsString =
 
 } // anonymous namespace
 
+using KeyType = json_t::value_t;
+
 // class Db {{{
 class Db
 {
@@ -64,6 +66,7 @@ class Db
     // Lookup
     template<IsString T>
     [[nodiscard]] bool contains(T&& t) const noexcept;
+    [[nodiscard]] KeyType type() const noexcept;
     // Modifiers
     template<IsString T>
     [[nodiscard]] bool erase(T&& t);
@@ -208,6 +211,12 @@ template<IsString T>
 bool Db::contains(T&& t) const noexcept
 {
   return data().contains(t);
+} // contains() }}}
+
+// contains() {{{
+inline KeyType Db::type() const noexcept
+{
+  return data().type();
 } // contains() }}}
 
 // erase() {{{
