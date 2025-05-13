@@ -160,6 +160,16 @@ inline std::optional<T> get_optional(std::string_view name)
   return (var)? std::make_optional(var) : std::nullopt;
 } // get_optional() }}}
 
+// get_expected() {{{
+// Get an env variable
+inline std::expected<std::string_view, std::string> get_expected(const char* name)
+{
+  const char * var = std::getenv(name);
+  return (var != nullptr)?
+      std::expected<std::string_view, std::string>(var)
+    : std::unexpected("Could not read variable '{}'"_fmt(name));
+} // get_expected() }}}
+
 // exists() {{{
 // Checks if variable exists
 inline bool exists(const char* var)

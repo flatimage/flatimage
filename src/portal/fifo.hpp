@@ -1,0 +1,137 @@
+///
+// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
+// @file        : fifo
+///
+
+#pragma once
+
+#include <cerrno>
+#include <chrono>
+#include <cstring>
+#include <filesystem>
+#include <expected>
+#include <thread>
+#include <unordered_map>
+#include <sys/stat.h> // mkfifo
+#include <fcntl.h> // O_RDONLY
+#include <sys/prctl.h> // PR_SET_PDEATHSIG
+
+#include "../cpp/macro.hpp"
+#include "../cpp/lib/linux.hpp"
+#include "config.hpp"
+
+namespace fs = std::filesystem;
+
+// create_fifo() {{{
+[[nodiscard]] inline std::expected<fs::path, std::string> create_fifo(pid_t const pid, fs::path const& path_file_fifo)
+{
+  fs::path path_dir_parent = path_file_fifo.parent_path();
+  // Create parent directory(ies)
+  qreturn_if(not fs::exists(path_dir_parent) and not fs::create_directories(path_dir_parent)
+    , std::unexpected("Failed to create upper directories for fifo")
+  );
+  // Define the fifo path as the directory / prefix_pid
+  fs::path path_file_fifo_pid = path_dir_parent / std::format("{}_{}"
+    , path_file_fifo.filename().string()
+    , pid
+  );
+  // Create fifo
+  qreturn_if(mkfifo(path_file_fifo_pid.c_str(), 0666) < 0
+    , std::unexpected(strerror(errno))
+  );
+  return path_file_fifo_pid;
+} // create_fifo() }}}
+
+// create_fifos() {{{
+[[nodiscard]] inline std::expected<std::unordered_map<std::string, fs::path>, std::string>
+  create_fifos(pid_t const& pid, std::vector<fs::path> const& vec_paths)
+{
+  std::unordered_map<std::string, fs::path> hash_name_fifo;
+  for(auto&& path_file_fifo : vec_paths)
+  {
+    auto result = expect(create_fifo(pid, path_file_fifo));
+    hash_name_fifo.emplace(path_file_fifo.filename(), result);
+  }
+  return hash_name_fifo;
+} // create_fifos() }}}
+
+// redirect_fd_to_fd() {{{
+inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
+{
+  auto f_read = [](int fd_src, int fd_dst) -> bool
+  {
+    char buf[SIZE_BUFFER_READ];
+
+    ssize_t n = ns_linux::read_with_timeout(fd_src
+      , std::chrono::milliseconds(100)
+      , std::span(buf, sizeof(buf))
+    );
+
+    if(n == 0)
+    {
+      return false;
+    }
+    else if(n < 0)
+    {
+      if(errno != EWOULDBLOCK and errno != EAGAIN and errno != EINTR)
+      {
+        ns_log::error()("Failed read with error: {}", strerror(errno));
+        return false;
+      }
+      return true;
+    }
+    dlog_if(::write(fd_dst, buf, n) < 0, "Could not perform write: {}"_fmt(strerror(errno)));
+    return true;
+  };
+  // Try to read from the src fifo with 50ms delays
+  while (::kill(ppid, 0) == 0 and f_read(fd_src, fd_dst))
+  {
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  }
+  // After the process exited, check for any leftover output
+  std::ignore = f_read(fd_src, fd_dst);
+} // redirect_fd_to_fd() }}}
+
+// redirect_fifo_to_fd() {{{
+[[nodiscard]] inline pid_t redirect_fifo_to_fd(pid_t ppid, fs::path const& path_file_fifo, int fd_dst)
+{
+  // Fork
+  pid_t pid = fork();
+  ereturn_if(pid < 0, "Could not fork '{}'"_fmt(strerror(errno)), -1);
+  // Parent ends here
+  if( pid > 0 ) { return pid; }
+  // Try to open fifo within a timeout
+  int fd_src = ns_linux::open_with_timeout(path_file_fifo.string().c_str()
+    , std::chrono::seconds(SECONDS_TIMEOUT)
+    , O_RDONLY
+  );
+  e_exitif(fd_src == -1, strerror(errno), 1);
+  // Redirect fifo to stdout
+  redirect_fd_to_fd(ppid, fd_src, fd_dst);
+  // Close fifo
+  close(fd_src);
+  // Exit without cleanup
+  _exit(0);
+} // redirect_fifo_to_fd() }}}
+
+// redirect_fd_to_fifo() {{{
+[[nodiscard]] inline pid_t redirect_fd_to_fifo(pid_t ppid, int fd_src, fs::path const& path_file_fifo)
+{
+  // Fork
+  pid_t pid = fork();
+  ereturn_if(pid < 0, "Could not fork '{}'"_fmt(strerror(errno)), -1);
+  // Parent ends here
+  if( pid > 0 ) { return pid; }
+  // Try to open fifo within a timeout
+  int fd_dst = ns_linux::open_with_timeout(path_file_fifo.string().c_str()
+    , std::chrono::seconds(SECONDS_TIMEOUT)
+    , O_WRONLY
+  );
+  e_exitif(fd_dst == -1, strerror(errno), 1);
+  // Redirect fifo to stdout
+  redirect_fd_to_fd(ppid, fd_src, fd_dst);
+  // Close fifo
+  close(fd_dst);
+  // Exit without cleanup
+  _exit(0);
+} // redirect_fd_to_fifo() }}}

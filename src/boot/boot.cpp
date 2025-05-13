@@ -103,11 +103,11 @@ void relocate(char** argv)
   ns_env::set("FIM_FILE_BINARY", path_absolute.c_str(), ns_env::Replace::Y);
 
   // Create instance directory
-  fs::path path_dir_instance_prefix = "{}/{}/"_fmt(path_dir_app, "instance");
-
-  // Create temp dir to mount filesystems into
-  fs::path path_dir_instance = ns_linux::mkdtemp(path_dir_instance_prefix);
+  fs::path path_dir_instance = "{}/{}/{}"_fmt(path_dir_app, "instance", std::to_string(getpid()));
   ns_env::set("FIM_DIR_INSTANCE", path_dir_instance.c_str(), ns_env::Replace::Y);
+  ethrow_if(not fs::exists(path_dir_instance) and not fs::create_directories(path_dir_instance)
+    , "Could not mount directory '{}'"_fmt(path_dir_instance)
+  );
 
   // Path to directory with mount points
   fs::path path_dir_mount = path_dir_instance / "mount";
@@ -236,7 +236,7 @@ std::unique_ptr<ns_config::FlatimageConfig> boot(int argc, char** argv)
   ns_log::set_sink_file(config->path_dir_mount.string() + ".boot.log");
 
   // Start portal
-  ns_portal::Portal portal = ns_portal::Portal(config->path_dir_instance / "fim_boot");
+  ns_portal::Portal portal = ns_portal::Portal(getpid());
 
   // Refresh desktop integration
   ns_log::exception([&]{ ns_desktop::integrate(*config); });

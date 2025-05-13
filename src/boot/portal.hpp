@@ -25,11 +25,8 @@ struct Portal
   fs::path m_path_file_daemon;
   fs::path m_path_file_guest;
 
-  Portal(fs::path const& path_file_reference)
+  Portal(pid_t const pid_reference)
   {
-    // This is read by the guest to send commands to the daemon
-    ns_env::set("FIM_PORTAL_FILE", path_file_reference, ns_env::Replace::Y);
-
     // Path to flatimage binaries
     const char* str_dir_app_bin = ns_env::get("FIM_DIR_APP_BIN");
     ethrow_if(not str_dir_app_bin, "FIM_DIR_APP_BIN is undefined");
@@ -45,8 +42,7 @@ struct Portal
 
     // Spawn process to background
     std::ignore = m_process->with_piped_outputs()
-      .with_die_on_pid(getpid())
-      .with_args(path_file_reference)
+      .with_args(pid_reference)
       .spawn();
   } // Portal
 

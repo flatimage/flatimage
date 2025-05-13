@@ -4,186 +4,190 @@
 ///
 
 
+#include <chrono>
 #include <csignal>
+#include <cstdlib>
+#include <expected>
 #include <fcntl.h>
 #include <filesystem>
 #include <sys/prctl.h>
 #include <sys/stat.h>
-#include <thread>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
+#include <unordered_map>
 
 #include "../cpp/macro.hpp"
 #include "../cpp/lib/env.hpp"
 #include "../cpp/lib/log.hpp"
 #include "../cpp/lib/db.hpp"
 #include "../cpp/lib/ipc.hpp"
-#include "../cpp/lib/fifo.hpp"
-
-#define BUFFER_SIZE 16384
+#include "../cpp/lib/linux.hpp"
+#include "fifo.hpp"
+#include "config.hpp"
 
 extern char** environ;
 
 namespace fs = std::filesystem;
 
-// create_fifo() {{{
-std::expected<fs::path, std::string> create_fifo(fs::path const& path_dir_fifo, std::string_view prefix)
+std::optional<pid_t> opt_child = std::nullopt;
+
+// signal_handler() {{{
+void signal_handler(int sig)
 {
-  ereturn_if(not fs::exists(path_dir_fifo) and not fs::create_directories(path_dir_fifo)
-    , strerror(errno)
-    , std::unexpected(strerror(errno))
+  if(opt_child)
+  {
+    kill(opt_child.value(), sig);
+  }
+} // signal_handler() }}}
+
+[[nodiscard]] std::expected<void, std::string> set_environment(fs::path const& path_file_env)
+{
+  qreturn_if(std::error_code ec; (fs::create_directories(path_file_env.parent_path(), ec), ec)
+    , std::unexpected(std::format("Could not open file '{}': '{}'", path_file_env.string(), ec.message()))
   );
-  fs::path path_file_fifo = path_dir_fifo / "{}_XXXXXX"_fmt(prefix);
+  std::ofstream ofile_env(path_file_env);
+  qreturn_if(not ofile_env.good(), std::unexpected("Could not open file '{}'"_fmt(path_file_env)));
+  for(char **env = environ; *env != NULL; ++env) { ofile_env << *env << '\n'; } // for
+  ofile_env.close();
+  return {};
+}
 
-  // Generate a unique filename using mkstemp
-  int fd_temp = mkstemp(const_cast<char*>(path_file_fifo.c_str()));
-  ereturn_if(fd_temp == -1, strerror(errno), std::unexpected(strerror(errno)));
-
-  // Close and remove the temporary file created by mkstemp
-  close(fd_temp);
-  unlink(path_file_fifo.c_str());
-
-  // Create fifo
-  ereturn_if(mkfifo(path_file_fifo.c_str(), 0666) < 0, strerror(errno), std::unexpected(strerror(errno)));
-
-  return path_file_fifo;
-} // create_fifo() }}}
-
-// fifo_read_nonblock() {{{
-bool fifo_read_nonblock(std::ostream& os, int fd)
+[[nodiscard]] std::expected<void, std::string> send_message(fs::path const& path_daemon_fifo
+  , std::vector<char*> command
+  , std::unordered_map<std::string, fs::path> const& hash_name_fifo
+  , fs::path const& path_file_log
+  , fs::path const& path_file_env)
 {
-  char buffer[BUFFER_SIZE];
-  ssize_t count_bytes = read(fd, &buffer, sizeof(buffer));
-  if (count_bytes == -1 and (errno == EWOULDBLOCK or errno == EAGAIN))
-  {
-    return true;
-  } // if
-  else if (count_bytes == -1)
-  {
-    perror("read");
-    return false;
-  } // else if
-  else if (count_bytes == 0)
-  {
-    ns_log::debug()("No data received, the process either finished or did not start");
-    return true;
-  } // else if
-  else
-  {
-    ns_log::debug()("Read '{}' bytes", count_bytes);
-    os << std::string(buffer, buffer+count_bytes);
-    return true;
-  } // else
-} // fifo_read_nonblock() }}}
+  ns_log::debug()("Sending message through pipe: {}", path_daemon_fifo);
+  // Create command
+  auto db = ns_db::Db();
+  db("command") = command;
+  db("stdin") = hash_name_fifo.at("stdin");
+  db("stdout") = hash_name_fifo.at("stdout");
+  db("stderr") = hash_name_fifo.at("stderr");
+  db("exit") = hash_name_fifo.at("exit");
+  db("pid") = hash_name_fifo.at("pid");
+  db("log") = path_file_log.c_str();
+  db("environment") = path_file_env;
+  // Get json string
+  std::string data = db.dump();
+  ns_log::debug()(data);
+  // Write to fifo
+  ssize_t size_writen = ns_linux::open_write_with_timeout(path_daemon_fifo
+    , std::chrono::seconds(SECONDS_TIMEOUT)
+    , std::span(data.c_str(), data.length())
+  );
+  // Check for errors
+  return (static_cast<size_t>(size_writen) != data.length())?
+      std::unexpected("Could not write data to daemon({}): {}"_fmt(size_writen, strerror(errno)))
+    : std::expected<void,std::string>{};
+}
 
-// fifo_to_ostream() {{{
-void fifo_to_ostream(pid_t pid_child, std::ostream& os, fs::path const& path_file_fifo)
+[[nodiscard]] std::expected<int, std::string> process_wait(std::unordered_map<std::string, fs::path> const& hash_name_fifo)
 {
+  pid_t pid_child;
+  ssize_t bytes_read = ns_linux::open_read_with_timeout(hash_name_fifo.at("pid")
+    , std::chrono::seconds(SECONDS_TIMEOUT)
+    , std::span<pid_t>(&pid_child, 1)
+  );
+  qreturn_if(bytes_read != sizeof(pid_child), std::unexpected(strerror(errno)));
+  opt_child = pid_child;
+  ns_log::debug()("Child pid: {}", pid_child);
+  // Connect to stdin, stdout, and stderr with fifos
+  pid_t pid_stdin = redirect_fd_to_fifo(pid_child, STDIN_FILENO, hash_name_fifo.at("stdin"));
+  pid_t pid_stdout = redirect_fifo_to_fd(pid_child, hash_name_fifo.at("stdout"), STDOUT_FILENO);
+  pid_t pid_stderr = redirect_fifo_to_fd(pid_child, hash_name_fifo.at("stderr"), STDERR_FILENO);
+  ns_log::debug()("Connected to stdin/stdout/stderr fifos");
+  // Wait for processes to exit
+  waitpid(pid_stdin, nullptr, 0);
+  waitpid(pid_stdout, nullptr, 0);
+  waitpid(pid_stderr, nullptr, 0);
+  // Open exit code fifo and retrieve the exit code of the requested process
+  int code_exit{};
+  int bytes_exit = ns_linux::open_read_with_timeout(hash_name_fifo.at("exit").c_str()
+    , std::chrono::seconds{SECONDS_TIMEOUT}
+    , std::span<int>(&code_exit, 1)
+  );
+  qreturn_if(bytes_exit != sizeof(code_exit), std::unexpected("Incorrect number of bytes '{}' read"_fmt(bytes_exit)));
+  return code_exit;
+}
+
+[[nodiscard]] std::expected<int, std::string> process_request(int argc, char** argv)
+{
+  std::vector<char*> args(argv+1, argv+argc);
   using namespace std::chrono_literals;
-  // Fork
-  pid_t ppid = getpid();
-  pid_t pid = fork();
-  ereturn_if(pid < 0, "Could not fork '{}'"_fmt(strerror(errno)));
-  // Parent ends here
-  qreturn_if( pid > 0 );
-  // Die with parent
-  eabort_if(prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, strerror(errno));
-  eabort_if(::kill(ppid, 0) < 0, "Parent died, prctl will not have effect: {}"_fmt(strerror(errno)));
-  ns_log::debug()("{} dies with {}", getpid(), ppid);
-  // Open fifo to read
-  int fd = open(path_file_fifo.string().c_str(), O_RDONLY | O_NONBLOCK);
-  ereturn_if(fd == -1, strerror(errno));
-  // Send fifo to ostream
-  while( fifo_read_nonblock(os, fd) )
+  // Forward signal to spawned child
+  signal(SIGABRT, signal_handler);
+  signal(SIGTERM, signal_handler);
+  signal(SIGINT, signal_handler);
+  signal(SIGCONT, signal_handler);
+  signal(SIGHUP, signal_handler);
+  signal(SIGIO, signal_handler);
+  signal(SIGIOT, signal_handler);
+  signal(SIGPIPE, signal_handler);
+  signal(SIGPOLL, signal_handler);
+  signal(SIGQUIT, signal_handler);
+  signal(SIGURG, signal_handler);
+  signal(SIGUSR1, signal_handler);
+  signal(SIGUSR2, signal_handler);
+  signal(SIGVTALRM, signal_handler);
+  // Set log level
+  ns_log::set_level(ns_env::exists("FIM_DEBUG", "1")? ns_log::Level::DEBUG : ns_log::Level::ERROR);
+  // Check args
+  using get_expected_t = std::expected<std::string_view,std::string>;
+  pid_t const pid_daemon = expect(expect(ns_env::get_expected("FIM_PID")
+    .or_else([&](auto&& e) -> get_expected_t
+    {
+      ns_log::debug()("FIM_PID not defined ({}), trying argument instead...", e);
+      if(args.empty()) { return std::unexpected<std::string>("PID argument is missing"); }
+      std::string pid_str = args.front();
+      args.erase(args.begin());
+      return get_expected_t(pid_str);
+    })
+    .transform([](auto&& e){ return ns_exception::to_expected([&]{ return std::stoi(std::string{e}); }); })
+  ));
+  // Get instance directory
+  fs::path path_dir_instance = expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
+  fs::path path_dir_portal = path_dir_instance / "portal";
+  // Create define log file for child
+  fs::path path_file_log = path_dir_portal / "cli_{}.log"_fmt(getpid());
+  qreturn_if(std::error_code ec; (fs::create_directories(path_file_log.parent_path(), ec))
+    , std::unexpected(std::format("Error to create log file: {}", ec.message()))
+  );
+  // Create fifos
+  fs::path path_dir_fifo = path_dir_portal / "fifo";
+  auto hash_name_fifo = expect(create_fifos(getpid(),
   {
-    dbreak_if(kill(pid_child, 0) < 0, "Pid has exited");
-    std::this_thread::sleep_for(100ms);
-  } // for
-  // Close fifo
-  close(fd);
-  // Exit normally
-  exit(0);
-} // fifo_to_ostream() }}}
+      path_dir_fifo / "stdin"
+    , path_dir_fifo / "stdout"
+    , path_dir_fifo / "stderr"
+    , path_dir_fifo / "exit"
+    , path_dir_fifo / "pid"
+  }));
+  // Save environment
+  fs::path path_file_env = path_dir_portal / "environments" / std::to_string(getpid());
+  expect(set_environment(path_file_env));
+  // Send message to daemon
+  expect(send_message(path_dir_portal / "daemon_{}"_fmt(pid_daemon)
+    , args
+    , hash_name_fifo
+    , path_file_log
+    , path_file_env
+  ));
+  // Retrieve child pid
+  return expect(process_wait(hash_name_fifo));
+}
 
 // main() {{{
 int main(int argc, char** argv)
 {
-  using namespace std::chrono_literals;
-
-  // Set log level
-  ns_log::set_level(ns_env::exists("FIM_DEBUG", "1")? ns_log::Level::DEBUG : ns_log::Level::QUIET);
-
-  // Check args
-  ereturn_if( argc < 2, "Incorrect number arguments", EXIT_FAILURE);
-
-  // Get file path for IPC
-  const char* str_file_portal = getenv("FIM_PORTAL_FILE");
-  ereturn_if( str_file_portal == nullptr, "Could not read FIM_PORTAL_FILE", EXIT_FAILURE);
-
-  // Create ipc instance
-  auto ipc = ns_ipc::Ipc::guest(str_file_portal);
-
-  // Mount dir
-  const char* str_dir_mount = getenv("FIM_DIR_MOUNT");
-  ereturn_if( str_dir_mount == nullptr, "Could not read FIM_DIR_MOUNT", EXIT_FAILURE);
-  fs::path path_dir_mount(str_dir_mount);
-
-  // Set log file
-  fs::path path_file_log = path_dir_mount / "portal" / "logs" / std::to_string(getpid());
-  std::error_code ec;
-  fs::create_directories(path_file_log.parent_path(), ec);
-  if(ec) { ns_log::error()("Error to create log file: {}", ec.message()); }
-  ns_log::set_sink_file(path_file_log);
-
-  // Create a fifo for stdout, for stderr, and for the exit code
-  auto path_file_fifo_stdout = create_fifo(path_dir_mount / "portal" / "fifo", "stdout");
-  auto path_file_fifo_stderr = create_fifo(path_dir_mount / "portal" / "fifo", "stderr");
-  auto path_file_fifo_exit = create_fifo(path_dir_mount / "portal" / "fifo", "exit");
-  auto path_file_fifo_pid = create_fifo(path_dir_mount / "portal" / "fifo", "pid");
-  ereturn_if(not path_file_fifo_stdout, "Could not open stdout fifo", EXIT_FAILURE);
-  ereturn_if(not path_file_fifo_stderr, "Could not open stderr fifo", EXIT_FAILURE);
-  ereturn_if(not path_file_fifo_exit, "Could not open exit fifo", EXIT_FAILURE);
-  ereturn_if(not path_file_fifo_pid, "Could not open pid fifo", EXIT_FAILURE);
-
-  // Save environment
-  fs::path path_file_env = fs::path{str_dir_mount} / "portal" / "environments" / std::to_string(getpid());
-  fs::create_directories(path_file_env.parent_path(), ec);
-  ereturn_if(ec, "Could not open file '{}': '{}'"_fmt(path_file_env, ec.message()), EXIT_FAILURE);
-  std::ofstream ofile_env(path_file_env);
-  ereturn_if(not ofile_env.good(), "Could not open file '{}'"_fmt(path_file_env), EXIT_FAILURE);
-  for(char **env = environ; *env != NULL; ++env)
-  {
-    ofile_env << *env << '\n';
-  } // for
-  ofile_env.close();
-
-  // Send message
-  auto db = ns_db::Db();
-  db("command") = std::vector(argv+1, argv+argc);
-  db("stdout") = path_file_fifo_stdout->c_str();
-  db("stderr") = path_file_fifo_stderr->c_str();
-  db("exit") = path_file_fifo_exit->c_str();
-  db("pid") = path_file_fifo_pid->c_str();
-  db("environment") = path_file_env;
-  ipc.send(db.dump());
-
-  // Wait for daemon to write pid
-  std::this_thread::sleep_for(500ms);
-
-  // Retrieve child pid
-  pid_t pid_child;
-  auto expected_pid_child = ns_fifo::open_and_read(path_file_fifo_pid->c_str(), std::span(&pid_child, sizeof(pid_child)));
-  ereturn_if(not expected_pid_child, expected_pid_child.error(), EXIT_FAILURE);
-  ns_log::debug()("Child pid: {}", pid_child);
-
-  // Connect to stdout and stderr with fifos
-  fifo_to_ostream(pid_child, std::cout, *path_file_fifo_stdout);
-  fifo_to_ostream(pid_child, std::cout, *path_file_fifo_stderr);
-
-  // Open exit code fifo
-  int exit_code{};
-  auto expected_exit_code = ns_fifo::open_and_read(path_file_fifo_exit->c_str(), std::span(&exit_code, sizeof(exit_code)));
-  ereturn_if(not expected_exit_code, expected_exit_code.error(), EXIT_FAILURE);
-  return exit_code;
+  auto result = process_request(argc, argv);
+  // Reflect the original process return code
+  if(result) { return result.value(); }
+  // Error on process request
+  ns_log::error()(result.error());
+  return EXIT_FAILURE;
 } // main() }}}
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

@@ -43,6 +43,7 @@ class Logger
     void set_level(Level level);
     Level get_level() const;
     void set_sink_file(fs::path path_file_sink);
+    void flush();
     std::optional<std::ofstream>& get_sink_file();
 }; // class Logger }}}
 
@@ -64,7 +65,7 @@ inline void Logger::set_sink_file(fs::path path_file_sink)
   // File output stream
   m_opt_os = std::ofstream{path_file_sink};
 
-  if( m_opt_os->bad() ) { std::runtime_error("Could not open file '{}'"_fmt(path_file_sink)); };
+  if( not m_opt_os->is_open() ) { throw std::runtime_error("Could not open file '{}'"_fmt(path_file_sink)); };
 } // fn: Logger::set_sink_file }}}
 
 // fn: Logger::get_sink_file {{{
@@ -72,6 +73,15 @@ inline std::optional<std::ofstream>& Logger::get_sink_file()
 {
   return m_opt_os;
 } // fn: Logger::get_sink_file }}}
+
+// fn: Logger::flush {{{
+inline void Logger::flush()
+{
+  if (auto& file = this->m_opt_os)
+  {
+    file->flush();
+  }
+} // fn: Logger::flush }}}
 
 // fn: Logger::set_level {{{
 inline void Logger::set_level(Level level)
@@ -85,7 +95,7 @@ inline Level Logger::get_level() const
   return m_level;
 } // fn: Logger::get_level }}}
 
-static Logger logger;
+thread_local Logger logger;
 
 } // namespace
 
@@ -144,6 +154,7 @@ class info
       auto& opt_ostream_sink = logger.get_sink_file();
       print_if(opt_ostream_sink, *opt_ostream_sink, "I::{}::{}\n"_fmt(m_loc.get(), format), args...);
       print_if((logger.get_level() >= Level::INFO), std::cout, "I::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
+      logger.flush();
     } // info
 }; // class info }}}
 
@@ -162,6 +173,7 @@ class error
       auto& opt_ostream_sink = logger.get_sink_file();
       print_if(opt_ostream_sink, *opt_ostream_sink, "E::{}::{}\n"_fmt(m_loc.get(), format), args...);
       print_if((logger.get_level() >= Level::ERROR), std::cerr, "E::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
+      logger.flush();
     } // error
 }; // class error }}}
 
@@ -180,6 +192,7 @@ class debug
       auto& opt_ostream_sink = logger.get_sink_file();
       print_if(opt_ostream_sink, *opt_ostream_sink, "D::{}::{}\n"_fmt(m_loc.get(), format), args...);
       print_if((logger.get_level() >= Level::DEBUG), std::cerr, "D::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
+      logger.flush();
     } // debug
 }; // class debug }}}
 

@@ -13,6 +13,7 @@
 #include <filesystem>
 #include <thread>
 #include <unistd.h>
+#include <cassert>
 
 #include "../common.hpp"
 #include "../macro.hpp"
@@ -42,34 +43,47 @@ struct InterruptTimer
     {
       throw std::runtime_error(std::format("Failed to save timer: {}", strerror(errno)));
     }
-    // Set mask for novel action
-    struct sigaction sa{};
-    sa.sa_handler = [](int){};
-    if (sigemptyset(&sa.sa_mask) < 0)
+    
+    try
     {
-      throw std::runtime_error(std::format("Failed to set mask: {}", strerror(errno)));
+      // Set mask for novel action
+      struct sigaction sa{};
+      sa.sa_handler = [](int){};
+      if (sigemptyset(&sa.sa_mask) < 0)
+      {
+        throw std::runtime_error(std::format("Failed to set mask: {}", strerror(errno)));
+      }
+      // Install novel action
+      sa.sa_flags = 0;
+      if (sigaction(SIGALRM, &sa, nullptr) < 0)
+      {
+        throw std::runtime_error(std::format("Failed to set action: {}", strerror(errno)));
+      }
+      // Arm new timer
+      struct itimerval tm{};
+      tm.it_value.tv_sec  = timeout.count()/1000; // integer seconds -> 1
+      tm.it_value.tv_usec = (timeout.count()%1000)*1000; // remaining ms -> 500 ms, convert to μs -> 500 000 μs
+      tm.it_interval.tv_sec = 0;
+      tm.it_interval.tv_usec = 0;
+      if (setitimer(ITIMER_REAL, &tm, nullptr) < 0)
+      {
+        throw std::runtime_error(std::format("Could not arm timer: {}", strerror(errno)));
+      }
     }
-    // Install novel action
-    sa.sa_flags = 0;
-    if (sigaction(SIGALRM, &sa, nullptr) < 0)
+    catch (...)
     {
-      throw std::runtime_error(std::format("Failed to set action: {}", strerror(errno)));
-    }
-    // Arm new timer
-    // e.g. 1500 ms
-    struct itimerval tm{};
-    tm.it_value.tv_sec  = timeout.count()/1000; // integer seconds -> 1
-    tm.it_value.tv_usec = (timeout.count()%1000)*1000; // remaining ms -> 500 ms, convert to μs -> 500 000 μs
-    tm.it_interval.tv_sec = 0;
-    tm.it_interval.tv_usec = 0;
-    if (setitimer(ITIMER_REAL, &tm, nullptr) < 0)
-    {
-      throw std::runtime_error(std::format("Could not arm timer: {}", strerror(errno)));
+      clean();
     }
   }
 
   ~InterruptTimer()
   {
+    clean();
+  }
+  
+  void clean()
+  {
+    
     // restore old handler
     sigaction(SIGALRM, &old_sa, nullptr);
     // restore old timer
@@ -128,6 +142,70 @@ template<typename Data>
   return bytes_written;
 } // function: open_write_with_timeout }}}
 
+// children_wait() {{{
+inline void children_wait()
+{
+  struct sigaction sa;
+  sa.sa_handler = SIG_DFL;
+  sa.sa_flags   = 0;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGCHLD, &sa, nullptr);
+} // children_wait() }}}
+
+// children_ignore() {{{
+inline void children_ignore()
+{
+  struct sigaction sa;
+  sa.sa_handler = SIG_IGN;
+  sa.sa_flags   = SA_NOCLDWAIT;
+  sigemptyset(&sa.sa_mask);
+  sigaction(SIGCHLD, &sa, nullptr);
+} // children_ignore() }}}
+
+// fork_detach() {{{
+inline pid_t fork_detach()
+{
+  int fd[2];
+  if (pipe(fd) < 0) { return -1; }
+  // First fork
+  pid_t pid1 = fork();
+  if (pid1 < 0) { return -1; }
+  // Current process waits for the grandchild pid
+  if (pid1 > 0)
+  {
+    close(fd[1]);
+    pid_t orphaned;
+    if (read(fd[0], &orphaned, sizeof(orphaned)) == sizeof(orphaned))
+    {
+      return orphaned;
+    }
+    return -1;
+  }
+  // Child starts here
+  close(fd[0]);
+  // Fork grandchild
+  pid_t pid2 = fork();
+  // Failed to fork, write code back to the parent
+  if (pid2 < 0)
+  {
+    write(fd[1], &pid2, sizeof(pid2));
+    close(fd[1]);
+    _exit(EXIT_FAILURE);
+  }
+  // Forked grandchild, write pid back to parent and make it an orphan by exiting
+  if (pid2 > 0)
+  {
+    write(fd[1], &pid2, sizeof(pid2));
+    close(fd[1]);
+    _exit(EXIT_SUCCESS);
+  }
+  // Detach from current session to avoid hangs
+  setsid();
+  // Return to the following code as the grandchild
+  return 0;
+}
+// fork_detach() }}}
+
 // mkdtemp() {{{
 // Creates a temporary directory in path_dir_parent with the template provided by 'dir_template'
 [[nodiscard]] inline fs::path mkdtemp(fs::path const& path_dir_parent, std::string dir_template = "XXXXXX")
@@ -169,6 +247,36 @@ inline std::expected<bool, std::string> module_check(std::string_view str_name)
 
   return false;
 } // function: module_check() }}}
+
+// search_path() {{{
+inline std::expected<fs::path, std::string> search_path(fs::path const& query)
+{
+  char const * env_path = std::getenv("PATH");
+  qreturn_if( env_path == nullptr, std::unexpected("PATH environment variable not found"));
+
+  char const * env_dir_global_bin = std::getenv("FIM_DIR_GLOBAL_BIN");
+  char const * env_dir_static = std::getenv("FIM_DIR_STATIC");
+
+  if ( query.is_absolute() )
+  {
+    return_if_else(fs::exists(query), query, std::unexpected("File not found through absolute path"));
+  } // if
+
+  std::string path(env_path);
+  std::istringstream istream_path(path);
+  std::string str_getline;
+
+  while (std::getline(istream_path, str_getline, ':'))
+  {
+    fs::path path_parent = str_getline;
+    qcontinue_if(env_dir_static and path_parent == fs::path(env_dir_static));
+    qcontinue_if(env_dir_global_bin and path_parent == fs::path(env_dir_global_bin));
+    fs::path path_full = path_parent / query;
+    qreturn_if(fs::exists(path_full), path_full);
+  } // while
+
+  return std::unexpected("File not found in PATH");
+} // search_path() }}}
 
 } // namespace ns_linux
 

@@ -12,11 +12,19 @@
   ns_log::ec([]<typename... Args>(Args&&... args){ return fun(std::forward<Args>(args)...); }, __VA_ARGS__)
 
 // Pop rust-style for std::expected
-#define pop(expr)                                    \
+#define expect(expr)                                    \
 ({                                                   \
   auto _res = (expr);                                \
   if (!_res)                                         \
     return std::unexpected(_res.error());            \
+  _res.value();                                      \
+})
+
+#define expect_map_error(expr, fun)                     \
+({                                                   \
+  auto _res = (expr);                                \
+  if (!_res)                                         \
+    return fun(_res.error());                        \
   _res.value();                                      \
 })
 
@@ -64,40 +72,50 @@
 
 // Break
 #define qbreak_if(cond) \
-  if ( (cond) ) { break; }
+  if (cond) { break; }
 
 #define ebreak_if(cond, msg) \
-  if ( (cond) ) { ns_log::error()(msg); break; }
+  if (cond) { ns_log::error()(msg); break; }
 
 #define ibreak_if(cond, msg) \
-  if ( (cond) ) { ns_log::info()(msg); break; }
+  if (cond) { ns_log::info()(msg); break; }
 
 #define dbreak_if(cond, msg) \
-  if ( (cond) ) { ns_log::debug()(msg); break; }
+  if (cond) { ns_log::debug()(msg); break; }
 
 // Continue
 #define qcontinue_if(cond) \
-  if ( (cond) ) { continue; }
+  if (cond) { continue; }
 
 #define econtinue_if(cond, msg) \
-  if ( (cond) ) { ns_log::error()(msg); continue; }
+  if (cond) { ns_log::error()(msg); continue; }
 
 #define icontinue_if(cond, msg) \
-  if ( (cond) ) { ns_log::info()(msg); continue; }
+  if (cond) { ns_log::info()(msg); continue; }
 
 #define dcontinue_if(cond, msg) \
-  if ( (cond) ) { ns_log::debug()(msg); continue; }
+  if (cond) { ns_log::debug()(msg); continue; }
 
 // Exit from child
-#define e_exitif(cond, msg) \
-  if ( (cond) ) { ns_log::error()(msg); _exit(1); }
+#define e_exitif(cond, msg, code) \
+  if (cond) { ns_log::error()(msg); _exit(code); }
 
 // Conditional log
 #define elog_if(cond, msg) \
-  if ( (cond) ) { ns_log::error()(msg); }
+  if (cond) { ns_log::error()(msg); }
 
 #define ilog_if(cond, msg) \
-  if ( (cond) ) { ns_log::info()(msg); }
+  if (cond) { ns_log::info()(msg); }
 
 #define dlog_if(cond, msg) \
-  if ( (cond) ) { ns_log::debug()(msg); }
+  if (cond) { ns_log::debug()(msg); }
+
+// Log expected error
+template<typename U>
+void elog_expected(std::string_view msg, std::expected<U,std::string> const& expected)
+{
+  if (not expected)
+  {
+    ns_log::error()(msg, expected.error());
+  }
+}
