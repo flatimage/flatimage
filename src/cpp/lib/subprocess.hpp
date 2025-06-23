@@ -312,8 +312,8 @@ inline Subprocess& Subprocess::with_pipes_parent(int pipestdout[2], int pipestde
       return;
     } // if
     // Die with parent
-    eabort_if(prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, strerror(errno));
-    eabort_if(::kill(ppid, 0) < 0, "Parent died, prctl will not have effect: {}"_fmt(strerror(errno)));
+    e_exitif(prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, strerror(errno), 1);
+    e_exitif(::kill(ppid, 0) < 0, "Parent died, prctl will not have effect: {}"_fmt(strerror(errno)), 1);
     // Check if 'f' is defined
     if ( not f ) { f = [&](auto&& e) { ns_log::debug()("{}({}): {}", prefix, m_program, e); }; }
     // Apply f to incoming data from pipe
@@ -366,7 +366,7 @@ inline void Subprocess::die_on_pid(pid_t pid)
   if (::kill(pid, 0) < 0)
   {
     ns_log::error()("Parent died, prctl will not have effect: {}", strerror(errno));
-    std::abort();
+    _exit(1);;
   } // if
   // Log pid and current pid
   ns_log::debug()("{} dies with {}", getpid(), pid);
@@ -496,7 +496,7 @@ inline Subprocess& Subprocess::spawn()
   ns_log::error()("execve() failed: ", strerror(errno));
 
   // Child should stop here
-  std::abort();
+  _exit(1);
 } // spawn() }}}
 
 // wait_busy_file() {{{

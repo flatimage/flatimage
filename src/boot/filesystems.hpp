@@ -133,8 +133,8 @@ inline void Filesystems::spawn_janitor()
   fs::path path_stderr = std::string{ns_env::get_or_throw("FIM_DIR_MOUNT")} + ".janitor.stderr.log";
   int fd_stdout = open(path_stdout.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
   int fd_stderr = open(path_stderr.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  eabort_if(fd_stdout < 0, "Failed to open stdout janitor file");
-  eabort_if(fd_stderr < 0, "Failed to open stderr janitor file");
+  e_exitif(fd_stdout < 0, "Failed to open stdout janitor file", 1);
+  e_exitif(fd_stderr < 0, "Failed to open stderr janitor file", 1);
   dup2(fd_stdout, STDOUT_FILENO);
   dup2(fd_stderr, STDERR_FILENO);
   close(fd_stdout);
