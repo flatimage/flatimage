@@ -16,6 +16,8 @@ import layer
 import metadata
 import permissions
 import root
+import magic
+import portal
 
 class Suite(unittest.TestSuite):
 
@@ -48,6 +50,8 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(layer.TestFimLayer))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(permissions.TestFimPerms))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(root.TestFimRoot))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(magic.TestFimMagic))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(portal.TestFimPortal))
   return suite
   
 if __name__ == '__main__':
