@@ -308,25 +308,24 @@ inline void integrate_icons(ns_config::FlatimageConfig const& config, ns_db::ns_
   ereturn_if(not expected_data_image, expected_data_image.error());
   std::memcpy(&image, expected_data_image->first.get(), sizeof(image));
   // Create temporary file to write image to
-  auto expected_path_file_icon = ns_linux::mkstemps("/tmp", "XXXXXX.{}"_fmt(image.m_ext), 4);
-  ereturn_if(not expected_path_file_icon, expected_path_file_icon.error());
+  auto path_file_icon = config.path_dir_app / "icon.{}"_fmt(image.m_ext);
   // Write image to temporary file
-  std::ofstream file_icon(*expected_path_file_icon);
+  std::ofstream file_icon(path_file_icon);
   ereturn_if(not file_icon.is_open(), "Could not open temporary image file for desktop integration");
   file_icon.write(image.m_data, image.m_size);
   file_icon.close();
   // Create icons
-  if ( expected_path_file_icon->string().ends_with(".svg") )
+  if ( path_file_icon.string().ends_with(".svg") )
   {
-    integrate_icons_svg(desktop, *expected_path_file_icon);
+    integrate_icons_svg(desktop, path_file_icon);
   }
   else
   {
-    integrate_icons_png(desktop, *expected_path_file_icon);
+    integrate_icons_png(desktop, path_file_icon);
   } // else
   integrate_icon_flatimage();
   // Remove temporary file
-  lec(fs::remove, *expected_path_file_icon);
+  lec(fs::remove, path_file_icon);
 } // integrate_icons() }}}
 
 // integrate_bash() {{{
@@ -478,7 +477,7 @@ inline void setup(ns_config::FlatimageConfig const& config, fs::path const& path
   ereturn_if(not expected_image_data, "Could not read source image: {}"_fmt(expected_image_data.error()));
   // Create image struct to deserialize into binary format
   Image image;
-  std::memcpy(image.m_ext, str_ext.data(), 3);
+  std::memcpy(image.m_ext, str_ext.data(), sizeof(image.m_ext));
   std::memcpy(image.m_data, expected_image_data->first.get(), expected_image_data->second);
   image.m_size = expected_image_data->second;
   // Serialize image struct in binary format
