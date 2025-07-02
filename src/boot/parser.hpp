@@ -350,15 +350,19 @@ inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
   auto f_bwrap = [&]<typename T, typename U>(T&& program, U&& args)
   {
     // Run bwrap
-    auto [syscall_nr,errno_nr] = f_bwrap_impl(program, args);
+    ns_bwrap::bwrap_run_ret_t bwrap_run_ret = f_bwrap_impl(program, args);
+    // Log bwrap errors
+    elog_if(bwrap_run_ret.errno_nr > 0
+      , "Bwrap failed syscall '{}' with errno '{}'"_fmt(bwrap_run_ret.syscall_nr, bwrap_run_ret.errno_nr)
+    );
     // Retry with fallback if bwrap overlayfs failed
-    ns_log::error()("Bwrap failed syscall '{}' with errno '{}'", syscall_nr, errno_nr);
-    if ( config.overlay_type == ns_config::OverlayType::BWRAP and syscall_nr == SYS_mount )
+    if ( config.overlay_type == ns_config::OverlayType::BWRAP and bwrap_run_ret.syscall_nr == SYS_mount )
     {
       ns_log::error()("Bwrap failed SYS_mount, retrying with fuse-unionfs...");
       config.overlay_type = ns_config::OverlayType::FUSE_UNIONFS;
-      std::ignore = f_bwrap_impl(program, args);
+      bwrap_run_ret = f_bwrap_impl(program, args);
     } // if
+    return bwrap_run_ret.code;
   };
 
   // Define logger verbosity for all commands except the ones below
@@ -372,13 +376,13 @@ inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
   // Execute a command as a regular user
   if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdExec>(*variant_cmd) )
   {
-    f_bwrap([&]{ return cmd->program; }, [&]{ return cmd->args; });
+    return f_bwrap([&]{ return cmd->program; }, [&]{ return cmd->args; });
   } // if
   // Execute a command as root
   else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdRoot>(*variant_cmd) )
   {
     config.is_root = true;
-    f_bwrap([&]{ return cmd->program; }, [&]{ return cmd->args; });
+    return f_bwrap([&]{ return cmd->program; }, [&]{ return cmd->args; });
   } // if
   // Configure permissions
   else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdPerms>(*variant_cmd) )
@@ -503,7 +507,7 @@ inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
   else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdNone>(*variant_cmd) )
   {
     // Execute default command
-    f_bwrap([&]
+    return f_bwrap([&]
       {
         // Read boot configuration file
         auto db = ns_db::read_file(config.path_file_config_boot);

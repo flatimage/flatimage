@@ -225,12 +225,11 @@ void relocate(char** argv)
 } // relocate() }}}
 
 // boot() {{{
-std::unique_ptr<ns_config::FlatimageConfig> boot(int argc, char** argv)
+struct boot_return_t { int code; std::unique_ptr<ns_config::FlatimageConfig> config; };
+boot_return_t boot(int argc, char** argv)
 {
-
   // Setup environment variables
   auto config = std::make_unique<ns_config::FlatimageConfig>(ns_config::config());
-
 
   // Set log file
   ns_log::set_sink_file(config->path_dir_mount.string() + ".boot.log");
@@ -242,9 +241,9 @@ std::unique_ptr<ns_config::FlatimageConfig> boot(int argc, char** argv)
   ns_log::exception([&]{ ns_desktop::integrate(*config); });
 
   // Parse flatimage command if exists
-  ns_parser::parse_cmds(*config, argc, argv);
+  int code_exit = ns_parser::parse_cmds(*config, argc, argv);
 
-  return config;
+  return {code_exit, std::move(config)};
 } // boot() }}}
 
 // main() {{{
@@ -297,21 +296,19 @@ int main(int argc, char** argv)
   } // if
 
   // Boot the main program
-  if ( auto expected_config = ns_exception::to_expected([&]{ return boot(argc, argv); }); expected_config )
+  auto expected_config = ns_exception::to_expected([&]{ return boot(argc, argv); });
+  if ( expected_config )
   {
     // Wait until flatimage is not busy
-    if (auto error = ns_subprocess::wait_busy_file((*expected_config)->path_file_binary); error)
+    if (auto error = ns_subprocess::wait_busy_file(expected_config->config->path_file_binary); error)
     {
       ns_log::error()(*error);
     } // if
+    return expected_config->code;
   } // if
-  else
-  {
-    println("Program exited with error: {}", expected_config.error());
-    return EXIT_FAILURE;
-  } // else
 
-  return EXIT_SUCCESS;
+  println("Program exited with error: {}", expected_config.error());
+  return 125;
 } // main() }}}
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

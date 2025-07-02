@@ -47,6 +47,8 @@ using Permissions = ns_reserved::ns_permissions::Permissions;
 
 } // namespace ns_permissions
 
+struct bwrap_run_ret_t { int code; int syscall_nr; int errno_nr; };
+
 class Bwrap
 {
   private:
@@ -103,7 +105,7 @@ class Bwrap
     Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     Bwrap& with_bind(fs::path const& src, fs::path const& dst);
     Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
-    [[nodiscard]] std::pair<int,int> run(ns_permissions::PermissionBits const& permissions);
+    [[nodiscard]] bwrap_run_ret_t run(ns_permissions::PermissionBits const& permissions);
 }; // class: Bwrap
 
 // Bwrap() {{{
@@ -520,7 +522,7 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
 } // with_bind_gpu() }}}
 
 // run() {{{
-inline std::pair<int,int> Bwrap::run(ns_permissions::PermissionBits const& permissions)
+inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissions)
 {
   // Configure bindings
   ns_functional::call_if(permissions.home        , [&]{ bind_home()        ; });
@@ -556,7 +558,7 @@ inline std::pair<int,int> Bwrap::run(ns_permissions::PermissionBits const& permi
   fcntl(pipe_error[0], F_SETFL, fcntl(pipe_error[0], F_GETFL, 0) | O_NONBLOCK);
 
   // Run Bwrap
-  auto ret = ns_subprocess::Subprocess(*opt_path_file_bash)
+  auto code = ns_subprocess::Subprocess(*opt_path_file_bash)
     .with_args("-c", R"("{}" "$@")"_fmt(*expected_path_file_bwrap), "--")
     .with_args("--error-fd", std::to_string(pipe_error[1]))
     .with_args(m_args)
@@ -565,8 +567,8 @@ inline std::pair<int,int> Bwrap::run(ns_permissions::PermissionBits const& permi
     .with_env(m_program_env)
     .spawn()
     .wait();
-  if ( not ret ) { ns_log::error()("bwrap exited abnormally"); }
-  if ( *ret != 0 ) { ns_log::error()("bwrap exited with non-zero exit code '{}'", *ret); }
+  if ( not code ) { ns_log::error()("bwrap exited abnormally"); }
+  if ( code.value() != 0 ) { ns_log::error()("bwrap exited with non-zero exit code '{}'", code.value()); }
 
   // Failed syscall and errno
   int syscall_nr = -1;
@@ -580,8 +582,8 @@ inline std::pair<int,int> Bwrap::run(ns_permissions::PermissionBits const& permi
   close(pipe_error[0]);
   close(pipe_error[1]);
 
-  // Return possible errors
-  return std::make_pair(syscall_nr, errno_nr);
+  // Return value and possible errors
+  return {.code=code.value_or(125), .syscall_nr=syscall_nr, .errno_nr=errno_nr};
 } // run() }}}
 
 } // namespace ns_bwrap
