@@ -104,7 +104,7 @@ inline FlatimageConfig config()
 {
   FlatimageConfig config;
 
-  ns_env::set("PID", std::to_string(getpid()), ns_env::Replace::Y);
+  ns_env::set("FIM_PID", getpid(), ns_env::Replace::Y);
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
 
   // Distribution
@@ -187,9 +187,6 @@ inline FlatimageConfig config()
   config.path_file_config_environment = config.path_dir_config / "environment.json";
   config.path_file_config_bindings    = config.path_dir_config / "bindings.json";
   config.path_file_config_casefold    = config.path_dir_config / "casefold.json";
-
-  // PID
-  ns_env::set("FIM_PID", getpid(), ns_env::Replace::Y);
 
   // LD_LIBRARY_PATH
   if ( ns_env::exists("LD_LIBRARY_PATH") )
