@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdlib>
 #include <filesystem>
 #include <ranges>
 #include <set>
@@ -328,7 +329,7 @@ inline std::expected<CmdType, std::string> parse(int argc , char** argv)
 } // parse() }}}
 
 // parse_cmds() {{{
-inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
+inline int parse_cmds(ns_config::FlatimageConfig& config, int argc, char** argv)
 {
   // Parse args
   auto variant_cmd = ns_parser::parse(argc, argv);
@@ -558,6 +559,11 @@ inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
       break;
       case CmdInstanceOp::EXEC:
       {
+        ereturn_if(instances.size() == 0, "No instances are running", EXIT_FAILURE);
+        ereturn_if(cmd->id < 0 or static_cast<size_t>(cmd->id) >= instances.size()
+          , "Instance index out of bounds"
+          , EXIT_FAILURE
+        );
         return ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
           .with_args("--connect", instances.at(cmd->id))
           .with_args(cmd->args)
