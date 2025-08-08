@@ -18,6 +18,7 @@ import permissions
 import root
 import magic
 import portal
+import instance
 
 class Suite(unittest.TestSuite):
 
@@ -52,6 +53,7 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(root.TestFimRoot))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(magic.TestFimMagic))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(portal.TestFimPortal))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(instance.TestFimInstance))
   return suite
   
 if __name__ == '__main__':
