@@ -258,6 +258,24 @@ inline std::string boot_usage()
     .get();
 }
 
+inline std::string instance_usage()
+{
+  return HelpEntry{"fim-instance"}
+    .with_description("Manage running instances")
+    .with_commands({
+      { "list", "List current instances" },
+      { "exec", "Run a command in a running instance" },
+    })
+    .with_usage("fim-instance <command> [args...]")
+    .with_args({
+      { "command" , "List running instances or execute a command inside an instance" },
+      { "args" , "Arguments for the 'exec' command" },
+    })
+    .with_example("fim-instance list")
+    .with_example("fim-instance exec 0 echo hello")
+    .get();
+}
+
 
 } // namespace ns_cmd::ns_help
 

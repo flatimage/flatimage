@@ -46,15 +46,15 @@ void signal_handler(int sig)
   qreturn_if(std::error_code ec; (fs::create_directories(path_file_env.parent_path(), ec), ec)
     , std::unexpected(std::format("Could not open file '{}': '{}'", path_file_env.string(), ec.message()))
   );
-  std::ofstream ofile_env(path_file_env);
-  qreturn_if(not ofile_env.good(), std::unexpected("Could not open file '{}'"_fmt(path_file_env)));
+  std::ofstream ofile_env(path_file_env, std::ios::out | std::ios::trunc);
+  qreturn_if(not ofile_env.is_open(), std::unexpected("Could not open file '{}'"_fmt(path_file_env)));
   for(char **env = environ; *env != NULL; ++env) { ofile_env << *env << '\n'; } // for
   ofile_env.close();
   return {};
 }
 
 [[nodiscard]] std::expected<void, std::string> send_message(fs::path const& path_daemon_fifo
-  , std::vector<char*> command
+  , std::vector<std::string> command
   , std::unordered_map<std::string, fs::path> const& hash_name_fifo
   , fs::path const& path_file_log
   , fs::path const& path_file_env)
@@ -113,9 +113,10 @@ void signal_handler(int sig)
   return code_exit;
 }
 
-[[nodiscard]] std::expected<int, std::string> process_request(int argc, char** argv)
+[[nodiscard]] std::expected<int, std::string> process_request(std::vector<std::string> const& args
+  , std::string const& daemon_target
+  , fs::path const& path_dir_instance)
 {
-  std::vector<char*> args(argv+1, argv+argc);
   using namespace std::chrono_literals;
   // Forward signal to spawned child
   signal(SIGABRT, signal_handler);
@@ -134,42 +135,28 @@ void signal_handler(int sig)
   signal(SIGVTALRM, signal_handler);
   // Set log level
   ns_log::set_level(ns_env::exists("FIM_DEBUG", "1")? ns_log::Level::DEBUG : ns_log::Level::ERROR);
-  // Check args
-  using get_expected_t = std::expected<std::string_view,std::string>;
-  pid_t const pid_daemon = expect(expect(ns_env::get_expected("FIM_PID")
-    .or_else([&](auto&& e) -> get_expected_t
-    {
-      ns_log::debug()("FIM_PID not defined ({}), trying argument instead...", e);
-      if(args.empty()) { return std::unexpected<std::string>("PID argument is missing"); }
-      std::string pid_str = args.front();
-      args.erase(args.begin());
-      return get_expected_t(pid_str);
-    })
-    .transform([](auto&& e){ return ns_exception::to_expected([&]{ return std::stoi(std::string{e}); }); })
-  ));
-  // Get instance directory
-  fs::path path_dir_instance = expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
+  // Get portal directory
   fs::path path_dir_portal = path_dir_instance / "portal";
   // Create define log file for child
-  fs::path path_file_log = path_dir_portal / "cli_{}.log"_fmt(getpid());
+  fs::path path_file_log = path_dir_portal / "cli.log";
   qreturn_if(std::error_code ec; (fs::create_directories(path_file_log.parent_path(), ec))
     , std::unexpected(std::format("Error to create log file: {}", ec.message()))
   );
   // Create fifos
   fs::path path_dir_fifo = path_dir_portal / "fifo";
-  auto hash_name_fifo = expect(create_fifos(getpid(),
-  {
-      path_dir_fifo / "stdin"
-    , path_dir_fifo / "stdout"
-    , path_dir_fifo / "stderr"
-    , path_dir_fifo / "exit"
-    , path_dir_fifo / "pid"
-  }));
+  std::unordered_map<std::string, fs::path> hash_name_fifo =
+  {{
+      {"stdin" ,  expect(create_fifo(path_dir_fifo / "stdin"))}
+    , {"stdout",  expect(create_fifo(path_dir_fifo / "stdout"))}
+    , {"stderr",  expect(create_fifo(path_dir_fifo / "stderr"))}
+    , {"exit"  ,  expect(create_fifo(path_dir_fifo / "exit"))}
+    , {"pid"   ,  expect(create_fifo(path_dir_fifo / "pid"))}
+  }};
   // Save environment
-  fs::path path_file_env = path_dir_portal / "environments" / std::to_string(getpid());
+  fs::path path_file_env = path_dir_portal / "environment";
   expect(set_environment(path_file_env));
   // Send message to daemon
-  expect(send_message(path_dir_portal / "daemon_{}"_fmt(pid_daemon)
+  expect(send_message(path_dir_portal / "daemon.{}.fifo"_fmt(daemon_target)
     , args
     , hash_name_fifo
     , path_file_log
@@ -182,7 +169,31 @@ void signal_handler(int sig)
 // main() {{{
 int main(int argc, char** argv)
 {
-  auto result = process_request(argc, argv);
+  std::vector<std::string> args(argv+1, argv+argc);
+  // Daemon target
+  // "host" - Sends a command to the 'host' daemon
+  // "guest" - Sends a command to the 'guest' daemon
+  std::string daemon_target = "host";
+  // Path to the current instance
+  fs::path path_dir_instance;
+  // Get instance path or acquire it from an environment variable
+  if (args.size() >= 2 and args.at(0) == "--connect")
+  {
+    daemon_target = "guest";
+    path_dir_instance = args.at(1);
+    args.erase(args.begin(), args.begin()+2);
+  }
+  else
+  {
+    if(not ns_env::exists("FIM_DIR_INSTANCE"))
+    {
+      std::cerr << "FIM_DIR_INSTANCE is undefined\n";
+      return EXIT_FAILURE;
+    }
+    path_dir_instance = ns_env::get("FIM_DIR_INSTANCE");
+  }
+  // Request process from daemon
+  auto result = process_request(args, daemon_target, path_dir_instance);
   // Reflect the original process return code
   if(result) { return result.value(); }
   // Error on process request

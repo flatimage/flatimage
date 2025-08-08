@@ -25,7 +25,7 @@ struct Portal
   fs::path m_path_file_daemon;
   fs::path m_path_file_guest;
 
-  Portal(pid_t const pid_reference)
+  Portal(pid_t const pid_reference, std::string const& mode)
   {
     // Path to flatimage binaries
     const char* str_dir_app_bin = ns_env::get("FIM_DIR_APP_BIN");
@@ -42,7 +42,7 @@ struct Portal
 
     // Spawn process to background
     std::ignore = m_process->with_piped_outputs()
-      .with_args(pid_reference)
+      .with_args(pid_reference, mode)
       .spawn();
   } // Portal
 

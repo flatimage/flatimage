@@ -116,13 +116,6 @@ void relocate(char** argv)
     , "Could not mount directory '{}'"_fmt(path_dir_mount)
   );
 
-  // Path to ext mount dir is a directory called 'ext'
-  fs::path path_dir_mount_ext = path_dir_mount / "ext";
-  ns_env::set("FIM_DIR_MOUNT_EXT", path_dir_mount_ext.c_str(), ns_env::Replace::Y);
-  ethrow_if(not fs::exists(path_dir_mount_ext) and not fs::create_directory(path_dir_mount_ext)
-    , "Could not mount directory '{}'"_fmt(path_dir_mount_ext)
-  );
-
   // Starting offsets
   uint64_t offset_beg = 0;
   uint64_t offset_end = ns_elf::skip_elf_header(path_absolute.c_str());
@@ -235,7 +228,7 @@ boot_return_t boot(int argc, char** argv)
   ns_log::set_sink_file(config->path_dir_mount.string() + ".boot.log");
 
   // Start portal
-  ns_portal::Portal portal = ns_portal::Portal(getpid());
+  ns_portal::Portal portal = ns_portal::Portal(getpid(), "host");
 
   // Refresh desktop integration
   ns_log::exception([&]{ ns_desktop::integrate(*config); });
@@ -296,18 +289,15 @@ int main(int argc, char** argv)
   } // if
 
   // Boot the main program
-  auto expected_config = ns_exception::to_expected([&]{ return boot(argc, argv); });
-  if ( expected_config )
+  if ( auto expected_config = ns_exception::to_expected([&]{ return boot(argc, argv); }) )
   {
-    // Wait until flatimage is not busy
-    if (auto error = ns_subprocess::wait_busy_file(expected_config->config->path_file_binary); error)
-    {
-      ns_log::error()(*error);
-    } // if
     return expected_config->code;
   } // if
+  else
+  {
+    println("Program exited with error: {}", expected_config.error());
+  }
 
-  println("Program exited with error: {}", expected_config.error());
   return 125;
 } // main() }}}
 

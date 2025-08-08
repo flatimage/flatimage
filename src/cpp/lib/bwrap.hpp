@@ -105,7 +105,8 @@ class Bwrap
     Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     Bwrap& with_bind(fs::path const& src, fs::path const& dst);
     Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
-    [[nodiscard]] bwrap_run_ret_t run(ns_permissions::PermissionBits const& permissions);
+    [[nodiscard]] bwrap_run_ret_t run(ns_permissions::PermissionBits const& permissions
+      , fs::path const& path_dir_app_bin);
 }; // class: Bwrap
 
 // Bwrap() {{{
@@ -522,7 +523,8 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
 } // with_bind_gpu() }}}
 
 // run() {{{
-inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissions)
+inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissions
+  , fs::path const& path_dir_app_bin)
 {
   // Configure bindings
   ns_functional::call_if(permissions.home        , [&]{ bind_home()        ; });
@@ -557,12 +559,16 @@ inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissi
   // Configure pipe read end as non-blocking
   fcntl(pipe_error[0], F_SETFL, fcntl(pipe_error[0], F_GETFL, 0) | O_NONBLOCK);
 
+  // Get path to daemon
+  fs::path path_file_daemon = path_dir_app_bin / "fim_portal_daemon";
+  ethrow_if(not fs::exists(path_file_daemon), "Missing portal daemon to run binary file path");
+
   // Run Bwrap
-  auto code = ns_subprocess::Subprocess(*opt_path_file_bash)
+  auto code = ns_subprocess::Subprocess(opt_path_file_bash.value())
     .with_args("-c", R"("{}" "$@")"_fmt(*expected_path_file_bwrap), "--")
     .with_args("--error-fd", std::to_string(pipe_error[1]))
     .with_args(m_args)
-    .with_args(m_path_file_program)
+    .with_args(opt_path_file_bash.value(), "-c", R"("{}" "{}" guest & "{}" "$@")"_fmt(path_file_daemon, getpid(), m_path_file_program), "--")
     .with_args(m_program_args)
     .with_env(m_program_env)
     .spawn()

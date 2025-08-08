@@ -11,7 +11,6 @@
 #include <filesystem>
 #include <expected>
 #include <thread>
-#include <unordered_map>
 #include <sys/stat.h> // mkfifo
 #include <fcntl.h> // O_RDONLY
 #include <sys/prctl.h> // PR_SET_PDEATHSIG
@@ -23,37 +22,24 @@
 namespace fs = std::filesystem;
 
 // create_fifo() {{{
-[[nodiscard]] inline std::expected<fs::path, std::string> create_fifo(pid_t const pid, fs::path const& path_file_fifo)
+[[nodiscard]] inline std::expected<fs::path, std::string> create_fifo(fs::path const& path_file_fifo)
 {
   fs::path path_dir_parent = path_file_fifo.parent_path();
   // Create parent directory(ies)
   qreturn_if(not fs::exists(path_dir_parent) and not fs::create_directories(path_dir_parent)
     , std::unexpected("Failed to create upper directories for fifo")
   );
-  // Define the fifo path as the directory / prefix_pid
-  fs::path path_file_fifo_pid = path_dir_parent / std::format("{}_{}"
-    , path_file_fifo.filename().string()
-    , pid
-  );
+  // Replace old fifo if exists
+  if ( fs::exists(path_file_fifo) )
+  {
+    fs::remove(path_file_fifo);
+  }
   // Create fifo
-  qreturn_if(mkfifo(path_file_fifo_pid.c_str(), 0666) < 0
+  qreturn_if(mkfifo(path_file_fifo.c_str(), 0666) < 0
     , std::unexpected(strerror(errno))
   );
-  return path_file_fifo_pid;
+  return path_file_fifo;
 } // create_fifo() }}}
-
-// create_fifos() {{{
-[[nodiscard]] inline std::expected<std::unordered_map<std::string, fs::path>, std::string>
-  create_fifos(pid_t const& pid, std::vector<fs::path> const& vec_paths)
-{
-  std::unordered_map<std::string, fs::path> hash_name_fifo;
-  for(auto&& path_file_fifo : vec_paths)
-  {
-    auto result = expect(create_fifo(pid, path_file_fifo));
-    hash_name_fifo.emplace(path_file_fifo.filename(), result);
-  }
-  return hash_name_fifo;
-} // create_fifos() }}}
 
 // redirect_fd_to_fd() {{{
 inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)

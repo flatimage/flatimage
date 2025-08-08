@@ -6,9 +6,12 @@
 
 #pragma once
 
+#include <filesystem>
+#include <ranges>
 #include <set>
 #include <string>
 #include <expected>
+#include <print>
 
 #include "../cpp/std/enum.hpp"
 #include "../cpp/std/vector.hpp"
@@ -100,6 +103,14 @@ struct CmdCaseFold
   CmdCaseFoldOp op;
 };
 
+ENUM(CmdInstanceOp,LIST,EXEC);
+struct CmdInstance
+{
+  CmdInstanceOp op;
+  int32_t id;
+  std::vector<std::string> args;
+};
+
 struct CmdNone {};
 
 using CmdType = std::variant<CmdRoot
@@ -113,6 +124,7 @@ using CmdType = std::variant<CmdRoot
   , CmdNotify
   , CmdCaseFold
   , CmdBoot
+  , CmdInstance
   , CmdNone
 >;
 // }}}
@@ -274,6 +286,24 @@ inline std::expected<CmdType, std::string> parse(int argc , char** argv)
       f_error(argc < 3, ns_cmd::ns_help::boot_usage(), "Incorrect number of arguments");
       return CmdType(CmdBoot(argv[2], (argc > 3)? VecArgs(argv+3, argv+argc) : VecArgs{}));
     },
+    // Run a command in an existing instance
+    ns_match::equal("fim-instance") >>= [&]
+    {
+      f_error(argc < 3, ns_cmd::ns_help::instance_usage(), "Incorrect number of arguments");
+      if(std::string_view(argv[2]) == "list")
+      {
+        return CmdType(CmdInstance(CmdInstanceOp::LIST, -1, VecArgs{}));
+      }
+      f_error(argc < 4, ns_cmd::ns_help::instance_usage(), "Missing id argument");
+      f_error(not std::ranges::all_of(std::string_view{argv[3]}, ::isdigit)
+        , ns_cmd::ns_help::instance_usage(), "Id argument must be a digit"
+      );
+      f_error(argc < 5, ns_cmd::ns_help::instance_usage(), "Missing command argument");
+      return CmdType(CmdInstance(CmdInstanceOp::EXEC
+        , std::stoi(argv[3])
+        , VecArgs(argv+4, argv+argc))
+      );
+    },
     // Use the default startup command
     ns_match::equal("fim-help") >>= [&]
     {
@@ -289,7 +319,8 @@ inline std::expected<CmdType, std::string> parse(int argc , char** argv)
         ns_match::equal("commit")   >>= [&]{ f_error(true, ns_cmd::ns_help::commit_usage(), ""); },
         ns_match::equal("notify")   >>= [&]{ f_error(true, ns_cmd::ns_help::notify_usage(), ""); },
         ns_match::equal("casefold") >>= [&]{ f_error(true, ns_cmd::ns_help::casefold_usage(), ""); },
-        ns_match::equal("boot")     >>= [&]{ f_error(true, ns_cmd::ns_help::boot_usage(), ""); }
+        ns_match::equal("boot")     >>= [&]{ f_error(true, ns_cmd::ns_help::boot_usage(), ""); },
+        ns_match::equal("instance") >>= [&]{ f_error(true, ns_cmd::ns_help::instance_usage(), ""); }
       );
       return CmdType(CmdNone{});
     }
@@ -344,7 +375,7 @@ inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
       std::ignore = bwrap.with_bind_gpu(config.path_dir_upper_overlayfs, config.path_dir_runtime_host);
     }
     // Run bwrap
-    return bwrap.run(*bits_permissions);
+    return bwrap.run(*bits_permissions, config.path_dir_app_bin);
   };
 
   auto f_bwrap = [&]<typename T, typename U>(T&& program, U&& args)
@@ -502,6 +533,40 @@ inline int parse_cmds(ns_config::FlatimageConfig config, int argc, char** argv)
     // Write fields
     auto result_write = ns_db::write_file(config.path_file_config_boot, db);
     ethrow_if(not result_write, result_write.error());
+  } // else if
+  else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdInstance>(*variant_cmd) )
+  {
+    // List instances
+    auto f_filename = [](auto&& e){ return e.path().filename().string(); };
+    // Get instances
+    auto instances = fs::directory_iterator(config.path_dir_app / "instance")
+      | std::views::filter([&](auto&& e){ return fs::exists(fs::path{"/proc"} / f_filename(e)); })
+      | std::views::filter([&](auto&& e){ return std::stoi(f_filename(e)) != getpid(); })
+      | std::views::transform([](auto&& e){ return e.path(); })
+      | std::ranges::to<std::vector<fs::path>>();
+    // Sort by pid (filename is a directory named as the pid of that instance)
+    std::ranges::sort(instances, {}, [](auto&& e){ return std::stoi(e.filename().string()); });
+    switch(cmd->op)
+    {
+      case CmdInstanceOp::LIST:
+      {
+        for(uint32_t i = 0; fs::path const& instance : instances)
+        {
+          std::println("{}:{}", i++, instance.filename().string());
+        }
+      }
+      break;
+      case CmdInstanceOp::EXEC:
+      {
+        return ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
+          .with_args("--connect", instances.at(cmd->id))
+          .with_args(cmd->args)
+          .spawn()
+          .wait()
+          .value_or(125);
+      }
+      break;
+    }
   } // else if
   // Update default command on database
   else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdNone>(*variant_cmd) )

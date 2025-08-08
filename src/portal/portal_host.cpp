@@ -3,7 +3,6 @@
 // @file        : portal_host
 ///
 
-#include <atomic>
 #include <cerrno>
 #include <chrono>
 #include <cstdlib>
@@ -71,17 +70,22 @@ int main(int argc, char** argv)
   );
 
   // Retrieve referece pid argument, run the loop as long as it exists
-  ereturn_if(argc < 2, "Missing PID argument", EXIT_FAILURE);
+  ereturn_if(argc < 3, "Missing PID argument", EXIT_FAILURE);
   pid_t pid_reference = std::stoi(argv[1]);
+  
+  // Operation mode
+  // host == Runs on host
+  // guest == Runs on container
+  std::string mode = (std::string_view{argv[2]} == "host")? "host" : "guest";
 
   // Configure logger file
-  fs::path path_file_log = fs::path{path_dir_portal} / "daemon_{}.log"_fmt(pid_reference);
+  fs::path path_file_log = fs::path{path_dir_portal} / "daemon.{}.log"_fmt(mode);
   ns_log::set_sink_file(path_file_log);
   ns_log::set_level((ns_env::exists("FIM_DEBUG", "1"))? ns_log::Level::DEBUG : ns_log::Level::QUIET);
 
-
   // Create a fifo to receive commands from
-  fs::path path_fifo_in = expect_map_error(create_fifo(pid_reference, path_dir_portal / "daemon")
+  fs::path path_fifo_in = expect_map_error(
+    create_fifo(path_dir_portal / "daemon.{}.fifo"_fmt(mode))
     , [](auto&& e){ std::cerr << e << '\n'; return EXIT_FAILURE; }
   );
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
