@@ -160,7 +160,7 @@ inline FlatimageConfig config()
   // Overlayfs write data to remain on the host
   config.path_dir_data_overlayfs = config.path_dir_host_config / "overlays";
   config.path_dir_upper_overlayfs = config.path_dir_data_overlayfs / "upperdir";
-  config.path_dir_work_overlayfs = config.path_dir_data_overlayfs / "workdir";
+  config.path_dir_work_overlayfs = config.path_dir_instance / "workdir";
   fs::create_directories(config.path_dir_upper_overlayfs);
   fs::create_directories(config.path_dir_work_overlayfs);
 
