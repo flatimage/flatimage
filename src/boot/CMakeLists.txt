@@ -76,12 +76,12 @@ target_link_libraries(boot PRIVATE
   /usr/lib/libcom_err.a
   /usr/lib/libz.a
 )
-target_compile_options(boot PRIVATE -g -rdynamic -static -Wall -Os -Wextra)
+target_compile_options(boot PRIVATE --std=gnu++23 -static -Wall -Os -Wextra)
 target_link_options(boot PRIVATE -static)
 
 # Magic patcher
 add_executable(magic magic.cpp)
-target_compile_options(magic PRIVATE --std=c++23 -Wall -Wextra)
+target_compile_options(magic PRIVATE --std=gnu++23 -Wall -Os -Wextra)
 target_link_options(magic PRIVATE -static)
 add_custom_target(run_magic ALL
   DEPENDS boot magic
