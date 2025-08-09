@@ -83,6 +83,7 @@ struct FlatimageConfig
   fs::path path_dir_runtime_host;
   fs::path path_dir_host_home;
   fs::path path_dir_host_config;
+  fs::path path_dir_host_config_tmp;
   fs::path path_dir_data_overlayfs;
   fs::path path_dir_upper_overlayfs;
   fs::path path_dir_work_overlayfs;
@@ -152,7 +153,8 @@ inline FlatimageConfig config()
 
   // Create host config directory
   config.path_dir_host_config = config.path_file_binary.parent_path() / ".{}.config"_fmt(config.path_file_binary.filename());
-  ethrow_if(not fs::exists(config.path_dir_host_config) and not fs::create_directories(config.path_dir_host_config)
+  config.path_dir_host_config_tmp = config.path_dir_host_config / "tmp";
+  ethrow_if(not fs::exists(config.path_dir_host_config_tmp) and not fs::create_directories(config.path_dir_host_config_tmp)
     , "Could not create configuration directory in '{}'"_fmt(config.path_dir_host_config)
   );
   ns_env::set("FIM_DIR_CONFIG", config.path_dir_host_config, ns_env::Replace::Y);

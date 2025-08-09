@@ -6,6 +6,7 @@
 #pragma once
 
 #include <filesystem>
+#include <unistd.h>
 
 #include "../../cpp/lib/subprocess.hpp"
 
@@ -20,7 +21,10 @@ namespace ns_layers
 {
 
 // fn: create() {{{
-inline void create(fs::path const& path_dir_src, fs::path const& path_file_dst, uint64_t compression_level)
+inline void create(fs::path const& path_dir_src
+  , fs::path const& path_file_dst
+  , fs::path const& path_file_list_tmp
+  , uint64_t compression_level)
 {
   // Find mkdwarfs binary
   auto opt_path_file_mkdwarfs = ns_subprocess::search_path("mkdwarfs");
@@ -28,9 +32,49 @@ inline void create(fs::path const& path_dir_src, fs::path const& path_file_dst, 
 
   // Compression level must be at least 1 and less or equal to 10
   compression_level = std::clamp(compression_level, uint64_t{0}, uint64_t{9});
-
-  // // Convert to non-percentual compression level
-  // compression_level = std::ceil(22 * (static_cast<double>(compression_level) / 10));
+  
+  // Search for all viable files to compress
+  ns_log::info()("Gathering files to compress...");
+  std::ofstream file_list(path_file_list_tmp, std::ios::out | std::ios::trunc);
+  ethrow_if(not file_list.is_open(), "Could not open list of files to compress");
+  for(auto&& entry = fs::recursive_directory_iterator(path_dir_src)
+    ; entry != fs::recursive_directory_iterator()
+    ; ++entry)
+  {
+    // Get full file path to entry
+    fs::path path_entry = entry->path();
+    // Is a directory
+    if(entry->is_directory())
+    {
+      // Ignore directory as it is not traverseable
+      if(::access(path_entry.c_str(), R_OK | X_OK) != 0)
+      {
+        ns_log::info()("Insufficient permissions to enter directory '{}'", path_entry);
+        entry.disable_recursion_pending();
+        continue;
+      }
+      // Add empty directory to the list
+      if(fs::is_empty(path_entry))
+      {
+        file_list
+          << path_entry.lexically_relative(path_dir_src).string()
+          << '\n';      
+      }
+    }
+    // Regular file or symlink
+    else if(entry->is_regular_file() or entry->is_symlink())
+    {
+      file_list
+        << path_entry.lexically_relative(path_dir_src).string()
+        << '\n';      
+    }
+    // Unsupported for compression
+    else
+    {
+      ns_log::info()("Ignoring file '{}'", path_entry);
+    }
+  }
+  file_list.close();
 
   // Compress filesystem
   ns_log::info()("Compression level: '{}'", compression_level);
@@ -39,6 +83,7 @@ inline void create(fs::path const& path_dir_src, fs::path const& path_file_dst, 
     .with_args("-f")
     .with_args("-i", path_dir_src, "-o", path_file_dst)
     .with_args("-l", compression_level)
+    .with_args("--input-list", path_file_list_tmp)
     .spawn()
     .wait();
   ethrow_if(not ret, "mkdwarfs process exited abnormally");

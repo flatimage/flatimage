@@ -473,7 +473,11 @@ inline int parse_cmds(ns_config::FlatimageConfig& config, int argc, char** argv)
     } // if
     else
     {
-      ns_layers::create(cmd->args.at(0), cmd->args.at(1), config.layer_compression_level);
+      ns_layers::create(cmd->args.at(0)
+        , cmd->args.at(1)
+        , config.path_dir_host_config_tmp / "compression.list"
+        , config.layer_compression_level
+      );
     } // else
   } // else if
   // Bind a device or file to the flatimage
@@ -491,16 +495,41 @@ inline int parse_cmds(ns_config::FlatimageConfig& config, int argc, char** argv)
   else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdCommit>(*variant_cmd) )
   {
     // Set source directory and target compressed file
-    fs::path path_file_layer = config.path_dir_host_config / "layer.tmp";
-    fs::path path_dir_src = config.path_dir_data_overlayfs / "upperdir";
+    fs::path path_file_layer_tmp = config.path_dir_host_config_tmp / "layer.tmp";
+    fs::path path_file_list_tmp = config.path_dir_host_config_tmp / "compression.list";
     // Create filesystem based on the contents of src
-    ns_layers::create(path_dir_src, path_file_layer, config.layer_compression_level);
+    ns_layers::create(config.path_dir_upper_overlayfs
+      , path_file_layer_tmp
+      , path_file_list_tmp
+      , config.layer_compression_level
+    );
     // Include filesystem in the image
-    ns_layers::add(config.path_file_binary, path_file_layer);
-    // Remove compressed filesystem
-    fs::remove(path_file_layer);
-    // Remove upper directory
-    fs::remove_all(path_dir_src);
+    ns_layers::add(config.path_file_binary, path_file_layer_tmp);
+    // Remove layer file
+    std::error_code ec;
+    if(not fs::remove(path_file_layer_tmp))
+    {
+      ns_log::error()("Could not erase layer file '{}'", path_file_layer_tmp.string());
+    }
+    // Remove files from the compression list
+    std::ifstream file_list(path_file_list_tmp);
+    ethrow_if(not file_list.is_open(), "Could not open file list for erasing files...");
+    std::string line;
+    while(std::getline(file_list, line))
+    {
+      fs::path path_file_target = config.path_dir_upper_overlayfs / line;
+      fs::path path_dir_parent = path_file_target.parent_path();
+      // Remove target file
+      if(not fs::remove(path_file_target, ec))
+      {
+        ns_log::error()("Could not remove file {}"_fmt(path_file_target));
+      }
+      // Remove empty directory
+      if(fs::is_empty(path_dir_parent, ec) and not fs::remove(path_dir_parent, ec))
+      {
+        ns_log::error()("Could not remove directory {}"_fmt(path_dir_parent));
+      }
+    }
   } // else if
   else if ( auto cmd = ns_variant::get_if_holds_alternative<ns_parser::CmdNotify>(*variant_cmd) )
   {
