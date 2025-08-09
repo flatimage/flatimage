@@ -568,7 +568,7 @@ inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissi
     .with_args("-c", R"("{}" "$@")"_fmt(*expected_path_file_bwrap), "--")
     .with_args("--error-fd", std::to_string(pipe_error[1]))
     .with_args(m_args)
-    .with_args(opt_path_file_bash.value(), "-c", R"("{}" "{}" guest & "{}" "$@")"_fmt(path_file_daemon, getpid(), m_path_file_program), "--")
+    .with_args(opt_path_file_bash.value(), "-c", R"(&>/dev/null nohup "{}" "{}" guest & disown; "{}" "$@")"_fmt(path_file_daemon, getpid(), m_path_file_program), "--")
     .with_args(m_program_args)
     .with_env(m_program_env)
     .spawn()
