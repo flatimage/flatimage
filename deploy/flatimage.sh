@@ -15,6 +15,8 @@ set -e
 FIM_DIR_SCRIPT=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 FIM_DIR="$(dirname "$FIM_DIR_SCRIPT")"
 FIM_DIR_BUILD="$FIM_DIR"/build
+# 2MB of reserved space
+FIM_RESERVED_SIZE="$(echo "2 * (2^20)" | bc)"
 
 # shellcheck source=/dev/null
 source "${FIM_DIR_SCRIPT}/common.sh"
@@ -84,21 +86,46 @@ function _create_elf()
   local img="$1"
   local out="$2"
 
+  declare -a BINARIES=(
+    bin/fim_portal
+    bin/fim_portal_daemon
+    bin/fim_bwrap_apparmor
+    bin/bash
+    bin/busybox
+    bin/bwrap
+    bin/ciopfs
+    bin/dwarfs_aio
+    bin/janitor
+    bin/lsof
+    bin/overlayfs
+    bin/unionfs
+    bin/proot
+  )
   # Boot is the program on top of the image
   cp bin/boot "$out"
+  size_boot=$(du -b "$out" | awk '{print $1}')
+  # Patch offset size to filesystems
+  FIM_RESERVED_OFFSET=$((FIM_RESERVED_OFFSET + size_boot))
+  for binary in "${BINARIES[@]}"; do
+    size_binary="$(du -b "$binary" | awk '{print $1}')"
+    FIM_RESERVED_OFFSET=$((FIM_RESERVED_OFFSET + size_binary + 8))
+  done
+  echo "FIM_RESERVED_OFFSET: $FIM_RESERVED_OFFSET"
+  objcopy --update-section .fim_reserved_offset=<( perl -e 'print pack("L<", shift)' "$FIM_RESERVED_OFFSET" ) "$out"
   # Append binaries
-  for binary in bin/{bash,busybox,bwrap,ciopfs,dwarfs_aio,fim_portal,fim_portal_daemon,fim_bwrap_apparmor,janitor,lsof,overlayfs,unionfs,proot}; do
-    hex_size_binary="$( du -b "$binary" | awk '{print $1}' | xargs -I{} printf "%016x\n" {} )"
+  for binary in "${BINARIES[@]}"; do
+    size_binary="$(du -b "$binary" | awk '{print $1}')"
+    size_hex_binary="$(echo "$size_binary" | xargs -I{} printf "%016x\n" {})"
     # Write binary size
+    # uint64_t = 8 bytes
     for byte_index in $(seq 0 7 | sort -r); do
-      local byte="${hex_size_binary:$(( byte_index * 2)):2}"
+      local byte="${size_hex_binary:$(( byte_index * 2)):2}"
       echo -ne "\\x$byte" >> "$out"
     done
-    # Append binary
     cat "$binary" >> "$out"
   done
   # Create reserved space
-  dd if=/dev/zero of="$out" bs=1 count=2097152 oflag=append conv=notrunc
+  dd if=/dev/zero of="$out" bs=1 count="$FIM_RESERVED_SIZE" oflag=append conv=notrunc
   # Write size of image rightafter
   size_img="$( du -b "$img" | awk '{print $1}' | xargs -I{} printf "%016x\n" {} )"
   for byte_index in $(seq 0 7 | sort -r); do
@@ -133,7 +160,10 @@ function _create_subsystem_blueprint()
   # Compile and include runner
   (
     cd "$FIM_DIR"
-    docker build . --build-arg FIM_DIST=BLUEPRINT --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
+    docker build . \
+      --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
+      --build-arg FIM_DIST=BLUEPRINT \
+      --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/boot /host/bin
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/janitor /host/bin
   )
@@ -242,7 +272,10 @@ function _create_subsystem_alpine()
   # Compile and include runner
   (
     cd "$FIM_DIR"
-    docker build . --build-arg FIM_DIST=ALPINE --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
+    docker build . \
+      --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
+      --build-arg FIM_DIST=ALPINE \
+      --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/boot /host/bin
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/janitor /host/bin
   )
@@ -460,7 +493,10 @@ function _create_subsystem_arch()
   # Compile and include runner
   (
     cd "$FIM_DIR"
-    docker build . --build-arg FIM_DIST=ARCH --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
+    docker build . \
+      --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
+      --build-arg FIM_DIST=ARCH \
+      --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/boot /host/bin
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/janitor /host/bin
   )

@@ -16,9 +16,16 @@
 #include "../cpp/lib/elf.hpp"
 
 #include "config/config.hpp"
-#include "metadata.hpp"
 #include "parser.hpp"
 #include "portal.hpp"
+
+// Section for offset to filesystems
+extern "C"
+{
+  alignas(4)
+  __attribute__((section(".fim_reserved_offset"), used))
+  uint32_t FIM_RESERVED_OFFSET = 0;
+}
 
 // Unix environment variables
 extern char** environ;
@@ -61,93 +68,86 @@ constexpr std::array<const char*,403> const arr_busybox_applet
 };
 
 // relocate() {{{
-void relocate(char** argv)
+[[nodiscard]] std::expected<void,std::string> relocate(char** argv)
 {
+  std::error_code ec;
   // This part of the code is executed to write the runner,
   // rightafter the code is replaced by the runner.
   // This is done because the current executable cannot mount itself.
 
   // Get path to called executable
-  ethrow_if(!std::filesystem::exists("/proc/self/exe"), "Error retrieving executable path for self");
-  auto path_absolute = fs::read_symlink("/proc/self/exe");
-
+  qreturn_if(!std::filesystem::exists("/proc/self/exe", ec), std::unexpected("Error retrieving executable path for self"));
+  auto path_absolute = fs::read_symlink("/proc/self/exe", ec);
+  // Helper to create directories
+  auto f_dir_create_if_not_exists = [](fs::path const& p) -> std::expected<fs::path,std::string>
+  {
+    std::error_code ec;
+    qreturn_if (not fs::exists(p, ec) and not fs::create_directories(p, ec)
+      , std::unexpected("Failed to create directory {}"_fmt(p))
+    );
+    return p;
+  };
   // Create base dir
-  fs::path path_dir_base = "/tmp/fim";
-  ethrow_if (not fs::exists(path_dir_base) and not fs::create_directories(path_dir_base)
-    , "Failed to create directory {}"_fmt(path_dir_base)
-  );
-
+  fs::path path_dir_base = expect(f_dir_create_if_not_exists("/tmp/fim"));
   // Make the temporary directory name
-  fs::path path_dir_app = path_dir_base / "app" / "{}_{}"_fmt(FIM_COMMIT, FIM_TIMESTAMP);
-  ethrow_if(not fs::exists(path_dir_app) and not fs::create_directories(path_dir_app)
-    , "Failed to create directory {}"_fmt(path_dir_app)
-  );
-
+  fs::path path_dir_app = expect(f_dir_create_if_not_exists(path_dir_base / "app" / "{}_{}"_fmt(FIM_COMMIT, FIM_TIMESTAMP)));
   // Create bin dir
-  fs::path path_dir_app_bin = path_dir_app / "bin";
-  ethrow_if(not fs::exists(path_dir_app_bin) and not fs::create_directories(path_dir_app_bin),
-    "Failed to create directory {}"_fmt(path_dir_app_bin)
-  );
-
+  fs::path path_dir_app_bin = expect(f_dir_create_if_not_exists(path_dir_app / "bin"));
   // Create busybox dir
-  fs::path path_dir_busybox = path_dir_app_bin / "busybox";
-  ethrow_if(not fs::exists(path_dir_busybox) and not fs::create_directories(path_dir_busybox),
-    "Failed to create directory {}"_fmt(path_dir_busybox)
-  );
-
+  fs::path path_dir_busybox = expect(f_dir_create_if_not_exists(path_dir_app_bin / "busybox"));
   // Set variables
   ns_env::set("FIM_DIR_GLOBAL", path_dir_base.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_DIR_APP", path_dir_app.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_DIR_APP_BIN", path_dir_app_bin.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_DIR_BUSYBOX", path_dir_busybox.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_FILE_BINARY", path_absolute.c_str(), ns_env::Replace::Y);
-
   // Create instance directory
-  fs::path path_dir_instance = "{}/{}/{}"_fmt(path_dir_app, "instance", std::to_string(getpid()));
+  fs::path path_dir_instance = expect(f_dir_create_if_not_exists("{}/{}/{}"_fmt(path_dir_app, "instance", std::to_string(getpid()))));
   ns_env::set("FIM_DIR_INSTANCE", path_dir_instance.c_str(), ns_env::Replace::Y);
-  ethrow_if(not fs::exists(path_dir_instance) and not fs::create_directories(path_dir_instance)
-    , "Could not mount directory '{}'"_fmt(path_dir_instance)
-  );
-
   // Path to directory with mount points
-  fs::path path_dir_mount = path_dir_instance / "mount";
+  fs::path path_dir_mount = expect(f_dir_create_if_not_exists(path_dir_instance / "mount"));
   ns_env::set("FIM_DIR_MOUNT", path_dir_mount.c_str(), ns_env::Replace::Y);
-  ethrow_if(not fs::exists(path_dir_mount) and not fs::create_directory(path_dir_mount)
-    , "Could not mount directory '{}'"_fmt(path_dir_mount)
-  );
 
   // Starting offsets
   uint64_t offset_beg = 0;
-  uint64_t offset_end = ns_elf::skip_elf_header(path_absolute.c_str());
-
+  uint64_t offset_end = ns_elf::skip_elf_header(path_absolute.c_str()).value();
   // Write by binary header offset
   auto f_write_from_header = [&](fs::path path_file, uint64_t offset_end)
+    -> std::expected<std::pair<uint64_t,uint64_t>,std::string>
   {
     // Update offsets
     offset_beg = offset_end;
-    offset_end = ns_elf::skip_elf_header(path_absolute.c_str(), offset_beg) + offset_beg;
+    offset_end = ns_elf::skip_elf_header(path_absolute.c_str(),offset_beg).value() + offset_beg;
     // Write binary only if it doesnt already exist
-    if ( ! fs::exists(path_file) )
+    if ( ! fs::exists(path_file, ec) )
     {
-      ns_elf::copy_binary(path_absolute.string(), path_file, {offset_beg, offset_end});
+      expect(ns_elf::copy_binary(path_absolute.string()
+        , path_file
+        , {offset_beg
+        , offset_end})
+      );
     }
     // Set permissions
-    fs::permissions(path_file.c_str(), fs::perms::owner_all | fs::perms::group_all);
+    fs::permissions(path_file.c_str(), fs::perms::owner_all | fs::perms::group_all, ec);
     // Return new values for offsets
     return std::make_pair(offset_beg, offset_end);
   };
 
   // Write by binary byte offset
   auto f_write_from_offset = [&](std::ifstream& file_binary, fs::path path_file, uint64_t offset_end)
+    -> std::expected<std::pair<uint64_t,uint64_t>,std::string>
   {
+    std::error_code ec;
     uint64_t offset_beg = offset_end;
     // Set file position
     file_binary.seekg(offset_beg);
     // Read size bytes (FATAL if fails)
     uint64_t size;
-    ethrow_if(not file_binary.read(reinterpret_cast<char*>(&size), sizeof(size)), "Could not read binary size");
+    qreturn_if(not file_binary.read(reinterpret_cast<char*>(&size), sizeof(size))
+      , std::unexpected("Could not read binary size")
+    );
     // Open output file and write 
-    if ( lec(fs::exists, path_file) )
+    if (fs::exists(path_file, ec))
     {
       file_binary.seekg(offset_beg + size + sizeof(size));
     } // if
@@ -155,14 +155,15 @@ void relocate(char** argv)
     {
       // Read binary
       std::vector<char> buffer(size);
-      ethrow_if(not file_binary.read(buffer.data(), size), "Could not read binary");
+      qreturn_if(not file_binary.read(buffer.data(), size), std::unexpected("Could not read binary"));
       // Open output binary file
       std::ofstream of{path_file, std::ios::out | std::ios::binary};
-      ethrow_if(not of.is_open(), "Could not open output file '{}'"_fmt(path_file));
+      qreturn_if(not of.is_open(), std::unexpected("Could not open output file '{}'"_fmt(path_file)));
       // Write binary
-      ethrow_if(not of.write(buffer.data(), size), "Could not write binary file '{}'"_fmt(path_file));
+      qreturn_if(not of.write(buffer.data(), size), std::unexpected("Could not write binary file '{}'"_fmt(path_file)));
       // Set permissions
-      lec(fs::permissions, path_file.c_str(), fs::perms::owner_all | fs::perms::group_all);
+      fs::permissions(path_file, fs::perms::owner_all | fs::perms::group_all, ec);
+      elog_if(ec, "Error on setting permissions of file '{}': {}"_fmt(path_file, ec.message()));
     } // if
     // Return new values for offsets
     return std::make_pair(offset_beg, file_binary.tellg());
@@ -172,23 +173,22 @@ void relocate(char** argv)
   auto start = std::chrono::high_resolution_clock::now();
   fs::path path_file_dwarfs_aio = path_dir_app_bin / "dwarfs_aio";
   std::ifstream file_binary{path_absolute, std::ios::in | std::ios::binary};
-  ethrow_if(not file_binary.is_open(), "Could not open flatimage binary file");
-  std::tie(offset_beg, offset_end) = f_write_from_header(path_dir_instance / "fim_boot" , 0);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "bash", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_busybox / "busybox", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "bwrap", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "ciopfs", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_file_dwarfs_aio, offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "fim_portal", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "fim_portal_daemon", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "fim_bwrap_apparmor", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "janitor", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "lsof", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "overlayfs", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "unionfs", offset_end);
-  std::tie(offset_beg, offset_end) = f_write_from_offset(file_binary, path_dir_app_bin / "proot", offset_end);
+  qreturn_if(not file_binary.is_open(), std::unexpected("Could not open flatimage binary file"));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_header(path_dir_instance / "fim_boot" , 0));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "bash", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_busybox / "busybox", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "bwrap", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "ciopfs", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_file_dwarfs_aio, offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_portal", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_portal_daemon", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_bwrap_apparmor", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "janitor", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "lsof", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "overlayfs", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "unionfs", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "proot", offset_end));
   file_binary.close();
-  std::error_code ec;
   fs::create_symlink(path_file_dwarfs_aio, path_dir_app_bin / "dwarfs", ec);
   fs::create_symlink(path_file_dwarfs_aio, path_dir_app_bin / "mkdwarfs", ec);
   auto end = std::chrono::high_resolution_clock::now();
@@ -201,6 +201,9 @@ void relocate(char** argv)
 
   // Filesystem starts here
   ns_env::set("FIM_OFFSET", std::to_string(offset_end).c_str(), ns_env::Replace::Y);
+  qreturn_if(offset_end != FIM_RESERVED_OFFSET
+    , std::unexpected("Broken image OFFSET({}) != FIM_RESERVED_OFFSET({})"_fmt(offset_end, FIM_RESERVED_OFFSET))
+  );
   ns_log::debug()("FIM_OFFSET: {}", offset_end);
 
   // Option to show offset and exit (to manually mount the fs with fuse2fs)
@@ -214,7 +217,8 @@ void relocate(char** argv)
   } // if
 
   // Launch Runner
-  execve("{}/fim_boot"_fmt(path_dir_instance).c_str(), argv, environ);
+  int code = execve("{}/fim_boot"_fmt(path_dir_instance).c_str(), argv, environ);
+  return std::unexpected("Could not perform 'evecve({})': {}"_fmt(code, strerror(errno)));
 } // relocate() }}}
 
 // boot() {{{
@@ -234,9 +238,14 @@ boot_return_t boot(int argc, char** argv)
   ns_log::exception([&]{ ns_desktop::integrate(*config); });
 
   // Parse flatimage command if exists
-  int code_exit = ns_parser::parse_cmds(*config, argc, argv);
+  auto code_exit = ns_parser::parse_cmds(*config, argc, argv);
+  if(not code_exit)
+  {
+    ns_log::error()("Error parsing commands: {}", code_exit.error());
+    code_exit = 125;
+  }
 
-  return {code_exit, std::move(config)};
+  return {code_exit.value(), std::move(config)};
 } // boot() }}}
 
 // main() {{{
@@ -283,7 +292,10 @@ int main(int argc, char** argv)
   if ( fs::file_size(path_file_self) != ns_elf::skip_elf_header(path_file_self) )
   {
     ns_log::debug()("Relocating binary");
-    relocate(argv);
+    if(auto relocated_result = relocate(argv); not relocated_result)
+    {
+      ns_log::error()(relocated_result.error());
+    }
     // This function should not reach the return statement due to evecve
     return EXIT_FAILURE;
   } // if

@@ -20,8 +20,11 @@ WORKDIR $FIM_DIR/src/boot
 ARG FIM_DIST
 ENV FIM_DIST=$FIM_DIST
 
+ARG FIM_RESERVED_SIZE
+ENV FIM_RESERVED_SIZE=$FIM_RESERVED_SIZE
+
 # Compile
-RUN cmake -H. -Bbuild
+RUN cmake -H. -Bbuild -DFIM_RESERVED_SIZE="$FIM_RESERVED_SIZE"
 RUN cmake --build build
 RUN strip -s ./build/boot
 

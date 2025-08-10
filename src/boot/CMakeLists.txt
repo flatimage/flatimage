@@ -36,7 +36,9 @@ endif()
 # Definitions
 ## Distribution
 add_definitions("-DFIM_DIST=\"$ENV{FIM_DIST}\"")
+add_definitions("-DFIM_RESERVED_SIZE=$ENV{FIM_RESERVED_SIZE}")
 message(STATUS "FIM_DIST: ${FIM_DIST}")
+message(STATUS "FIM_RESERVED_SIZE: ${FIM_RESERVED_SIZE}")
 ## Version
 execute_process(
   COMMAND ${GIT_COMMAND} describe --tags --abbrev=0
