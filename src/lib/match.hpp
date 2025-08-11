@@ -9,6 +9,7 @@
 #include <expected>
 
 #include "../std/concept.hpp"
+#include "../macro.hpp"
 
 namespace ns_match
 {
@@ -63,16 +64,16 @@ template<typename... T, typename U>
     {
       if constexpr ( std::is_void_v<std::invoke_result_t<U>>  )
       {
-        return (partial_comp(e))? (rhs(), std::expected<void,std::string>{}) : std::unexpected("");
+        return (partial_comp(e))? (rhs(), Expected<void>{}) : Unexpected("");
       } // if
       else
       {
-        return (partial_comp(e))? std::expected<std::invoke_result_t<U>,std::string>(rhs()) : std::unexpected("");
+        return (partial_comp(e))? Expected<std::invoke_result_t<U>>(rhs()) : Unexpected("");
       } // else
     } // if
     else
     {
-      return (partial_comp(e))? std::expected<U,std::string>(rhs) : std::unexpected("");
+      return (partial_comp(e))? Expected<U>(rhs) : Unexpected("");
     } // else if
   };
 } // }}}
@@ -83,14 +84,14 @@ requires ( sizeof...(Args) > 0 )
 and ( std::is_invocable_v<Args,T> and ... )
 and ( ns_concept::IsInstanceOf<std::invoke_result_t<Args,T>, std::expected> and ... )
 [[nodiscard]] auto match(T&& t, Args&&... args) noexcept
-  -> std::expected<typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type,std::string>
+  -> Expected<typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type>
 {
-  std::expected<typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type, std::string> result;
+  Expected<typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type> result;
 
   // Use fold expression to evaluate each argument
   if(not ((result = args(t), result.has_value()) || ...))
   {
-    result = std::unexpected("No match value match for type");
+    result = Unexpected("No match value match for type");
   }
   
   return result;

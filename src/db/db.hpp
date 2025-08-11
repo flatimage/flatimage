@@ -55,7 +55,7 @@ class Db
     [[maybe_unused]] [[nodiscard]] std::vector<std::string> keys() const noexcept;
     [[maybe_unused]] [[nodiscard]] std::vector<std::pair<std::string, Db>> items() const noexcept;
     template<typename V = Db>
-    [[maybe_unused]] [[nodiscard]] std::expected<V,std::string> value() noexcept;
+    [[maybe_unused]] [[nodiscard]] Expected<V> value() noexcept;
     template<typename V>
     [[maybe_unused]] [[nodiscard]] V value_or_default(IsString auto&& k, V&& v = V{}) const noexcept;
     template<typename F, IsString Ks>
@@ -136,7 +136,7 @@ inline std::vector<std::pair<std::string,Db>> Db::items() const noexcept
 
 // value() {{{
 template<typename V>
-std::expected<V, std::string> Db::value() noexcept
+Expected<V> Db::value() noexcept
 {
   json_t& json = data();
   if constexpr ( std::same_as<V,Db> )
@@ -145,7 +145,7 @@ std::expected<V, std::string> Db::value() noexcept
   } // if
   else if constexpr ( ns_concept::IsVector<V> )
   {
-    qreturn_if(not json.is_array(), std::unexpected("Tried to create array with non-array entry"));
+    qreturn_if(not json.is_array(), Unexpected("Tried to create array with non-array entry"));
     return std::ranges::subrange(json.begin(), json.end())
       | std::views::transform([](auto&& e){ return typename std::remove_cvref_t<V>::value_type(e); })
       | std::ranges::to<V>();
@@ -153,8 +153,8 @@ std::expected<V, std::string> Db::value() noexcept
   else
   {
     return ( json.is_string() )?
-        std::expected<V,std::string>(std::string{json})
-      : std::unexpected("Json element is not a string");
+        Expected<V>(std::string{json})
+      : Unexpected("Json element is not a string");
   } // else
 } // value() }}}
 
@@ -191,7 +191,7 @@ decltype(auto) Db::apply(F&& f, Ks&& ks)
   {
     return ns_exception::to_expected([&]{ return f(*access); });
   } // if
-  return std::unexpected("Could not apply function");
+  return Unexpected("Could not apply function");
 } // apply() }}}
 
 // dump() {{{
@@ -274,7 +274,7 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
 } // operator<< }}}
 
 // read_file() {{{
-auto read_file(IsString auto&& t) -> std::expected<Db, std::string>
+auto read_file(IsString auto&& t) -> Expected<Db>
 {
   fs::path path_file_db{ns_string::to_string(t)};
   std::error_code ec;
@@ -294,29 +294,29 @@ auto read_file(IsString auto&& t) -> std::expected<Db, std::string>
   };
   // Open target file as read
   std::ifstream file(path_file_db, std::ios::in);
-  qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}'"_fmt(path_file_db)));
+  qreturn_if(not file.is_open(), Unexpected("Failed to open '{}'"_fmt(path_file_db)));
   // Try to parse
   auto optional_json = f_parse_file(file);
-  qreturn_if(not optional_json, std::unexpected("Failed to parse db '{}'"_fmt(path_file_db)));
+  qreturn_if(not optional_json, Unexpected("Failed to parse db '{}'"_fmt(path_file_db)));
   // Return parsed database
   return Db(optional_json.value());
 } // function: read_file }}}
 
 // write_file() {{{
-inline auto write_file(fs::path const& path_file_db, Db& db) -> std::expected<void, std::string>
+inline auto write_file(fs::path const& path_file_db, Db& db) -> Expected<void>
 {
   std::ofstream file(path_file_db, std::ios::trunc);
-  qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}' for writing"));
+  qreturn_if(not file.is_open(), Unexpected("Failed to open '{}' for writing"));
   file << std::setw(2) << db.dump();
   file.close();
-  return std::expected<void, std::string>{};
+  return Expected<void>{};
 } // function: write_file }}}
 
 // from_string() {{{
 template<ns_concept::StringRepresentable S>
-std::expected<Db, std::string> from_string(S&& s)
+Expected<Db> from_string(S&& s)
 {
-  qreturn_if(not json_t::accept(ns_string::to_string(s)), std::unexpected("Could not parse json file"));
+  qreturn_if(not json_t::accept(ns_string::to_string(s)), Unexpected("Could not parse json file"));
   return Db(json_t::parse(ns_string::to_string(s)));
 } // function: from_string }}}
 

@@ -47,11 +47,11 @@ namespace fs = std::filesystem;
  * @param size The size of the icon, e.g., 32x32, 64x64
  * @return The constructed icon path 
  */
-[[nodiscard]] std::expected<fs::path,std::string> get_path_file_icon_png(std::optional<std::string_view> name_app
+[[nodiscard]] Expected<fs::path> get_path_file_icon_png(std::optional<std::string_view> name_app
   , std::string_view template_dir
   , uint32_t size) noexcept
 {
-  return expect(ns_env::xdg_data_home<fs::path>())
+  return Expect(ns_env::xdg_data_home<fs::path>())
     / std::vformat(template_dir, std::make_format_args(size, size))
     / name_app
       .transform([](auto&& e){ return std::vformat(template_file_icon, std::make_format_args(e)); })
@@ -65,36 +65,36 @@ namespace fs = std::filesystem;
  * @param template_dir The template path to the icon's directory
  * @return The constructed icon path 
  */
-[[nodiscard]] std::expected<fs::path,std::string> get_path_file_icon_svg(std::optional<std::string_view> name_app
+[[nodiscard]] Expected<fs::path> get_path_file_icon_svg(std::optional<std::string_view> name_app
   , std::string_view template_dir) noexcept
 {
-  return expect(ns_env::xdg_data_home<fs::path>())
+  return Expect(ns_env::xdg_data_home<fs::path>())
     / template_dir
     / name_app
       .transform([](auto&& e){ return std::vformat(template_file_icon_scalable, std::make_format_args(e)); })
       .value_or("application-flatimage.svg");
 }
 
-[[nodiscard]] std::expected<std::string,std::string> read_json_from_binary(ns_config::FlatimageConfig const& config)
+[[nodiscard]] Expected<std::string> read_json_from_binary(ns_config::FlatimageConfig const& config)
 {
-  return expect(ns_reserved::ns_desktop::read(config.path_file_binary).transform([](auto&& e){ return std::string(e); }));
+  return Expect(ns_reserved::ns_desktop::read(config.path_file_binary).transform([](auto&& e){ return std::string(e); }));
 }
 
 // write_json_to_binary() {{{
-std::expected<void,std::string> write_json_to_binary(ns_config::FlatimageConfig const& config
+Expected<void> write_json_to_binary(ns_config::FlatimageConfig const& config
   , std::string_view str_raw_json)
 {
   return ns_reserved::ns_desktop::write(config.path_file_binary, str_raw_json);
 } // write_json_to_binary() }}}
 
 // read_image_from_binary() {{{
-std::expected<std::pair<std::unique_ptr<char[]>,uint64_t>,std::string> read_image_from_binary(fs::path const& path_file_binary
+Expected<std::pair<std::unique_ptr<char[]>,uint64_t>> read_image_from_binary(fs::path const& path_file_binary
   , uint64_t offset
   , uint64_t size)
 {
   auto ptr_data = std::make_unique<char[]>(size);
   auto expected_bytes = ns_reserved::read(path_file_binary, offset, ptr_data.get(), size);
-  qreturn_if(not expected_bytes, std::unexpected(expected_bytes.error()));
+  qreturn_if(not expected_bytes, Unexpected(expected_bytes.error()));
   return std::make_pair(std::move(ptr_data), *expected_bytes);
 } // read_image_from_binary() }}}
 
@@ -267,26 +267,26 @@ void integrate_icon_flatimage()
 } // integrate_icon_flatimage() }}}
 
 // integrate_icons() {{{
-inline std::expected<void,std::string> integrate_icons(ns_config::FlatimageConfig const& config, ns_db::ns_desktop::Desktop const& desktop)
+inline Expected<void> integrate_icons(ns_config::FlatimageConfig const& config, ns_db::ns_desktop::Desktop const& desktop)
 {
   std::error_code ec;
   // Check for existing integration
-  fs::path path_file_icon = expect(get_path_file_icon_png(desktop.get_name(), template_dir_apps, 64)
+  fs::path path_file_icon = Expect(get_path_file_icon_png(desktop.get_name(), template_dir_apps, 64)
     .or_else([&](auto&&) { return get_path_file_icon_svg(desktop.get_name(), template_dir_apps_scalable); }));
-  qreturn_if(fs::exists(path_file_icon), std::unexpected("Icons are integrated, found {}"_fmt(path_file_icon)));
+  qreturn_if(fs::exists(path_file_icon), Unexpected("Icons are integrated, found {}"_fmt(path_file_icon)));
   // Read picture from flatimage binary
   ns_reserved::ns_icon::Icon icon;
   auto expected_data_image = read_image_from_binary(config.path_file_binary
     , ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN
     , sizeof(icon)
   );
-  qreturn_if(not expected_data_image, std::unexpected(expected_data_image.error()));
+  qreturn_if(not expected_data_image, Unexpected(expected_data_image.error()));
   std::memcpy(&icon, expected_data_image->first.get(), sizeof(icon));
   // Create temporary file to write icon to
   auto path_file_tmp_icon = config.path_dir_app / "icon.{}"_fmt(icon.m_ext);
   // Write icon to temporary file
   std::ofstream file_icon(path_file_tmp_icon);
-  qreturn_if(not file_icon.is_open(), std::unexpected("Could not open temporary icon file for desktop integration"));
+  qreturn_if(not file_icon.is_open(), Unexpected("Could not open temporary icon file for desktop integration"));
   file_icon.write(icon.m_data, icon.m_size);
   file_icon.close();
   // Create icons
@@ -350,19 +350,19 @@ void integrate_bash(fs::path const& path_dir_home)
 } // namespace
 
 // integrate() {{{
-inline std::expected<void,std::string> integrate(ns_config::FlatimageConfig const& config)
+inline Expected<void> integrate(ns_config::FlatimageConfig const& config)
 {
   // Deserialize json from binary
-  auto str_raw_json = expect(read_json_from_binary(config)
+  auto str_raw_json = Expect(read_json_from_binary(config)
     , "Could not read desktop json from binary: {}", __expected_ret.error()
   );
-  auto desktop = expect(ns_db::ns_desktop::deserialize(str_raw_json)
+  auto desktop = Expect(ns_db::ns_desktop::deserialize(str_raw_json)
     , "Could not parse json data: {}", __expected_ret.error()
   );
   ns_log::debug()("Json desktop data: {}", str_raw_json);
 
   // Get HOME directory
-  std::string_view cstr_home = expect(ns_env::get_expected("HOME"));
+  std::string_view cstr_home = Expect(ns_env::get_expected("HOME"));
 
   // Check if XDG_DATA_DIRS contains ~/.local/bin
   if (auto cstr_shell = ns_env::get_expected("SHELL"))
@@ -407,15 +407,15 @@ inline std::expected<void,std::string> integrate(ns_config::FlatimageConfig cons
   } // if
 
   // Check if should notify
-  if (expect(ns_reserved::ns_notify::read(config.path_file_binary)))
+  if (Expect(ns_reserved::ns_notify::read(config.path_file_binary)))
   {
     // Get bash binary
     auto path_file_binary_bash = ns_subprocess::search_path("bash");
-    qreturn_if(not path_file_binary_bash, std::unexpected("Could not find bash in PATH"));
+    qreturn_if(not path_file_binary_bash, Unexpected("Could not find bash in PATH"));
     // Get possible icon paths
     auto path_file_icon = get_path_file_icon_png(desktop.get_name(), template_dir_apps, 64)
       .or_else([&](auto&&){ return get_path_file_icon_svg(desktop.get_name(), template_dir_apps_scalable); });
-    qreturn_if(not path_file_icon, std::unexpected("Could not find icon for notify-send"));
+    qreturn_if(not path_file_icon, Unexpected("Could not find icon for notify-send"));
     // Path to mimetype icon
     std::ignore = ns_subprocess::Subprocess(path_file_binary_bash.value())
       .with_piped_outputs()
@@ -432,40 +432,40 @@ inline std::expected<void,std::string> integrate(ns_config::FlatimageConfig cons
 } // integrate() }}}
 
 // setup() {{{
-inline std::expected<void,std::string> setup(ns_config::FlatimageConfig const& config, fs::path const& path_file_json_src)
+inline Expected<void> setup(ns_config::FlatimageConfig const& config, fs::path const& path_file_json_src)
 {
   // Create desktop struct with input json
   std::ifstream file_json_src{path_file_json_src};
   qreturn_if(not file_json_src.is_open()
-      , std::unexpected("Failed to open file '{}' for desktop integration"_fmt(path_file_json_src))
+      , Unexpected("Failed to open file '{}' for desktop integration"_fmt(path_file_json_src))
   );
-  auto desktop = expect(ns_db::ns_desktop::deserialize(file_json_src), "Failed to deserialize json: {}", __expected_ret.error());
+  auto desktop = Expect(ns_db::ns_desktop::deserialize(file_json_src), "Failed to deserialize json: {}", __expected_ret.error());
   // Validate icon
-  fs::path path_file_icon = expect(desktop.get_path_file_icon(), "Could not retrieve icon path field from json: {}", __expected_ret.error());
+  fs::path path_file_icon = Expect(desktop.get_path_file_icon(), "Could not retrieve icon path field from json: {}", __expected_ret.error());
   std::string str_ext = (path_file_icon.extension() == ".svg")? "svg"
     : (path_file_icon.extension() == ".png")? "png"
     : (path_file_icon.extension() == ".jpg" or path_file_icon.extension() == ".jpeg")? "jpg"
     : "";
-  qreturn_if(str_ext.empty(), std::unexpected("Icon extension '{}' is not supported"_fmt(path_file_icon.extension())));
+  qreturn_if(str_ext.empty(), Unexpected("Icon extension '{}' is not supported"_fmt(path_file_icon.extension())));
   // Read icon into memory
   uintmax_t size_file_icon = fs::file_size(path_file_icon);
   qreturn_if(size_file_icon >= ns_reserved::FIM_RESERVED_OFFSET_ICON_END - ns_reserved::FIM_RESERVED_OFFSET_ICON_END
-    , std::unexpected("File is too large, '{}' bytes"_fmt(size_file_icon))
+    , Unexpected("File is too large, '{}' bytes"_fmt(size_file_icon))
   );
   auto expected_image_data = read_image_from_binary(path_file_icon, 0, size_file_icon);
-  qreturn_if(not expected_image_data, std::unexpected("Could not read source image: {}"_fmt(expected_image_data.error())));
+  qreturn_if(not expected_image_data, Unexpected("Could not read source image: {}"_fmt(expected_image_data.error())));
   // Create icon struct
   ns_reserved::ns_icon::Icon icon;
   std::memcpy(icon.m_ext, str_ext.data(), sizeof(icon.m_ext));
   std::memcpy(icon.m_data, expected_image_data->first.get(), expected_image_data->second);
   icon.m_size = expected_image_data->second;
   // Write icon struct to the flatimage binary
-  expect(ns_reserved::ns_icon::write(config.path_file_binary, icon), "Could not write image data: {}", __expected_ret.error());
+  Expect(ns_reserved::ns_icon::write(config.path_file_binary, icon), "Could not write image data: {}", __expected_ret.error());
   // Write json to flatimage binary, excluding the input icon path
-  auto str_raw_json = expect(ns_db::ns_desktop::serialize(desktop), "Failed to serialize desktop integration: {}" , __expected_ret.error());
-  auto db = expect(ns_db::from_string(str_raw_json), "Could not parse serialized json source: {}", __expected_ret.error());
-  qreturn_if(not db.erase("icon"), std::unexpected("Could not erase icon field"));
-  expect(ns_reserved::ns_desktop::write(config.path_file_binary, db.dump()));
+  auto str_raw_json = Expect(ns_db::ns_desktop::serialize(desktop), "Failed to serialize desktop integration: {}" , __expected_ret.error());
+  auto db = Expect(ns_db::from_string(str_raw_json), "Could not parse serialized json source: {}", __expected_ret.error());
+  qreturn_if(not db.erase("icon"), Unexpected("Could not erase icon field"));
+  Expect(ns_reserved::ns_desktop::write(config.path_file_binary, db.dump()));
   // Print written json
   println(db.dump());
   return {};

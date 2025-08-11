@@ -156,24 +156,24 @@ template<typename Data>
 } // function: mkdtemp }}}
 
 // mkstemp() {{{
-[[nodiscard]] inline std::expected<fs::path, std::string> mkstemps(fs::path const& path_dir_parent
+[[nodiscard]] inline Expected<fs::path> mkstemps(fs::path const& path_dir_parent
   , std::string file_template = "XXXXXX"
   , int suffixlen = 0
 )
 {
   std::string str_template = path_dir_parent / file_template;
   int fd = ::mkstemps(str_template.data(), suffixlen);
-  qreturn_if(fd < 0, std::unexpected(strerror(errno)));
+  qreturn_if(fd < 0, Unexpected(strerror(errno)));
   close(fd);
   return fs::path{str_template};
 }
 // mkstemp() }}}
 
 // module_check() {{{
-inline std::expected<bool, std::string> module_check(std::string_view str_name)
+inline Expected<bool> module_check(std::string_view str_name)
 {
   std::ifstream file_modules("/proc/modules");
-  qreturn_if(not file_modules.is_open(), std::unexpected("Could not open modules file"));
+  qreturn_if(not file_modules.is_open(), Unexpected("Could not open modules file"));
 
   std::string line;
   while ( std::getline(file_modules, line) )
@@ -185,17 +185,17 @@ inline std::expected<bool, std::string> module_check(std::string_view str_name)
 } // function: module_check() }}}
 
 // search_path() {{{
-inline std::expected<fs::path, std::string> search_path(fs::path const& query)
+inline Expected<fs::path> search_path(fs::path const& query)
 {
   char const * env_path = std::getenv("PATH");
-  qreturn_if( env_path == nullptr, std::unexpected("PATH environment variable not found"));
+  qreturn_if( env_path == nullptr, Unexpected("PATH environment variable not found"));
 
   char const * env_dir_global_bin = std::getenv("FIM_DIR_GLOBAL_BIN");
   char const * env_dir_static = std::getenv("FIM_DIR_STATIC");
 
   if ( query.is_absolute() )
   {
-    return_if_else(fs::exists(query), query, std::unexpected("File not found through absolute path"));
+    return_if_else(fs::exists(query), query, Unexpected("File not found through absolute path"));
   } // if
 
   std::string path(env_path);
@@ -211,7 +211,7 @@ inline std::expected<fs::path, std::string> search_path(fs::path const& query)
     qreturn_if(fs::exists(path_full), path_full);
   } // while
 
-  return std::unexpected("File not found in PATH");
+  return Unexpected("File not found in PATH");
 } // search_path() }}}
 
 } // namespace ns_linux

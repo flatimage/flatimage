@@ -40,19 +40,19 @@ void signal_handler(int sig)
   }
 } // signal_handler() }}}
 
-[[nodiscard]] std::expected<void, std::string> set_environment(fs::path const& path_file_env)
+[[nodiscard]] Expected<void> set_environment(fs::path const& path_file_env)
 {
   qreturn_if(std::error_code ec; (fs::create_directories(path_file_env.parent_path(), ec), ec)
-    , std::unexpected(std::format("Could not open file '{}': '{}'", path_file_env.string(), ec.message()))
+    , Unexpected(std::format("Could not open file '{}': '{}'", path_file_env.string(), ec.message()))
   );
   std::ofstream ofile_env(path_file_env, std::ios::out | std::ios::trunc);
-  qreturn_if(not ofile_env.is_open(), std::unexpected("Could not open file '{}'"_fmt(path_file_env)));
+  qreturn_if(not ofile_env.is_open(), Unexpected("Could not open file '{}'"_fmt(path_file_env)));
   for(char **env = environ; *env != NULL; ++env) { ofile_env << *env << '\n'; } // for
   ofile_env.close();
   return {};
 }
 
-[[nodiscard]] std::expected<void, std::string> send_message(fs::path const& path_daemon_fifo
+[[nodiscard]] Expected<void> send_message(fs::path const& path_daemon_fifo
   , std::vector<std::string> command
   , std::unordered_map<std::string, fs::path> const& hash_name_fifo
   , fs::path const& path_file_log
@@ -79,18 +79,18 @@ void signal_handler(int sig)
   );
   // Check for errors
   return (static_cast<size_t>(size_writen) != data.length())?
-      std::unexpected("Could not write data to daemon({}): {}"_fmt(size_writen, strerror(errno)))
-    : std::expected<void,std::string>{};
+      Unexpected("Could not write data to daemon({}): {}"_fmt(size_writen, strerror(errno)))
+    : Expected<void>{};
 }
 
-[[nodiscard]] std::expected<int, std::string> process_wait(std::unordered_map<std::string, fs::path> const& hash_name_fifo)
+[[nodiscard]] Expected<int> process_wait(std::unordered_map<std::string, fs::path> const& hash_name_fifo)
 {
   pid_t pid_child;
   ssize_t bytes_read = ns_linux::open_read_with_timeout(hash_name_fifo.at("pid")
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , std::span<pid_t>(&pid_child, 1)
   );
-  qreturn_if(bytes_read != sizeof(pid_child), std::unexpected(strerror(errno)));
+  qreturn_if(bytes_read != sizeof(pid_child), Unexpected(strerror(errno)));
   opt_child = pid_child;
   ns_log::debug()("Child pid: {}", pid_child);
   // Connect to stdin, stdout, and stderr with fifos
@@ -108,11 +108,11 @@ void signal_handler(int sig)
     , std::chrono::seconds{SECONDS_TIMEOUT}
     , std::span<int>(&code_exit, 1)
   );
-  qreturn_if(bytes_exit != sizeof(code_exit), std::unexpected("Incorrect number of bytes '{}' read"_fmt(bytes_exit)));
+  qreturn_if(bytes_exit != sizeof(code_exit), Unexpected("Incorrect number of bytes '{}' read"_fmt(bytes_exit)));
   return code_exit;
 }
 
-[[nodiscard]] std::expected<int, std::string> process_request(std::vector<std::string> const& args
+[[nodiscard]] Expected<int> process_request(std::vector<std::string> const& args
   , std::string const& daemon_target
   , fs::path const& path_dir_instance)
 {
@@ -139,30 +139,30 @@ void signal_handler(int sig)
   // Create define log file for child
   fs::path path_file_log = path_dir_portal / "cli.log";
   qreturn_if(std::error_code ec; (fs::create_directories(path_file_log.parent_path(), ec))
-    , std::unexpected(std::format("Error to create log file: {}", ec.message()))
+    , Unexpected(std::format("Error to create log file: {}", ec.message()))
   );
   // Create fifos
   fs::path path_dir_fifo = path_dir_portal / "fifo";
   std::unordered_map<std::string, fs::path> hash_name_fifo =
   {{
-      {"stdin" ,  expect(create_fifo(path_dir_fifo / "stdin"))}
-    , {"stdout",  expect(create_fifo(path_dir_fifo / "stdout"))}
-    , {"stderr",  expect(create_fifo(path_dir_fifo / "stderr"))}
-    , {"exit"  ,  expect(create_fifo(path_dir_fifo / "exit"))}
-    , {"pid"   ,  expect(create_fifo(path_dir_fifo / "pid"))}
+      {"stdin" ,  Expect(create_fifo(path_dir_fifo / "stdin"))}
+    , {"stdout",  Expect(create_fifo(path_dir_fifo / "stdout"))}
+    , {"stderr",  Expect(create_fifo(path_dir_fifo / "stderr"))}
+    , {"exit"  ,  Expect(create_fifo(path_dir_fifo / "exit"))}
+    , {"pid"   ,  Expect(create_fifo(path_dir_fifo / "pid"))}
   }};
   // Save environment
   fs::path path_file_env = path_dir_portal / "environment";
-  expect(set_environment(path_file_env));
+  Expect(set_environment(path_file_env));
   // Send message to daemon
-  expect(send_message(path_dir_portal / "daemon.{}.fifo"_fmt(daemon_target)
+  Expect(send_message(path_dir_portal / "daemon.{}.fifo"_fmt(daemon_target)
     , args
     , hash_name_fifo
     , path_file_log
     , path_file_env
   ));
   // Retrieve child pid
-  return expect(process_wait(hash_name_fifo));
+  return Expect(process_wait(hash_name_fifo));
 }
 
 // main() {{{

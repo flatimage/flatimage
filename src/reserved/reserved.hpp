@@ -47,24 +47,24 @@ namespace fs = std::filesystem;
  * @param length The length of the data to write into the file
  * @return On success it returns void, otherwise it returns the number of bytes written
  */
-[[nodiscard]] inline std::expected<void,std::string> write(fs::path const& path_file_binary
+[[nodiscard]] inline Expected<void> write(fs::path const& path_file_binary
   , uint64_t offset_begin
   , uint64_t offset_end
   , const char* data
   , uint64_t length) noexcept
 {
   uint64_t size = offset_end - offset_begin;
-  qreturn_if(length > size, std::unexpected("Size of data exceeds available space"));
+  qreturn_if(length > size, Unexpected("Size of data exceeds available space"));
   // Open output binary file
   std::fstream file_binary(path_file_binary, std::ios::binary | std::ios::in | std::ios::out);
-  qreturn_if(not file_binary.is_open(), std::unexpected("Failed to open input file"));
+  qreturn_if(not file_binary.is_open(), Unexpected("Failed to open input file"));
   // Write blank data
   std::vector<char> blank(size, 0);
-  qreturn_if(not file_binary.seekp(offset_begin), std::unexpected("Failed to seek offset to blank"));
-  qreturn_if(not file_binary.write(blank.data(), size), std::unexpected("Failed to write blank data"));
+  qreturn_if(not file_binary.seekp(offset_begin), Unexpected("Failed to seek offset to blank"));
+  qreturn_if(not file_binary.write(blank.data(), size), Unexpected("Failed to write blank data"));
   // Write data with length
-  qreturn_if(not file_binary.seekp(offset_begin), std::unexpected("Failed to seek offset to write data"));
-  qreturn_if(not file_binary.write(data, length), std::unexpected("Failed to write data"));
+  qreturn_if(not file_binary.seekp(offset_begin), Unexpected("Failed to seek offset to write data"));
+  qreturn_if(not file_binary.write(data, length), Unexpected("Failed to write data"));
   return {};
 } // write() }}}
 
@@ -77,18 +77,18 @@ namespace fs = std::filesystem;
  * @param length The length of the data to write into the file
  * @return The number of bytes read
  */
-[[nodiscard]] inline std::expected<uint64_t,std::string> read(fs::path const& path_file_binary
+[[nodiscard]] inline Expected<uint64_t> read(fs::path const& path_file_binary
   , uint64_t offset
   , char* data
   , uint64_t length) noexcept
 {
   // Open binary file
   std::ifstream file_binary(path_file_binary, std::ios::binary | std::ios::in);
-  qreturn_if(not file_binary.is_open(), std::unexpected("Failed to open input file"));
+  qreturn_if(not file_binary.is_open(), Unexpected("Failed to open input file"));
   // Advance towards data
-  qreturn_if(not file_binary.seekg(offset), std::unexpected("Failed to seek to file offset for read"));
+  qreturn_if(not file_binary.seekg(offset), Unexpected("Failed to seek to file offset for read"));
   // Read data
-  qreturn_if(not file_binary.read(data, length), std::unexpected("Failed to read data from binary file"));
+  qreturn_if(not file_binary.read(data, length), Unexpected("Failed to read data from binary file"));
   // Return number of read bytes
   return file_binary.gcount();
 } // read() }}}

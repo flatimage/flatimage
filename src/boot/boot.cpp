@@ -30,14 +30,14 @@ extern "C"
 extern char** environ;
 
 // boot() {{{
-std::expected<int, std::string> boot(int argc, char** argv, ns_config::FlatimageConfig config)
+Expected<int> boot(int argc, char** argv, ns_config::FlatimageConfig config)
 {
   // Set log file
   ns_log::set_sink_file(config.path_dir_mount.string() + ".boot.log");
   // Start host portal
   ns_portal::Portal portal = ns_portal::Portal(getpid(), "host");
   // Parse flatimage command if exists
-  return expect(ns_parser::parse_cmds(config, argc, argv));
+  return Expect(ns_parser::parse_cmds(config, argc, argv));
 } // boot() }}}
 
 void set_logger_level(int argc, char** argv)

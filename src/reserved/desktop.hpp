@@ -28,12 +28,12 @@ namespace fs = std::filesystem;
  * @param json Json string to write to the target file as binary data
  * @return On success void, or the respective error message
  */
-inline std::expected<void,std::string> write(fs::path const& path_file_binary, std::string_view const& json)
+inline Expected<void> write(fs::path const& path_file_binary, std::string_view const& json)
 {
   uint64_t space_available = ns_reserved::FIM_RESERVED_OFFSET_DESKTOP_END - ns_reserved::FIM_RESERVED_OFFSET_DESKTOP_BEGIN;
   uint64_t space_required = json.size();
-  qreturn_if(space_available <= space_required, std::unexpected("Not enough space to fit json data"));
-  expect(ns_reserved::write(path_file_binary
+  qreturn_if(space_available <= space_required, Unexpected("Not enough space to fit json data"));
+  Expect(ns_reserved::write(path_file_binary
     , FIM_RESERVED_OFFSET_DESKTOP_BEGIN
     , FIM_RESERVED_OFFSET_DESKTOP_END
     , json.data()
@@ -48,12 +48,12 @@ inline std::expected<void,std::string> write(fs::path const& path_file_binary, s
  * @param path_file_binary Target binary to write the json string
  * @return On success it returns the read data, or the respective error message
  */
-inline std::expected<std::string,std::string> read(fs::path const& path_file_binary)
+inline Expected<std::string> read(fs::path const& path_file_binary)
 {
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_DESKTOP_BEGIN;
   uint64_t size = ns_reserved::FIM_RESERVED_OFFSET_DESKTOP_END - offset_begin;
   auto buffer = std::make_unique<char[]>(size);
-  expect(ns_reserved::read(path_file_binary, offset_begin, buffer.get(), size));
+  Expect(ns_reserved::read(path_file_binary, offset_begin, buffer.get(), size));
   return buffer.get();
 }
 

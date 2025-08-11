@@ -30,10 +30,10 @@ namespace fs = std::filesystem;
 extern char** environ;
 
 // validate() {{{
-[[nodiscard]] std::expected<bool,std::string> validate(std::string_view msg) noexcept
+[[nodiscard]] Expected<bool> validate(std::string_view msg) noexcept
 {
   // Open database
-  auto db = expect(ns_db::from_string(msg));
+  auto db = Expect(ns_db::from_string(msg));
   // Define keys and types
   std::unordered_map<std::string, ns_db::KeyType> hash_key_type {{
       {"command", ns_db::KeyType::array}

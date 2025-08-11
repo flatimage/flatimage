@@ -25,7 +25,7 @@ namespace ns_path
 
 // canonical() {{{
 // Try to make path canonical
-inline std::expected<fs::path, std::string> canonical(fs::path const& path)
+inline Expected<fs::path> canonical(fs::path const& path)
 {
   fs::path ret{path};
 
@@ -40,14 +40,14 @@ inline std::expected<fs::path, std::string> canonical(fs::path const& path)
   ret = fs::canonical(ret, ec);
   if ( ec )
   {
-    return std::unexpected("Could not make cannonical path for parent of '{}'"_fmt(path));
+    return Unexpected("Could not make cannonical path for parent of '{}'"_fmt(path));
   } // if
 
   return ret;
 } // function: canonical }}}
 
 // file_self() {{{
-inline std::expected<fs::path,std::string> file_self()
+inline Expected<fs::path> file_self()
 {
   std::error_code ec;
 
@@ -55,32 +55,32 @@ inline std::expected<fs::path,std::string> file_self()
 
   if ( ec )
   {
-    return std::unexpected("Failed to fetch location of self");
+    return Unexpected("Failed to fetch location of self");
   } // if
 
   return path_file_self;
 } // file_self() }}}
 
 // realpath() {{{
-inline std::expected<fs::path, std::string> realpath(fs::path const& path_file_src)
+inline Expected<fs::path> realpath(fs::path const& path_file_src)
 {
   char str_path_file_resolved[PATH_MAX];
   if ( ::realpath(path_file_src.c_str(), str_path_file_resolved) == nullptr )
   {
-    return std::unexpected(strerror(errno));
+    return Unexpected(strerror(errno));
   } // if
   return str_path_file_resolved;
 } // realpath() }}}
 
 // list_files() {{{
-inline std::expected<std::vector<fs::path>, std::string> list_files(fs::path const& path_dir_src)
+inline Expected<std::vector<fs::path>> list_files(fs::path const& path_dir_src)
 {
   std::error_code ec;
   std::vector<fs::path> files = fs::directory_iterator(path_dir_src, ec)
     | std::views::transform([](auto&& e){ return e.path(); })
     | std::views::filter([](auto&& e){ return fs::is_regular_file(e); })
     | std::ranges::to<std::vector<fs::path>>();
-  qreturn_if(ec, std::unexpected(ec.message()));
+  qreturn_if(ec, Unexpected(ec.message()));
   return files;
 } // list_files() }}}
 

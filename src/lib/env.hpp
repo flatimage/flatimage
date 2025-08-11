@@ -95,12 +95,12 @@ inline std::optional<T> get_optional(std::string_view name)
 
 // get_expected() {{{
 // Get an env variable
-inline std::expected<std::string_view, std::string> get_expected(const char* name)
+inline Expected<std::string_view> get_expected(const char* name)
 {
   const char * var = std::getenv(name);
   return (var != nullptr)?
-      std::expected<std::string_view, std::string>(var)
-    : std::unexpected("Could not read variable '{}'"_fmt(name));
+      Expected<std::string_view>(var)
+    : Unexpected("Could not read variable '{}'"_fmt(name));
 } // get_expected() }}}
 
 // exists() {{{
@@ -120,7 +120,7 @@ inline bool exists(const char* var, std::string_view target)
 } // exists() }}}
 
 // expand() {{{
-inline std::expected<std::string, std::string> expand(ns_concept::StringRepresentable auto&& var)
+inline Expected<std::string> expand(ns_concept::StringRepresentable auto&& var)
 {
   std::string expanded = ns_string::to_string(var);
 
@@ -146,7 +146,7 @@ inline std::expected<std::string, std::string> expand(ns_concept::StringRepresen
       case WRDE_SYNTAX: error = "WRDE_SYNTAX"; break;
       default: error = "unknown";
     } // switch
-    return std::unexpected(error);
+    return Unexpected(error);
   } // else
 
   return expanded;
@@ -154,12 +154,12 @@ inline std::expected<std::string, std::string> expand(ns_concept::StringRepresen
 
 // xdg_data_home() {{{
 template<typename T = std::string_view>
-std::expected<T,std::string> xdg_data_home() noexcept
+Expected<T> xdg_data_home() noexcept
 {
   const char* var = std::getenv("XDG_DATA_HOME");
   qreturn_if(var, var);
   const char* home = std::getenv("HOME");
-  qreturn_if(not home, std::unexpected("HOME is undefined"));
+  qreturn_if(not home, Unexpected("HOME is undefined"));
   return std::string{home} + "/.local/share";
 } // xdg_data_home() }}}
 

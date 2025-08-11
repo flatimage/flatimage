@@ -12,7 +12,7 @@
   ns_log::ec([]<typename... Args>(Args&&... args){ return fun(std::forward<Args>(args)...); }, __VA_ARGS__)
 
 // Pop rust-style for std::expected
-#define expect(expr,...)                             \
+#define Expect(expr,...)                             \
 ({                                                   \
   auto __expected_ret = (expr);                      \
   if (!__expected_ret)                               \
@@ -22,6 +22,26 @@
   }                                                  \
   __expected_ret.value();                            \
 })
+
+// Expected wrapper
+template<typename T>
+using Expected = std::expected<T, std::string>;
+
+// Unexpect logs before creating std::unexpected
+#define Unexpected(...)                                                 \
+  ([&](auto&& _fmt, auto&&... _args) {                                  \
+    std::string _msg;                                                   \
+    if constexpr (sizeof...(_args) > 0) {                               \
+      _msg = std::vformat(                                              \
+        std::forward<decltype(_fmt)>(_fmt),                             \
+        std::make_format_args(std::forward<decltype(_args)>(_args)...)  \
+      );                                                                \
+    } else {                                                            \
+      _msg = std::string(std::forward<decltype(_fmt)>(_fmt));           \
+    }                                                                   \
+    ns_log::error()(_msg);                                              \
+    return std::unexpected(std::move(_msg));                            \
+  }(__VA_ARGS__))
 
 #define expect_map_error(expr, fun)                  \
 ({                                                   \
@@ -115,7 +135,7 @@
 
 // Log expected error
 template<typename U>
-void elog_expected(std::string_view msg, std::expected<U,std::string> const& expected)
+void elog_expected(std::string_view msg, Expected<U> const& expected)
 {
   if (not expected)
   {

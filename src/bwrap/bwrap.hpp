@@ -72,7 +72,7 @@ class Bwrap
     // Set XDG_RUNTIME_DIR
     void set_xdg_runtime_dir();
     // Setup
-    std::expected<fs::path, std::string> test_and_setup(fs::path const& path_file_bwrap);
+    Expected<fs::path> test_and_setup(fs::path const& path_file_bwrap);
 
   public:
     template<ns_concept::StringRepresentable... Args>
@@ -228,7 +228,7 @@ inline void Bwrap::set_xdg_runtime_dir()
 } // set_xdg_runtime_dir() }}}
 
 // test_and_setup() {{{
-inline std::expected<fs::path, std::string> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src)
+inline Expected<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src)
 {
   // Test current bwrap binary
   auto ret = ns_subprocess::Subprocess(path_file_bwrap_src)
@@ -247,17 +247,17 @@ inline std::expected<fs::path, std::string> Bwrap::test_and_setup(fs::path const
   qreturn_if (ret and *ret == 0, path_file_bwrap_opt);
   // Error might be EACCES, try to integrate with apparmor
   auto opt_path_file_pkexec = ns_subprocess::search_path("pkexec");
-  qreturn_if(not opt_path_file_pkexec.has_value(), std::unexpected("Could not find pkexec binary"));
+  qreturn_if(not opt_path_file_pkexec.has_value(), Unexpected("Could not find pkexec binary"));
   auto opt_path_file_bwrap_apparmor = ns_subprocess::search_path("fim_bwrap_apparmor");
-  qreturn_if(not opt_path_file_bwrap_apparmor.has_value(), std::unexpected("Could not find bwrap_apparmor binary"));
+  qreturn_if(not opt_path_file_bwrap_apparmor.has_value(), Unexpected("Could not find bwrap_apparmor binary"));
   auto expected_path_dir_mount = ns_exception::to_expected([]{ return ns_env::get_or_throw("FIM_DIR_MOUNT"); });
   qreturn_if(not expected_path_dir_mount, expected_path_dir_mount.error());
   ret = ns_subprocess::Subprocess(*opt_path_file_pkexec)
     .with_args(*opt_path_file_bwrap_apparmor, *expected_path_dir_mount, path_file_bwrap_src)
     .spawn()
     .wait();
-  qreturn_if(not ret, std::unexpected("Could not find create profile (abnormal exit)"));
-  qreturn_if(ret and *ret != 0, std::unexpected("Could not find create profile with exit code '{}'"_fmt(*ret)));
+  qreturn_if(not ret, Unexpected("Could not find create profile (abnormal exit)"));
+  qreturn_if(ret and *ret != 0, Unexpected("Could not find create profile with exit code '{}'"_fmt(*ret)));
   return path_file_bwrap_opt;
 } // test_and_setup() }}}
 

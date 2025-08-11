@@ -29,13 +29,13 @@ namespace fs = std::filesystem;
 } // namespace 
 
 // Check if a directory is mounted with fuse
-inline std::expected<bool,std::string> is_fuse(fs::path const& path_dir_mount)
+inline Expected<bool> is_fuse(fs::path const& path_dir_mount)
 {
   struct statfs buf;
 
   if ( statfs(path_dir_mount.c_str(), &buf) < 0 )
   {
-    return std::unexpected(strerror(errno));
+    return Unexpected(strerror(errno));
   } // if
 
   return buf.f_type == FUSE_SUPER_MAGIC;
@@ -79,7 +79,7 @@ inline void unmount(fs::path const& path_dir_mountpoint)
   } // if
 
   // Filesystem could be busy for a bit after un-mount
-  std::expected<bool,std::string> expected_is_fuse = ns_fuse::is_fuse(*opt_path_file_fusermount);
+  Expected<bool> expected_is_fuse = ns_fuse::is_fuse(*opt_path_file_fusermount);
   while( expected_is_fuse and *expected_is_fuse )
   {
     std::this_thread::sleep_for(100ms);

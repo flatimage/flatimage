@@ -44,7 +44,7 @@ using namespace ns_parser::ns_interface;
 
 
 // parse() {{{
-inline std::expected<CmdType, std::string> parse(int argc , char** argv) noexcept
+inline Expected<CmdType> parse(int argc , char** argv) noexcept
 {
   if ( argc < 2 or not std::string_view{argv[1]}.starts_with("fim-"))
   {
@@ -63,9 +63,9 @@ inline std::expected<CmdType, std::string> parse(int argc , char** argv) noexcep
           m_data = std::vector<std::string>(begin,end);
         }
       }
-      std::expected<std::string, std::string> pop_front(std::string const& msg)
+      Expected<std::string> pop_front(std::string const& msg)
       {
-        if(m_data.empty()) { return std::unexpected(msg); }
+        if(m_data.empty()) { return Unexpected(msg); }
         std::string item = m_data.front();
         m_data.erase(m_data.begin());
         return item;
@@ -86,29 +86,29 @@ inline std::expected<CmdType, std::string> parse(int argc , char** argv) noexcep
   
   VecArgs args(argv+1, argv+argc);
 
-  return expect(ns_match::match(args.pop_front("Missing fim- command"),
-    ns_match::equal("fim-exec") >>= [&] -> std::expected<CmdType,std::string>
+  return Expect(ns_match::match(args.pop_front("Missing fim- command"),
+    ns_match::equal("fim-exec") >>= [&] -> Expected<CmdType>
     {
-      return CmdType(CmdExec(expect(args.pop_front("Incorrect number of arguments for fim-exec"))
+      return CmdType(CmdExec(Expect(args.pop_front("Incorrect number of arguments for fim-exec"))
         ,  args.data()
       ));
     },
-    ns_match::equal("fim-root") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-root") >>= [&] -> Expected<CmdType>
     {
-      return CmdType(CmdRoot(expect(args.pop_front("Incorrect number of arguments for fim-root"))
+      return CmdType(CmdRoot(Expect(args.pop_front("Incorrect number of arguments for fim-root"))
         , args.data())
       );
     },
     // Configure permissions for the container
-    ns_match::equal("fim-perms") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-perms") >>= [&] -> Expected<CmdType>
     {
       // Get op
-      CmdPermsOp op = CmdPermsOp(expect(args.pop_front("Missing op for fim-perms (add,del,list,set)")));
-      qreturn_if(op == CmdPermsOp::NONE, std::unexpected("Invalid operation on permissions"));
+      CmdPermsOp op = CmdPermsOp(Expect(args.pop_front("Missing op for fim-perms (add,del,list,set)")));
+      qreturn_if(op == CmdPermsOp::NONE, Unexpected("Invalid operation on permissions"));
       // Check if is list
       qreturn_if(op == CmdPermsOp::LIST,  CmdType(CmdPerms{ .op = op, .permissions = {} }));
       // Check if is other command with valid args
-      qreturn_if(args.empty(), std::unexpected("No arguments for '{}' command"_fmt(op)));
+      qreturn_if(args.empty(), Unexpected("No arguments for '{}' command"_fmt(op)));
       // Dispatch command
       CmdPerms cmd_perms;
       cmd_perms.op = op;
@@ -116,38 +116,38 @@ inline std::expected<CmdType, std::string> parse(int argc , char** argv) noexcep
       return CmdType(cmd_perms);
     },
     // Configure environment
-    ns_match::equal("fim-env") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-env") >>= [&] -> Expected<CmdType>
     {
       // Get op
-      CmdEnvOp op = CmdEnvOp(expect(args.pop_front("Missing op for 'fim-env' (add,del,list,set)")));
-      qreturn_if(op == CmdEnvOp::NONE, std::unexpected("Invalid operation on environment"));
+      CmdEnvOp op = CmdEnvOp(Expect(args.pop_front("Missing op for 'fim-env' (add,del,list,set)")));
+      qreturn_if(op == CmdEnvOp::NONE, Unexpected("Invalid operation on environment"));
       // Check if is list
       qreturn_if(op == CmdEnvOp::LIST,  CmdType(CmdEnv{ .op = op, .environment = {} }));
       // Check if is other command with valid args
-      qreturn_if(argc < 4, std::unexpected("Missing arguments for '{}'"_fmt(op)));
+      qreturn_if(argc < 4, Unexpected("Missing arguments for '{}'"_fmt(op)));
       return CmdType(CmdEnv({
         .op = op,
         .environment = args.data()
       }));
     },
     // Configure environment
-    ns_match::equal("fim-desktop") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-desktop") >>= [&] -> Expected<CmdType>
     {
       // Check if is other command with valid args
       CmdDesktop cmd;
       // Get operation
-      cmd.op = CmdDesktopOp(expect(args.pop_front("Missing op for 'fim-desktop' (enable,setup)")));
-      qreturn_if( cmd.op == CmdDesktopOp::NONE, std::unexpected("Invalid desktop operation"));
+      cmd.op = CmdDesktopOp(Expect(args.pop_front("Missing op for 'fim-desktop' (enable,setup)")));
+      qreturn_if( cmd.op == CmdDesktopOp::NONE, Unexpected("Invalid desktop operation"));
       // Get operation specific arguments
       if ( cmd.op == CmdDesktopOp::SETUP )
       {
-        cmd.arg = fs::path{expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))};
+        cmd.arg = fs::path{Expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))};
       } // if
       else
       {
         // Get comma separated argument list
         std::vector<std::string> vec_items = args.data();
-        qreturn_if(vec_items.empty(), std::unexpected("Missing arguments for 'enable' (desktop,entry,mimetype)"))
+        qreturn_if(vec_items.empty(), Unexpected("Missing arguments for 'enable' (desktop,entry,mimetype)"))
         std::set<ns_desktop::IntegrationItem> set_enum;
         std::ranges::transform(vec_items, std::inserter(set_enum, set_enum.end()), [](auto&& e){ return ns_desktop::IntegrationItem(e); });
         cmd.arg = set_enum;
@@ -155,114 +155,114 @@ inline std::expected<CmdType, std::string> parse(int argc , char** argv) noexcep
       return CmdType(cmd);
     },
     // Manage layers
-    ns_match::equal("fim-layer") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-layer") >>= [&] -> Expected<CmdType>
     {
       // Create cmd
       CmdLayer cmd;
       // Get op
-      cmd.op = CmdLayerOp(expect(args.pop_front("Missing op for 'fim-layer' (create,add)")));
-      qreturn_if(cmd.op == CmdLayerOp::NONE, std::unexpected("Invalid layer operation"));
+      cmd.op = CmdLayerOp(Expect(args.pop_front("Missing op for 'fim-layer' (create,add)")));
+      qreturn_if(cmd.op == CmdLayerOp::NONE, Unexpected("Invalid layer operation"));
       // Gather operation specific arguments
       if ( cmd.op == CmdLayerOp::ADD )
       {
         std::string error_msg = "add requires exactly one argument (/path/to/file.layer)";
-        cmd.args.push_back(expect(args.pop_front(error_msg)));
-        qreturn_if(not args.empty(), std::unexpected(error_msg));
+        cmd.args.push_back(Expect(args.pop_front(error_msg)));
+        qreturn_if(not args.empty(), Unexpected(error_msg));
       } // if
       else
       {
         std::string error_msg = "add requires exactly two arguments (/path/to/dir /path/to/file.layer)";
         ns_vector::push_back(cmd.args
-          , expect(args.pop_front(error_msg))
-          , expect(args.pop_front(error_msg))
+          , Expect(args.pop_front(error_msg))
+          , Expect(args.pop_front(error_msg))
         );
-        qreturn_if(not args.empty(), std::unexpected(error_msg));
+        qreturn_if(not args.empty(), Unexpected(error_msg));
       } // else
       return CmdType(cmd);
     },
     // Bind a path or device to inside the flatimage
-    ns_match::equal("fim-bind") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-bind") >>= [&] -> Expected<CmdType>
     {
       // Create command
       CmdBind cmd;
       // Check op
-      cmd.op = CmdBindOp(expect(args.pop_front("Missing op for 'fim-bind' command (add,del,list)")));
-      qreturn_if( cmd.op == CmdBindOp::NONE, std::unexpected("Invalid bind operation"));
+      cmd.op = CmdBindOp(Expect(args.pop_front("Missing op for 'fim-bind' command (add,del,list)")));
+      qreturn_if( cmd.op == CmdBindOp::NONE, Unexpected("Invalid bind operation"));
       // Gather operation specific arguments
-      using RetType = std::expected<CmdBind::cmd_bind_data_t,std::string>;
-      cmd.data = expect(expect(ns_match::match(cmd.op
+      using RetType = Expected<CmdBind::cmd_bind_data_t>;
+      cmd.data = Expect(Expect(ns_match::match(cmd.op
         , ns_match::equal(CmdBindOp::ADD) >>= [&] -> RetType
         {
           std::string msg = "Incorrect number of arguments for 'add' (<ro,rw,dev> <src> <dst>)";
           CmdBind::cmd_bind_data_t data = CmdBind::cmd_bind_data_t(
-            CmdBind::cmd_bind_t(expect(args.pop_front(msg)),expect(args.pop_front(msg)),expect(args.pop_front(msg)))
+            CmdBind::cmd_bind_t(Expect(args.pop_front(msg)),Expect(args.pop_front(msg)),Expect(args.pop_front(msg)))
           );
-          qreturn_if(not args.empty(), std::unexpected(msg));
+          qreturn_if(not args.empty(), Unexpected(msg));
           return data;
         }
         , ns_match::equal(CmdBindOp::DEL) >>= [&] -> RetType
         {
-          std::string str_index = expect(args.pop_front("Incorrect number of arguments for 'del' (<index>)"));
-          qreturn_if(not args.empty(), std::unexpected("Incorrect number of arguments for 'del' (<index>)"));
+          std::string str_index = Expect(args.pop_front("Incorrect number of arguments for 'del' (<index>)"));
+          qreturn_if(not args.empty(), Unexpected("Incorrect number of arguments for 'del' (<index>)"));
           qreturn_if(not std::ranges::all_of(str_index, ::isdigit)
-            , std::unexpected("Index argument for 'del' is not a number")
+            , Unexpected("Index argument for 'del' is not a number")
           );
           return CmdBind::cmd_bind_data_t(CmdBind::cmd_bind_index_t(std::stoi(str_index)));
         }
         , ns_match::equal(CmdBindOp::LIST) >>= RetType(CmdBind::cmd_bind_data_t(std::false_type{}))
-        , ns_match::equal(CmdBindOp::NONE) >>= RetType(std::unexpected("Invalid operation for bind"))
+        , ns_match::equal(CmdBindOp::NONE) >>= RetType(Unexpected("Invalid operation for bind"))
       )));
       return CmdType(cmd);
     },
     // Commit current files to a novel compressed layer
-    ns_match::equal("fim-commit") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-commit") >>= [&] -> Expected<CmdType>
     {
-      qreturn_if(not args.empty(), std::unexpected("'fim-commit' does not take arguments"));
+      qreturn_if(not args.empty(), Unexpected("'fim-commit' does not take arguments"));
       return CmdType(CmdCommit{});
     },
     // Notifies with notify-send when the program starts
-    ns_match::equal("fim-notify") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-notify") >>= [&] -> Expected<CmdType>
     {
       std::string msg = "Incorrect number of arguments for 'fim-notify' (<on|off>)";
       auto cmd_notify = CmdType(CmdNotify{
-        CmdNotifyOp(expect(args.pop_front(msg)))
+        CmdNotifyOp(Expect(args.pop_front(msg)))
       });
-      qreturn_if(not args.empty(), std::unexpected(msg));
+      qreturn_if(not args.empty(), Unexpected(msg));
       return cmd_notify;
     },
     // Enables or disable ignore case for paths (useful for wine)
-    ns_match::equal("fim-casefold") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-casefold") >>= [&] -> Expected<CmdType>
     {
       std::string msg = "Incorrect number of arguments for 'fim-casefold' (<on|off>)";
       auto cmd_casefold = CmdType(CmdCaseFold{
-        CmdCaseFoldOp(expect(args.pop_front(msg)))
+        CmdCaseFoldOp(Expect(args.pop_front(msg)))
       });
-      qreturn_if(args.empty(), std::unexpected(msg));
+      qreturn_if(args.empty(), Unexpected(msg));
       return cmd_casefold;
     },
     // Set the default startup command
-    ns_match::equal("fim-boot", "fim-cmd") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-boot", "fim-cmd") >>= [&] -> Expected<CmdType>
     {
-      return CmdType(CmdBoot(expect(args.pop_front("Incorrect number of arguments for 'fim-boot' (<program> [args...])"))
+      return CmdType(CmdBoot(Expect(args.pop_front("Incorrect number of arguments for 'fim-boot' (<program> [args...])"))
         , args.data()
       ));
     },
     // Run a command in an existing instance
-    ns_match::equal("fim-instance") >>= [&] -> std::expected<CmdType,std::string>
+    ns_match::equal("fim-instance") >>= [&] -> Expected<CmdType>
     {
       std::string msg = "Missing op for 'fim-instance' (<exec|list>)";
-      CmdInstanceOp op(expect(args.pop_front(msg)));
+      CmdInstanceOp op(Expect(args.pop_front(msg)));
       // List
       if(op == CmdInstanceOp::LIST)
       {
         return CmdType(CmdInstance(CmdInstanceOp::LIST, -1, {}));
       }
       // Exec
-      std::string str_id = expect(args.pop_front("Missing 'id' argument for 'fim-instance'"));
+      std::string str_id = Expect(args.pop_front("Missing 'id' argument for 'fim-instance'"));
       qreturn_if(not std::ranges::all_of(str_id, ::isdigit)
-        , std::unexpected("Id argument must be a digit")
+        , Unexpected("Id argument must be a digit")
       );
-      qreturn_if(args.empty(), std::unexpected("Missing 'cmd' argument for 'fim-instance'"));
+      qreturn_if(args.empty(), Unexpected("Missing 'cmd' argument for 'fim-instance'"));
       return CmdType(CmdInstance(CmdInstanceOp::EXEC
         , std::stoi(str_id)
         , args.data()
@@ -297,10 +297,10 @@ inline std::expected<CmdType, std::string> parse(int argc , char** argv) noexcep
 } // parse() }}}
 
 // parse_cmds() {{{
-inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& config, int argc, char** argv) noexcept
+inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, char** argv) noexcept
 {
   // Parse args
-  CmdType variant_cmd = expect(ns_parser::parse(argc, argv));
+  CmdType variant_cmd = Expect(ns_parser::parse(argc, argv));
 
   // Initialize permissions
   ns_bwrap::ns_permissions::Permissions permissions(config.path_file_binary);
@@ -365,7 +365,7 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
   // Get command
   EnumCmd enum_cmd = EnumCmd::UNDEFINED;
   std::visit([&](auto&& e) { enum_cmd = e.cmd; }, variant_cmd);
-  qreturn_if(enum_cmd == EnumCmd::UNDEFINED, std::unexpected("Undefined command"));
+  qreturn_if(enum_cmd == EnumCmd::UNDEFINED, Unexpected("Undefined command"));
 
   // Execute a command as a regular user
   if ( auto cmd = std::get_if<ns_parser::CmdExec>(&variant_cmd) )
@@ -384,15 +384,15 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
     // Determine open mode
     switch( cmd->op )
     {
-      case ns_parser::CmdPermsOp::ADD: expect(permissions.add(cmd->permissions)); break;
-      case ns_parser::CmdPermsOp::SET: expect(permissions.set(cmd->permissions)); break;
-      case ns_parser::CmdPermsOp::DEL: expect(permissions.del(cmd->permissions)); break;
+      case ns_parser::CmdPermsOp::ADD: Expect(permissions.add(cmd->permissions)); break;
+      case ns_parser::CmdPermsOp::SET: Expect(permissions.set(cmd->permissions)); break;
+      case ns_parser::CmdPermsOp::DEL: Expect(permissions.del(cmd->permissions)); break;
       case ns_parser::CmdPermsOp::LIST:
         std::ranges::copy(permissions.to_vector_string()
           , std::ostream_iterator<std::string>(std::cout, "\n")
         );
         break;
-      case ns_parser::CmdPermsOp::NONE: return std::unexpected("Invalid operation for permissions");
+      case ns_parser::CmdPermsOp::NONE: return Unexpected("Invalid operation for permissions");
     } // switch
   } // if
   // Configure environment
@@ -409,7 +409,7 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
           , std::ostream_iterator<std::string>(std::cout, "\n")
         );
         break;
-      case ns_parser::CmdEnvOp::NONE: return std::unexpected("Invalid operation for environment");
+      case ns_parser::CmdEnvOp::NONE: return Unexpected("Invalid operation for environment");
     } // switch
   } // if
   // Configure desktop integration
@@ -421,18 +421,18 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
       case ns_parser::CmdDesktopOp::ENABLE:
       {
         auto ptr_is_enable = std::get_if<std::set<ns_desktop::IntegrationItem>>(&cmd->arg);
-        qreturn_if(ptr_is_enable == nullptr, std::unexpected("Could not get items to configure desktop integration"));
+        qreturn_if(ptr_is_enable == nullptr, Unexpected("Could not get items to configure desktop integration"));
         ns_desktop::enable(config,*ptr_is_enable);
       }
       break;
       case ns_parser::CmdDesktopOp::SETUP:
       {
         auto ptr_path_file_src_json = std::get_if<fs::path>(&cmd->arg);
-        qreturn_if(ptr_path_file_src_json == nullptr, std::unexpected("Could not convert variant value to fs::path"));
+        qreturn_if(ptr_path_file_src_json == nullptr, Unexpected("Could not convert variant value to fs::path"));
         ns_desktop::setup(config, *ptr_path_file_src_json);
       } // case
       break;
-      case ns_parser::CmdDesktopOp::NONE: return std::unexpected("Invalid desktop operation");
+      case ns_parser::CmdDesktopOp::NONE: return Unexpected("Invalid desktop operation");
     } // switch
   } // if
   // Manager layers
@@ -451,7 +451,7 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
         );
         break;
       case CmdLayerOp::NONE:
-        return std::unexpected("Invalid desktop operation");
+        return Unexpected("Invalid desktop operation");
     }
   } // else if
   // Bind a device or file to the flatimage
@@ -463,7 +463,7 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
       case CmdBindOp::ADD: ns_cmd::ns_bind::add(config.path_file_config_bindings, *cmd); break;
       case CmdBindOp::DEL: ns_cmd::ns_bind::del(config.path_file_config_bindings, *cmd); break;
       case CmdBindOp::LIST: ns_cmd::ns_bind::list(config.path_file_config_bindings); break;
-      case CmdBindOp::NONE: return std::unexpected("Invalid bind operation");
+      case CmdBindOp::NONE: return Unexpected("Invalid bind operation");
     } // switch
   } // else if
   // Commit changes as a novel layer into the flatimage
@@ -488,7 +488,7 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
     }
     // Remove files from the compression list
     std::ifstream file_list(path_file_list_tmp);
-    qreturn_if(not file_list.is_open(), std::unexpected("Could not open file list for erasing files..."));
+    qreturn_if(not file_list.is_open(), Unexpected("Could not open file list for erasing files..."));
     std::string line;
     while(std::getline(file_list, line))
     {
@@ -508,7 +508,7 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
   } // else if
   else if ( auto cmd = std::get_if<ns_parser::CmdNotify>(&variant_cmd) )
   {
-    expect(ns_reserved::ns_notify::write(config.path_file_binary, cmd->op == CmdNotifyOp::ON));
+    Expect(ns_reserved::ns_notify::write(config.path_file_binary, cmd->op == CmdNotifyOp::ON));
   } // else if
   // Enable or disable casefold (useful for wine)
   else if ( auto cmd = std::get_if<ns_parser::CmdCaseFold>(&variant_cmd) )
@@ -519,7 +519,7 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
     db("enable") = cmd->op;
     // Write fields
     auto result_write = ns_db::write_file(config.path_file_config_casefold, db);
-    qreturn_if(not result_write, std::unexpected(result_write.error()));
+    qreturn_if(not result_write, Unexpected(result_write.error()));
   } // else if
   // Update default command on database
   else if ( auto cmd = std::get_if<ns_parser::CmdBoot>(&variant_cmd) )
@@ -533,7 +533,7 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
     db("args") = cmd->args;
     // Write fields
     auto result_write = ns_db::write_file(config.path_file_config_boot, db);
-    qreturn_if(not result_write, std::unexpected(result_write.error()));
+    qreturn_if(not result_write, Unexpected(result_write.error()));
   } // else if
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )
   {
@@ -559,9 +559,9 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
       break;
       case CmdInstanceOp::EXEC:
       {
-        qreturn_if(instances.size() == 0, std::unexpected("No instances are running"));
+        qreturn_if(instances.size() == 0, Unexpected("No instances are running"));
         qreturn_if(cmd->id < 0 or static_cast<size_t>(cmd->id) >= instances.size()
-          , std::unexpected("Instance index out of bounds")
+          , Unexpected("Instance index out of bounds")
         );
         return ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
           .with_args("--connect", instances.at(cmd->id))
@@ -571,7 +571,7 @@ inline std::expected<int,std::string> parse_cmds(ns_config::FlatimageConfig& con
           .value_or(125);
       }
       break;
-      case CmdInstanceOp::NONE: return std::unexpected("Invalid instance operation");
+      case CmdInstanceOp::NONE: return Unexpected("Invalid instance operation");
     }
   } // else if
   // Update default command on database

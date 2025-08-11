@@ -66,7 +66,7 @@ struct Binds
 }; // Binds }}}
 
 // deserialize() {{{
-inline std::expected<Binds,std::string> deserialize(std::ifstream& stream_raw_json) noexcept
+inline Expected<Binds> deserialize(std::ifstream& stream_raw_json) noexcept
 {
   std::stringstream ss;
   ss << stream_raw_json.rdbuf();
@@ -75,7 +75,7 @@ inline std::expected<Binds,std::string> deserialize(std::ifstream& stream_raw_js
 // deserialize() }}}
 
 // serialize() {{{
-inline std::expected<Db,std::string> serialize(Binds const& binds) noexcept
+inline Expected<Db> serialize(Binds const& binds) noexcept
 {
   return ns_exception::to_expected([&]
   {

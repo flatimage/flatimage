@@ -35,7 +35,7 @@ struct Bits
   uint64_t gpu         : 1 = 0;
   uint64_t network     : 1 = 0;
   Bits() noexcept = default;
-  [[nodiscard]] std::expected<void,std::string> set(std::string permission, bool value) noexcept
+  [[nodiscard]] Expected<void> set(std::string permission, bool value) noexcept
   {
     std::ranges::transform(permission, permission.begin(), ::tolower);
     return ns_match::match(permission
@@ -79,7 +79,7 @@ struct Bits
  * @param bits The bits struct to write into the binary
  * @return void on success, or the respective error
  */
-inline std::expected<void,std::string> write(fs::path const& path_file_binary, Bits const& bits) noexcept
+inline Expected<void> write(fs::path const& path_file_binary, Bits const& bits) noexcept
 {
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
   uint64_t offset_end = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_END;
@@ -92,14 +92,14 @@ inline std::expected<void,std::string> write(fs::path const& path_file_binary, B
  * @param path_file_binary Binary which to read the Bits struct from
  * @return The Bits struct on success, or the respective error
  */
-inline std::expected<Bits,std::string> read(fs::path const& path_file_binary) noexcept
+inline Expected<Bits> read(fs::path const& path_file_binary) noexcept
 {
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
   uint64_t size = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_END - offset_begin;
   constexpr size_t const size_bits = sizeof(Bits);
   char buffer[size_bits];
-  qreturn_if(size_bits != size, std::unexpected("Trying to read an exceeding number of bytes: {} vs {}"_fmt(size_bits, size)));
-  expect(ns_reserved::read(path_file_binary, offset_begin, buffer, size_bits));
+  qreturn_if(size_bits != size, Unexpected("Trying to read an exceeding number of bytes: {} vs {}"_fmt(size_bits, size)));
+  Expect(ns_reserved::read(path_file_binary, offset_begin, buffer, size_bits));
   Bits bits;
   std::memcpy(&bits, buffer, sizeof(bits));
   return bits;
@@ -112,33 +112,33 @@ class Permissions
   public:
     Permissions(fs::path const& path_file_binary) : m_path_file_binary(path_file_binary) {}
     template<ns_concept::Iterable R>
-    [[nodiscard]] inline std::expected<void,std::string> set(R&& r)
+    [[nodiscard]] inline Expected<void> set(R&& r)
     {
       Bits bits;
-      for(auto&& e : r) { expect(bits.set(e, true)); };
-      expect(write(m_path_file_binary, bits));
+      for(auto&& e : r) { Expect(bits.set(e, true)); };
+      Expect(write(m_path_file_binary, bits));
       return {};
     }
 
     template<ns_concept::Iterable R>
-    [[nodiscard]] inline std::expected<void,std::string> add(R&& r)
+    [[nodiscard]] inline Expected<void> add(R&& r)
     {
-      Bits bits = expect(read(m_path_file_binary));
-      for(auto&& e : r) { expect(bits.set(e, true)); };
-      expect(write(m_path_file_binary, bits));
+      Bits bits = Expect(read(m_path_file_binary));
+      for(auto&& e : r) { Expect(bits.set(e, true)); };
+      Expect(write(m_path_file_binary, bits));
       return {};
     }
 
     template<ns_concept::Iterable R>
-    [[nodiscard]] inline std::expected<void,std::string> del(R&& r)
+    [[nodiscard]] inline Expected<void> del(R&& r)
     {
-      Bits bits = expect(read(m_path_file_binary));
-      for(auto&& e : r) { expect(bits.set(e, false)); };
-      expect(write(m_path_file_binary, bits));
+      Bits bits = Expect(read(m_path_file_binary));
+      for(auto&& e : r) { Expect(bits.set(e, false)); };
+      Expect(write(m_path_file_binary, bits));
       return {};
     }
 
-    [[nodiscard]] inline std::expected<Bits, std::string> get() noexcept
+    [[nodiscard]] inline Expected<Bits> get() noexcept
     {
       return read(m_path_file_binary);
     }

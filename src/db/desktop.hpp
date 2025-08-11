@@ -25,29 +25,29 @@ class Desktop
 {
   private:
     std::string m_name;
-    std::expected<fs::path, std::string> m_path_file_icon;
+    Expected<fs::path> m_path_file_icon;
     std::set<IntegrationItem> m_set_integrations;
     std::set<std::string> m_set_categories;
   public:
     [[maybe_unused]] std::string const& get_name() const { return m_name; }
-    [[maybe_unused]] std::expected<fs::path, std::string> const& get_path_file_icon() const { return m_path_file_icon; }
+    [[maybe_unused]] Expected<fs::path> const& get_path_file_icon() const { return m_path_file_icon; }
     [[maybe_unused]] std::set<IntegrationItem> const& get_integrations() const { return m_set_integrations; }
     [[maybe_unused]] std::set<std::string> const& get_categories() const { return m_set_categories; }
     [[maybe_unused]] void set_name(std::string_view str_name) { m_name = str_name; }
     [[maybe_unused]] void set_integrations(std::set<IntegrationItem> const& set_integrations) { m_set_integrations = set_integrations; }
     [[maybe_unused]] void set_categories(std::set<std::string> const& set_categories) { m_set_categories = set_categories; }
-  friend std::expected<Desktop,std::string> from_string(std::string_view raw_json) noexcept;
-  friend std::expected<std::string,std::string> serialize(Desktop const& desktop) noexcept;
+  friend Expected<Desktop> from_string(std::string_view raw_json) noexcept;
+  friend Expected<std::string> serialize(Desktop const& desktop) noexcept;
 }; // Desktop }}}
 
 
-inline std::expected<Desktop,std::string> from_string(std::string_view raw_json) noexcept
+inline Expected<Desktop> from_string(std::string_view raw_json) noexcept
 {
   Desktop desktop;
   // Open DB
-  auto db = expect(ns_db::from_string(raw_json));
+  auto db = Expect(ns_db::from_string(raw_json));
   // Parse name (required)
-  desktop.m_name = expect(db("name").template value<std::string>());
+  desktop.m_name = Expect(db("name").template value<std::string>());
   // Parse icon path (optional)
   desktop.m_path_file_icon = db("icon").template value<std::string>();
   // Parse enabled integrations (optional)
@@ -62,14 +62,14 @@ inline std::expected<Desktop,std::string> from_string(std::string_view raw_json)
 }
 
 // deserialize() {{{
-[[maybe_unused]] [[nodiscard]] inline std::expected<Desktop,std::string> deserialize(std::string_view str_raw_json) noexcept
+[[maybe_unused]] [[nodiscard]] inline Expected<Desktop> deserialize(std::string_view str_raw_json) noexcept
 {
   return from_string(str_raw_json);
 }
 // deserialize() }}}
 
 // deserialize() {{{
-[[maybe_unused]] [[nodiscard]] inline std::expected<Desktop,std::string> deserialize(std::ifstream& stream_raw_json) noexcept
+[[maybe_unused]] [[nodiscard]] inline Expected<Desktop> deserialize(std::ifstream& stream_raw_json) noexcept
 {
   std::stringstream ss;
   ss << stream_raw_json.rdbuf();
@@ -78,7 +78,7 @@ inline std::expected<Desktop,std::string> from_string(std::string_view raw_json)
 // deserialize() }}}
 
 // serialize() {{{
-[[maybe_unused]] [[nodiscard]] inline std::expected<std::string,std::string> serialize(Desktop const& desktop) noexcept
+[[maybe_unused]] [[nodiscard]] inline Expected<std::string> serialize(Desktop const& desktop) noexcept
 {
   return ns_exception::to_expected([&]
   {
