@@ -5,7 +5,6 @@
 
 #pragma once
 
-#include <filesystem>
 #include <cstdlib>
 #include <wordexp.h>
 
@@ -18,48 +17,12 @@
 namespace ns_env
 {
 
-namespace fs = std::filesystem;
-
 // enum class Replace {{{
 enum class Replace
 {
   Y,
   N,
 }; // enum class Replace }}}
-
-// dir() {{{
-// Fetches a directory path from an environment variable
-// Tries to create if not exists
-inline fs::path dir(const char* name)
-{
-  // Get environment variable
-  const char * value = std::getenv(name) ;
-
-  // Check if variable exists
-  ethrow_if(not value, "Variable '{}' not set"_fmt(name));
-
-  // Create if not exists
-  ethrow_if(not fs::create_directory(value), "Could not create directory {}"_fmt(value));
-
-  return fs::canonical(value);
-} // dir() }}}
-
-// file() {{{
-// Fetches a file path from an environment variable
-// Checks if file exists
-inline fs::path file(const char* name)
-{
-  // Get environment variable
-  const char * value = std::getenv(name) ;
-
-  // Check if variable exists
-  ethrow_if(not value, "Variable '{}' not set"_fmt(name));
-
-  // Create if not exists
-  ethrow_if(not fs::exists(value), "File '{}' does not exist"_fmt(value));
-
-  return fs::canonical(value);
-} // file() }}}
 
 // set() {{{
 // Sets an environment variable
@@ -85,36 +48,6 @@ inline void prepend(const char* name, std::string const& extra)
     ns_log::error()("Variable '{}' is not set"_fmt(name));
   } // else
 } // prepend() }}}
-
-// concat() {{{
-// Appends 'extra' to an environment variable 'name'
-inline void concat(const char* name, std::string const& extra)
-{
-  // Append to var
-  if ( const char* var_curr = std::getenv(name); var_curr )
-  {
-    setenv(name, std::string{var_curr + extra}.c_str(), 1);
-  } // if
-  else
-  {
-    ns_log::error()("Variable '{}' is not set"_fmt(name));
-  } // else
-} // concat() }}}
-
-// set_mutual_exclusion() {{{
-// If first exists, sets first to value and unsets second
-// Else sets second to value
-inline void set_mutual_exclusion(const char* name1, const char* name2, const char* value)
-{
-  if ( std::getenv(name1) != nullptr )
-  {
-    setenv(name1, value, true);
-    unsetenv(name2);
-    return;
-  } // if
-
-  setenv(name2, value, true);
-} // set_mutual_exclusion() }}}
 
 // print() {{{
 // print an env variable
@@ -221,13 +154,13 @@ inline std::expected<std::string, std::string> expand(ns_concept::StringRepresen
 
 // xdg_data_home() {{{
 template<typename T = std::string_view>
-std::optional<T> xdg_data_home()
+std::expected<T,std::string> xdg_data_home() noexcept
 {
   const char* var = std::getenv("XDG_DATA_HOME");
-  qreturn_if(var, std::make_optional(var));
+  qreturn_if(var, var);
   const char* home = std::getenv("HOME");
-  qreturn_if(not home, std::nullopt);
-  return std::make_optional(std::string{home} + "/.local/share");
+  qreturn_if(not home, std::unexpected("HOME is undefined"));
+  return std::string{home} + "/.local/share";
 } // xdg_data_home() }}}
 
 } // namespace ns_env }}}
