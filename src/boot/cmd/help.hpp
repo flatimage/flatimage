@@ -266,9 +266,10 @@ inline std::string instance_usage()
       { "list", "List current instances" },
       { "exec", "Run a command in a running instance" },
     })
-    .with_usage("fim-instance <command> [args...]")
+    .with_usage("fim-instance <command> <id> [args...]")
     .with_args({
       { "command" , "List running instances or execute a command inside an instance" },
+      { "id" , "id of the instance in which to execute the command" },
       { "args" , "Arguments for the 'exec' command" },
     })
     .with_example("fim-instance list")
