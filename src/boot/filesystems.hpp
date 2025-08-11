@@ -62,7 +62,7 @@ inline Filesystems::Filesystems(ns_config::FlatimageConfig const& config)
   : m_path_dir_mount(config.path_dir_mount)
 {
   // Mount compressed layers
-  uint64_t index_fs = mount_dwarfs(config.path_dir_mount_layers, config.path_file_binary, FIM_RESERVED_OFFSET);
+  uint64_t index_fs = mount_dwarfs(config.path_dir_mount_layers, config.path_file_binary, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
   // Push config files to upper directories if they do not exist in it
   ns_config::push_config_files(config.path_dir_mount_layers, config.path_dir_upper_overlayfs);
   // Check if should mount ciopfs
