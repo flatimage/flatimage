@@ -35,18 +35,10 @@ struct format_args
 
 } // namespace
 
-namespace std
-{
-
-template<typename T>
-using error = optional<T>;
-
-} // namespace std
-
 // User defined literals {{{
 
 // Print to stdout
-inline auto operator""_print(const char* c_str, std::size_t)
+inline auto operator""_print(const char* c_str, std::size_t) noexcept
 {
   return [=]<typename... Args>(Args&&... args)
   {
@@ -55,7 +47,7 @@ inline auto operator""_print(const char* c_str, std::size_t)
 }
 
 // Format strings with user-defined literals
-inline decltype(auto) operator ""_fmt(const char* str, size_t)
+inline decltype(auto) operator ""_fmt(const char* str, size_t) noexcept
 {
   return [str]<typename... Args>(Args&&... args)
   {
@@ -63,20 +55,11 @@ inline decltype(auto) operator ""_fmt(const char* str, size_t)
   };
 } //
 
-// Throw with message
-inline decltype(auto) operator ""_throw(const char* str, size_t)
-{
-  return [str]<typename... Args>(Args&&... args)
-  {
-    throw std::runtime_error(std::vformat(str, *format_args<Args...>(std::forward<Args>(args)...)));
-  };
-} 
-
 // }}}
 
 // print() {{{
 template<ns_concept::StringRepresentable T, typename... Args>
-inline void print(std::ostream& os, T&& t, Args&&... args)
+inline void print(std::ostream& os, T&& t, Args&&... args) noexcept
 {
   if constexpr ( sizeof...(args) > 0 )
   {
@@ -91,7 +74,7 @@ inline void print(std::ostream& os, T&& t, Args&&... args)
 // print() {{{
 template<ns_concept::StringRepresentable T, typename... Args>
 requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
-inline void print(T&& t, Args&&... args)
+inline void print(T&& t, Args&&... args) noexcept
 {
   if constexpr ( sizeof...(args) > 0 )
   {
@@ -105,7 +88,7 @@ inline void print(T&& t, Args&&... args)
 
 // print_if() {{{
 template<ns_concept::BooleanTestable B, typename... Args>
-inline void print_if(B&& cond, Args&&... args)
+inline void print_if(B&& cond, Args&&... args) noexcept
 {
   if ( cond )
   {
@@ -115,14 +98,14 @@ inline void print_if(B&& cond, Args&&... args)
 
 // println() {{{
 template<typename T, typename... Args>
-inline void println(std::ostream& os, T&& t, Args&&... args)
+inline void println(std::ostream& os, T&& t, Args&&... args) noexcept
 {
   print(os, ns_string::to_string(std::forward<T>(t)) + "\n", std::forward<Args>(args)...);
 } // println() }}}
 
 // println() {{{
 template<ns_concept::StringRepresentable T, typename... Args>
-inline void println(T&& t, Args&&... args)
+inline void println(T&& t, Args&&... args) noexcept
 {
   print(ns_string::to_string(std::forward<T>(t)) + "\n", std::forward<Args>(args)...);
 } // println() }}}
