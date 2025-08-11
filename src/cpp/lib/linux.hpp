@@ -11,7 +11,7 @@
 #include <fcntl.h>
 #include <string>
 #include <filesystem>
-#include <thread>
+#include <sys/time.h>
 #include <unistd.h>
 #include <cassert>
 
@@ -141,70 +141,6 @@ template<typename Data>
   close(fd);
   return bytes_written;
 } // function: open_write_with_timeout }}}
-
-// children_wait() {{{
-inline void children_wait()
-{
-  struct sigaction sa;
-  sa.sa_handler = SIG_DFL;
-  sa.sa_flags   = 0;
-  sigemptyset(&sa.sa_mask);
-  sigaction(SIGCHLD, &sa, nullptr);
-} // children_wait() }}}
-
-// children_ignore() {{{
-inline void children_ignore()
-{
-  struct sigaction sa;
-  sa.sa_handler = SIG_IGN;
-  sa.sa_flags   = SA_NOCLDWAIT;
-  sigemptyset(&sa.sa_mask);
-  sigaction(SIGCHLD, &sa, nullptr);
-} // children_ignore() }}}
-
-// fork_detach() {{{
-inline pid_t fork_detach()
-{
-  int fd[2];
-  if (pipe(fd) < 0) { return -1; }
-  // First fork
-  pid_t pid1 = fork();
-  if (pid1 < 0) { return -1; }
-  // Current process waits for the grandchild pid
-  if (pid1 > 0)
-  {
-    close(fd[1]);
-    pid_t orphaned;
-    if (read(fd[0], &orphaned, sizeof(orphaned)) == sizeof(orphaned))
-    {
-      return orphaned;
-    }
-    return -1;
-  }
-  // Child starts here
-  close(fd[0]);
-  // Fork grandchild
-  pid_t pid2 = fork();
-  // Failed to fork, write code back to the parent
-  if (pid2 < 0)
-  {
-    write(fd[1], &pid2, sizeof(pid2));
-    close(fd[1]);
-    _exit(EXIT_FAILURE);
-  }
-  // Forked grandchild, write pid back to parent and make it an orphan by exiting
-  if (pid2 > 0)
-  {
-    write(fd[1], &pid2, sizeof(pid2));
-    close(fd[1]);
-    _exit(EXIT_SUCCESS);
-  }
-  // Detach from current session to avoid hangs
-  setsid();
-  // Return to the following code as the grandchild
-  return 0;
-}
-// fork_detach() }}}
 
 // mkdtemp() {{{
 // Creates a temporary directory in path_dir_parent with the template provided by 'dir_template'
