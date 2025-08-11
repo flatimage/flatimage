@@ -3,11 +3,15 @@
 # @file        : CMakeLists
 ######################################################################
 
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.20)
 
 project(FlatImage DESCRIPTION "FlatImage" LANGUAGES CXX)
 
-# Compiler
+# Include cmake files
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(Variables)
+
+# Compiler defaults for all targets
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_COMPILER /usr/bin/c++)
@@ -15,6 +19,7 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 message(STATUS "Compiler: ${CMAKE_CXX_COMPILER}")
 message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
+message(STATUS "CMAKE_SOURCE_DIR: ${CMAKE_SOURCE_DIR}")
 
 # Avoid in-source builds
 if(PROJECT_SOURCE_DIR STREQUAL PROJECT_BINARY_DIR)
@@ -28,42 +33,36 @@ if(NOT XXD_COMMAND)
   message(FATAL_ERROR "xxd command not found")
 endif()
 ## Git
-find_program(GIT_COMMAND git)
-if(NOT GIT_COMMAND)
-  message(FATAL_ERROR "git command not found")
-endif()
+find_package(Git REQUIRED)
 
-# Definitions
+# Required variables
 ## Distribution
-add_definitions("-DFIM_DIST=\"$ENV{FIM_DIST}\"")
-add_definitions("-DFIM_RESERVED_SIZE=$ENV{FIM_RESERVED_SIZE}")
-message(STATUS "FIM_DIST: ${FIM_DIST}")
-message(STATUS "FIM_RESERVED_SIZE: ${FIM_RESERVED_SIZE}")
+require_variable_env(FIM_DIST)
+## Reserved size for persistent flatimage configuration
+require_variable_env(FIM_RESERVED_SIZE)
 ## Version
 execute_process(
-  COMMAND ${GIT_COMMAND} describe --tags --abbrev=0
+  COMMAND ${GIT_EXECUTABLE} -c safe.directory=${CMAKE_SOURCE_DIR} describe --tags --abbrev=0
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE VERSION
+  OUTPUT_VARIABLE FIM_VERSION
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-add_definitions("-DFIM_VERSION=\"${VERSION}\"")
-message(STATUS "VERSION: ${VERSION}")
+require_variable_cmake(FIM_VERSION)
 ## Timestamp
-string(TIMESTAMP TIMESTAMP "%Y%m%d%H%M%S")
-add_definitions("-DFIM_TIMESTAMP=\"${TIMESTAMP}\"")
-message(STATUS "TIMESTAMP: ${TIMESTAMP}")
+string(TIMESTAMP FIM_TIMESTAMP "%Y%m%d%H%M%S")
+require_variable_cmake(FIM_TIMESTAMP)
 ## Commit
 execute_process(
-  COMMAND ${GIT_COMMAND} rev-parse --short HEAD
+  COMMAND ${GIT_EXECUTABLE} -c safe.directory=${CMAKE_SOURCE_DIR} rev-parse --short HEAD
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-  OUTPUT_VARIABLE GIT_COMMIT_HASH
+  OUTPUT_VARIABLE FIM_GIT_COMMIT_HASH
   OUTPUT_STRIP_TRAILING_WHITESPACE
 )
-add_definitions("-DFIM_COMMIT=\"${GIT_COMMIT_HASH}\"")
-message(STATUS "GIT COMMIT HASH: ${GIT_COMMIT_HASH}")
+require_variable_cmake(FIM_GIT_COMMIT_HASH)
 
 # External libraries
 find_package(nlohmann_json REQUIRED)
+cmake_policy(SET CMP0167 NEW)
 find_package(Boost REQUIRED)
 find_package(JPEG REQUIRED)
 find_package(PNG REQUIRED)
@@ -80,6 +79,13 @@ target_link_libraries(boot PRIVATE
 )
 target_compile_options(boot PRIVATE --std=gnu++23 -static -Wall -Os -Wextra)
 target_link_options(boot PRIVATE -static)
+target_compile_definitions(boot PRIVATE
+  FIM_DIST="$ENV{FIM_DIST}"
+  FIM_RESERVED_SIZE=$ENV{FIM_RESERVED_SIZE}
+  FIM_VERSION="${FIM_VERSION}"
+  FIM_TIMESTAMP="${FIM_TIMESTAMP}"
+  FIM_COMMIT="${FIM_GIT_COMMIT_HASH}"
+)
 
 # Magic patcher
 add_executable(magic src/magic/magic.cpp)

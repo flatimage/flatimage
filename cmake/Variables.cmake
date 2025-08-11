@@ -1,0 +1,21 @@
+# Ensures the given CMake variable is defined and non-empty.
+function(require_variable_cmake var_name)
+  if (NOT DEFINED ${var_name})
+    message(FATAL_ERROR "CMake variable '${var_name}' is not defined!")
+  endif()
+  if ("${${var_name}}" STREQUAL "")
+    message(FATAL_ERROR "CMake variable '${var_name}' is set but empty!")
+  endif()
+  message(STATUS "CMake variable '${var_name}' = '${${var_name}}'")
+endfunction()
+
+# Ensures the given ENV var is defined and non-empty.
+function(require_variable_env var_name)
+  if (NOT DEFINED ENV{${var_name}})
+    message(FATAL_ERROR "Environment variable '${var_name}' is not defined!")
+  endif()
+  if ("$ENV{${var_name}}" STREQUAL "")
+    message(FATAL_ERROR "Environment variable '${var_name}' is set but empty!")
+  endif()
+  message(STATUS "Environment variable '${var_name}' = '$ENV{${var_name}}'")
+endfunction()
