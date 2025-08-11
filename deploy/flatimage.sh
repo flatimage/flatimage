@@ -164,7 +164,7 @@ function _create_subsystem_blueprint()
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
       --build-arg FIM_DIST=BLUEPRINT \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/build/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/boot /host/bin
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/fim_janitor /host/bin
   )
 
@@ -276,7 +276,7 @@ function _create_subsystem_alpine()
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
       --build-arg FIM_DIST=ALPINE \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/build/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/boot /host/bin
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/janitor/fim_janitor /host/bin
   )
 
@@ -497,7 +497,7 @@ function _create_subsystem_arch()
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
       --build-arg FIM_DIST=ARCH \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/build/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/boot /host/bin
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/janitor/fim_janitor /host/bin
   )
 
