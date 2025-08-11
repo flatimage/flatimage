@@ -76,11 +76,6 @@ class Dwarfs
       dreturn_if(not ret, "Mount '{}' exited unexpectedly"_fmt(m_path_dir_mountpoint));
       dreturn_if(ret and *ret != 0, "Mount '{}' exited with non-zero exit code '{}'"_fmt(m_path_dir_mountpoint, *ret));
     } // Dwarfs
-
-    fs::path const& get_dir_mountpoint()
-    {
-      return m_path_dir_mountpoint;
-    }
 }; // class Dwarfs }}}
 
 // is_dwarfs() {{{
