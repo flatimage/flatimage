@@ -4,6 +4,9 @@
 ///
 
 #pragma once
+#include <cstdlib>
+#include <expected>
+#include <print>
 
 // Get size of __VA_ARGS__
 #define VA_SIZE(...) VA_SIZE_(__VA_ARGS__,VA_SIZE_RSEQ())
@@ -132,7 +135,7 @@
 #define ENUM_STATIC_INIT_IMPL(i,NAME,...) ENUM_STATIC_INIT_##i(NAME,__VA_ARGS__)
 #define ENUM_STATIC_INIT(i,NAME,...) ENUM_STATIC_INIT_IMPL(i, NAME, __VA_ARGS__)
 
-#define ENUM(NAME, ...) \
+#define ENUM_IMPL(NAME, ...) \
 struct NAME \
 { \
   public: \
@@ -151,8 +154,7 @@ struct NAME \
       std::ranges::transform(str_enum, str_enum.begin(), [](char c){ return std::toupper(c); }); \
       ENUM_CASE_FROM_STRING(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__) \
       std::stringstream ss; \
-      ss << "Could not determine enum entry from '" << str_enum << "'"; \
-      throw std::runtime_error(ss.str()); \
+      std::cerr << "Could not determine enum entry from '" << str_enum << "'\n"; \
     } \
     operator enum_t() const \
     { \
@@ -164,7 +166,7 @@ struct NAME \
       { \
         ENUM_CASE_TO_STRING(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__) \
       } \
-      throw std::runtime_error("Could not match enum entry to convert to string"); \
+      std::cerr << "Could not match enum entry to convert to string\n"; \
     } \
     bool operator<(NAME const& other) const \
     { \
@@ -183,5 +185,7 @@ struct NAME \
     } \
 }; \
 ENUM_STATIC_INIT(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__)
+
+#define ENUM(NAME, ...) ENUM_IMPL(NAME, __VA_ARGS__, NONE)
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/
