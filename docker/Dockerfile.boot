@@ -15,7 +15,7 @@ RUN apk add --no-cache build-base git libbsd-dev cmake clang clang-dev \
 # Copy boot directory
 ARG FIM_DIR
 COPY . $FIM_DIR
-WORKDIR $FIM_DIR/src/boot
+WORKDIR $FIM_DIR
 
 ARG FIM_DIST
 ENV FIM_DIST=$FIM_DIST
@@ -32,6 +32,6 @@ RUN strip -s ./build/boot
 RUN ./build/magic ./build/boot
 
 # Compile janitor
-RUN g++ --std=c++23 -O3 -static -o janitor janitor.cpp
-RUN strip -s janitor
-RUN upx -6 --no-lzma janitor
+RUN g++ --std=c++23 -O3 -static -o src/janitor/fim_janitor src/janitor/janitor.cpp
+RUN strip -s src/janitor/fim_janitor
+RUN upx -6 --no-lzma src/janitor/fim_janitor

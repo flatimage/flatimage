@@ -90,12 +90,12 @@ function _create_elf()
     bin/fim_portal
     bin/fim_portal_daemon
     bin/fim_bwrap_apparmor
+    bin/fim_janitor
     bin/bash
     bin/busybox
     bin/bwrap
     bin/ciopfs
     bin/dwarfs_aio
-    bin/janitor
     bin/lsof
     bin/overlayfs
     bin/unionfs
@@ -164,8 +164,8 @@ function _create_subsystem_blueprint()
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
       --build-arg FIM_DIST=BLUEPRINT \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/boot /host/bin
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/janitor /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/build/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/fim_janitor /host/bin
   )
 
   # Compile and include portal
@@ -184,7 +184,7 @@ function _create_subsystem_blueprint()
 
   cp ./bin/fim_portal ./bin/fim_portal_daemon           /tmp/"$dist"/fim/static
   cp ./bin/boot       /tmp/"$dist"/fim/static/boot
-  cp ./bin/janitor    /tmp/"$dist"/fim/static/janitor
+  cp ./bin/fim_janitor    /tmp/"$dist"/fim/static/fim_janitor
 
   # Set permissions
   chown -R 1000:1000 "/tmp/$dist"
@@ -276,8 +276,8 @@ function _create_subsystem_alpine()
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
       --build-arg FIM_DIST=ALPINE \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/boot /host/bin
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/janitor /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/build/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/janitor/fim_janitor /host/bin
   )
 
   # Compile and include portal
@@ -296,7 +296,7 @@ function _create_subsystem_alpine()
 
   cp ./bin/fim_portal ./bin/fim_portal_daemon           /tmp/"$dist"/fim/static
   cp ./bin/boot       /tmp/"$dist"/fim/static/boot
-  cp ./bin/janitor    /tmp/"$dist"/fim/static/janitor
+  cp ./bin/fim_janitor    /tmp/"$dist"/fim/static/fim_janitor
 
   # Set permissions
   chown -R 1000:1000 "/tmp/$dist"
@@ -497,8 +497,8 @@ function _create_subsystem_arch()
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
       --build-arg FIM_DIST=ARCH \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/build/boot /host/bin
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/boot/janitor /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/build/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/janitor/fim_janitor /host/bin
   )
 
   # Compile and include portal

@@ -4,6 +4,7 @@ build/
 test/
 
 # Except the Dockerfile and the necessary directories/files
+!CMakeLists.txt
 !sources/
 !src/
 !docker/

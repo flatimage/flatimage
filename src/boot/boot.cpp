@@ -10,13 +10,12 @@
 #include <sys/types.h>
 #include <filesystem>
 
-#include "../cpp/lib/linux.hpp"
-#include "../cpp/lib/env.hpp"
-#include "../cpp/lib/log.hpp"
-
-#include "config/config.hpp"
-#include "parser/parser.hpp"
-#include "portal.hpp"
+#include "../lib/linux.hpp"
+#include "../lib/env.hpp"
+#include "../lib/log.hpp"
+#include "../parser/parser.hpp"
+#include "../portal/portal.hpp"
+#include "../config.hpp"
 #include "relocate.hpp"
 
 // Section for offset to filesystems

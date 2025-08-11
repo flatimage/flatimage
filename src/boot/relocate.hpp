@@ -3,10 +3,10 @@
 #include <system_error>
 #include <filesystem>
 
-#include "../cpp/macro.hpp"
-#include "../cpp/lib/env.hpp"
-#include "../cpp/lib/elf.hpp"
-#include "../cpp/std/filesystem.hpp"
+#include "../macro.hpp"
+#include "../lib/env.hpp"
+#include "../lib/elf.hpp"
+#include "../std/filesystem.hpp"
 
 namespace ns_relocate
 {
@@ -123,6 +123,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   {
     std::error_code ec;
     uint64_t offset_beg = offset_end;
+    ns_log::debug()("Writting binary file '{}'", path_file);
     // Set file position
     file_binary.seekg(offset_beg);
     // Read size bytes (FATAL if fails)
@@ -162,7 +163,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_portal", offset_end));
   std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_portal_daemon", offset_end));
   std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_bwrap_apparmor", offset_end));
-  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "janitor", offset_end));
+  std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_janitor", offset_end));
   std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "bash", offset_end));
   std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_busybox / "busybox", offset_end));
   std::tie(offset_beg, offset_end) = expect(f_write_from_offset(file_binary, path_dir_app_bin / "bwrap", offset_end));

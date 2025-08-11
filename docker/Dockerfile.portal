@@ -26,8 +26,8 @@ WORKDIR /fim
 
 # Compile
 WORKDIR /fim/src/portal
-RUN g++ -o fim_portal portal_guest.cpp -static -Wall -Wextra -Weffc++ -Os --std=c++23
-RUN g++ -o fim_portal_daemon portal_host.cpp -static -Wall -Wextra -Weffc++ -Os --std=c++23
+RUN g++ -o fim_portal portal_dispatcher.cpp -static -Wall -Wextra -Weffc++ -Os --std=c++23
+RUN g++ -o fim_portal_daemon portal_daemon.cpp -static -Wall -Wextra -Weffc++ -Os --std=c++23
 RUN strip -s fim_portal 
 RUN strip -s fim_portal_daemon 
 RUN upx -6 --no-lzma fim_portal

@@ -12,8 +12,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "../cpp/lib/linux.hpp"
-#include "../cpp/lib/db.hpp"
+#include "../lib/linux.hpp"
+#include "../db/db.hpp"
 #include "config.hpp"
 
 namespace fs = std::filesystem;

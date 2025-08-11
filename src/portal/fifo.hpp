@@ -15,8 +15,8 @@
 #include <fcntl.h> // O_RDONLY
 #include <sys/prctl.h> // PR_SET_PDEATHSIG
 
-#include "../cpp/macro.hpp"
-#include "../cpp/lib/linux.hpp"
+#include "../macro.hpp"
+#include "../lib/linux.hpp"
 #include "config.hpp"
 
 namespace fs = std::filesystem;
