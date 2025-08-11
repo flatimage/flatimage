@@ -52,31 +52,31 @@ class Db
     template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
     explicit Db(std::reference_wrapper<T> const& json) noexcept;
     // Element access
-    [[nodiscard]] std::vector<std::string> keys() const noexcept;
-    [[nodiscard]] std::vector<std::pair<std::string, Db>> items() const noexcept;
+    [[maybe_unused]] [[nodiscard]] std::vector<std::string> keys() const noexcept;
+    [[maybe_unused]] [[nodiscard]] std::vector<std::pair<std::string, Db>> items() const noexcept;
     template<typename V = Db>
-    [[nodiscard]] std::expected<V,std::string> value() noexcept;
+    [[maybe_unused]] [[nodiscard]] std::expected<V,std::string> value() noexcept;
     template<typename V>
-    [[nodiscard]] V value_or_default(IsString auto&& k, V&& v = V{}) const noexcept;
+    [[maybe_unused]] [[nodiscard]] V value_or_default(IsString auto&& k, V&& v = V{}) const noexcept;
     template<typename F, IsString Ks>
-    [[nodiscard]] decltype(auto) apply(F&& f, Ks&& ks);
-    [[nodiscard]] std::string dump();
+    [[maybe_unused]] [[nodiscard]] decltype(auto) apply(F&& f, Ks&& ks);
+    [[maybe_unused]] [[nodiscard]] std::string dump();
     // Capacity
-    [[nodiscard]] bool empty() const noexcept;
+    [[maybe_unused]] [[nodiscard]] bool empty() const noexcept;
     // Lookup
     template<IsString T>
-    [[nodiscard]] bool contains(T&& t) const noexcept;
-    [[nodiscard]] KeyType type() const noexcept;
+    [[maybe_unused]] [[nodiscard]] bool contains(T&& t) const noexcept;
+    [[maybe_unused]] [[nodiscard]] KeyType type() const noexcept;
     // Modifiers
     template<IsString T>
-    [[nodiscard]] bool erase(T&& t);
-    void clear();
+    [[maybe_unused]] [[nodiscard]] bool erase(T&& t);
+    [[maybe_unused]] void clear();
     json_t& data();
     json_t const& data() const;
     // Operators
     template<typename T>
     T operator=(T&& t);
-    [[nodiscard]] Db operator()(std::string const& t);
+    [[maybe_unused]] [[nodiscard]] Db operator()(std::string const& t);
     // Friends
     friend std::ostream& operator<<(std::ostream& os, Db const& db);
 }; // class: Db }}}
@@ -260,18 +260,10 @@ inline Db Db::operator()(std::string const& t)
 {
   json_t& json = data();
 
-  // Access key
-  try
+  return ns_exception::to_expected([&]
   {
     return Db{std::reference_wrapper<json_t>(json[t])};
-  } // try
-  catch(std::exception const& e)
-  {
-    "Failed to parse key '{}': {}"_throw(t, e.what());
-  } // catch
-
-  // Unreachable, used to suppress no return warning
-  return Db{std::reference_wrapper<json_t>(json[t])};
+  }).value_or(*this);
 } // operator() }}}
 
 // operator<< {{{
@@ -285,6 +277,11 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
 auto read_file(IsString auto&& t) -> std::expected<Db, std::string>
 {
   fs::path path_file_db{ns_string::to_string(t)};
+  std::error_code ec;
+  ereturn_if(not fs::exists(path_file_db, ec)
+    , "Invalid db file '{}'"_fmt(path_file_db)
+    , Db{}
+  );
   // Parse a file
   auto f_parse_file = [](std::ifstream const& f) -> std::optional<json_t>
   {
