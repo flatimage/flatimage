@@ -61,19 +61,6 @@ inline std::expected<fs::path,std::string> file_self()
   return path_file_self;
 } // file_self() }}}
 
-// dir_self() {{{
-inline std::expected<fs::path,std::string> dir_self()
-{
-  auto expected_path_file_self = file_self();
-
-  if ( not expected_path_file_self )
-  {
-    return std::unexpected(expected_path_file_self.error());
-  } // if
-
-  return expected_path_file_self->parent_path();
-} // dir_self() }}}
-
 // realpath() {{{
 inline std::expected<fs::path, std::string> realpath(fs::path const& path_file_src)
 {
