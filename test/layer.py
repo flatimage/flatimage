@@ -52,8 +52,9 @@ class TestFimLayer(unittest.TestCase):
     # Remove directory from host
     shutil.rmtree(self.dir_root, ignore_errors=True)
     # Execute hello-world script which is compressed in the container
-    output = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
     os.environ["FIM_DEBUG"] = "1"
+    output = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
+    self.assertIn(content, output)
     debug = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
     del os.environ["FIM_DEBUG"]
     return (output, debug.splitlines())
