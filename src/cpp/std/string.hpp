@@ -8,32 +8,16 @@
 #include <algorithm>
 #include <sstream>
 #include <format>
-#include <vector>
+#include <expected>
 
 #include "concept.hpp"
 
 namespace ns_string
 {
 
-// replace_substrings() {{{
-inline std::string replace_substrings(std::string string
-  , std::string const& substring
-  , std::string const& replacement)
-{
-  auto pos = string.find(substring);
-
-  while ( pos != std::string::npos )
-  {
-    string.replace(pos, substring.size(), replacement);
-    pos = string.find(substring);
-  } // while
-
-  return string;
-} // replace_substrings()  }}}
-
 // to_string() {{{
 template<typename T>
-inline std::string to_string(T&& t)
+[[nodiscard]] inline std::string to_string(T&& t) noexcept
 {
   if constexpr ( ns_concept::StringConvertible<T> )
   {
@@ -61,59 +45,15 @@ inline std::string to_string(T&& t)
     ss << ']';
     return ss.str();
   } // else if 
-  
-  throw std::runtime_error(std::string{"Cannot convert valid string, type: "} + typeid(T).name());
+  else
+  {
+    static_assert(false, "Cannot convert type to string");
+  }
 } // to_string() }}}
-
-// to_tuple() {{{
-template<typename... Args>
-inline auto to_tuple(Args&&... args)
-{
-  return std::make_tuple(to_string(std::forward<Args>(args))...);
-} // to_tuple() }}}
-
-// to_lower() {{{
-template<ns_concept::StringRepresentable T>
-std::string to_lower(T&& t)
-{
-  std::string ret = to_string(t);
-  std::ranges::for_each(ret, [](auto& c){ c = std::tolower(c); });
-  return ret;
-} // to_lower() }}}
-
-// to_upper() {{{
-template<ns_concept::StringRepresentable T>
-std::string to_upper(T&& t)
-{
-  std::string ret = to_string(t);
-  std::ranges::for_each(ret, [](auto& c){ c = std::toupper(c); });
-  return ret;
-} // to_upper() }}}
-
-// to_pair() {{{
-template<ns_concept::StringRepresentable T>
-std::pair<T,T> to_pair(T&& t, char delimiter)
-{
-  std::vector<T> tokens;
-  std::string token;
-  std::istringstream stream_token(ns_string::to_string(t));
-
-  while (std::getline(stream_token, token, delimiter))
-  {
-    tokens.push_back(token);
-  } // while
-
-  if (tokens.size() != 2)
-  {
-    throw std::runtime_error(std::vformat("Pair from '{}' with delimiter '{}' could not split to 2 elements", std::make_format_args(t, delimiter)));
-  } // if
-
-  return std::make_pair(tokens.front(), tokens.back());
-} // to_pair() }}}
 
 // from_container() {{{
 template<typename T>
-std::string from_container(T&& t, std::optional<char> sep = std::nullopt)
+[[nodiscard]] std::string from_container(T&& t, std::optional<char> sep = std::nullopt) noexcept
 {
   std::stringstream ret;
   for( auto it = t.begin(); it != t.end(); ++it )
@@ -126,7 +66,7 @@ std::string from_container(T&& t, std::optional<char> sep = std::nullopt)
 
 // from_container() {{{
 template<std::input_iterator It>
-std::string from_container(It&& begin, It&& end, std::optional<char> sep = std::nullopt)
+[[nodiscard]] std::string from_container(It&& begin, It&& end, std::optional<char> sep = std::nullopt) noexcept
 {
   return from_container(std::ranges::subrange(begin, end), sep);
 } // from_container() }}}
