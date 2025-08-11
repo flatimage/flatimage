@@ -15,19 +15,19 @@ namespace ns_vector
 
 // This is available in C++23, not implemented yet on gcc however
 template<ns_concept::IterableConst R1, ns_concept::IterableConst R2>
-inline void append_range(R1& to, R2 const& from)
+inline void append_range(R1& to, R2 const& from) noexcept
 {
   std::ranges::for_each(from, [&](auto&& e){ to.push_back(e); });
 } // append_range
 
 template<ns_concept::IterableConst R, typename... Args>
-inline void push_back(R& r, Args&&... args)
+inline void push_back(R& r, Args&&... args) noexcept
 {
   ( r.push_back(std::forward<Args>(args)), ... );
 } // push_back
 
 template<ns_concept::Iterable R = std::vector<std::string>>
-inline R from_string(ns_concept::StringRepresentable auto&& t, char delimiter)
+inline R from_string(ns_concept::StringRepresentable auto&& t, char delimiter) noexcept
 {
   R tokens;
   std::string token;
