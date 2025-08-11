@@ -84,45 +84,45 @@ class Subprocess
     Subprocess& operator=(Subprocess&&) = delete;
 
 
-    [[nodiscard]] Subprocess& env_clear();
+    [[maybe_unused]] [[nodiscard]] Subprocess& env_clear();
 
     template<ns_concept::StringRepresentable K, ns_concept::StringRepresentable V>
-    [[nodiscard]] Subprocess& with_var(K&& k, V&& v);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_var(K&& k, V&& v);
 
     template<ns_concept::StringRepresentable K>
-    [[nodiscard]] Subprocess& rm_var(K&& k);
+    [[maybe_unused]] [[nodiscard]] Subprocess& rm_var(K&& k);
 
-    [[nodiscard]] std::optional<pid_t> get_pid();
+    [[maybe_unused]] [[nodiscard]] std::optional<pid_t> get_pid();
 
     void kill(int signal);
 
     template<typename Arg, typename... Args>
     requires (sizeof...(Args) > 0)
-    Subprocess& with_args(Arg&& arg, Args&&... args);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_args(Arg&& arg, Args&&... args);
 
     template<typename T>
-    [[nodiscard]] Subprocess& with_args(T&& t);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_args(T&& t);
 
     template<typename Arg, typename... Args>
     requires (sizeof...(Args) > 0)
-    Subprocess& with_env(Arg&& arg, Args&&... args);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_env(Arg&& arg, Args&&... args);
 
     template<typename T>
-    [[nodiscard]] Subprocess& with_env(T&& t);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_env(T&& t);
 
-    [[nodiscard]] Subprocess& with_die_on_pid(pid_t pid);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_die_on_pid(pid_t pid);
 
-    [[nodiscard]] Subprocess& with_piped_outputs();
-
-    template<typename F>
-    [[nodiscard]] Subprocess& with_stdout_handle(F&& f);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_piped_outputs();
 
     template<typename F>
-    [[nodiscard]] Subprocess& with_stderr_handle(F&& f);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_stdout_handle(F&& f);
 
-    [[nodiscard]] Subprocess& spawn();
+    template<typename F>
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_stderr_handle(F&& f);
 
-    [[nodiscard]] std::optional<int> wait();
+    [[maybe_unused]] [[nodiscard]] Subprocess& spawn();
+
+    [[maybe_unused]] [[nodiscard]] std::optional<int> wait();
 }; // Subprocess }}}
 
 // Subprocess::Subprocess {{{
@@ -498,26 +498,6 @@ inline Subprocess& Subprocess::spawn()
   // Child should stop here
   _exit(1);
 } // spawn() }}}
-
-// wait_busy_file() {{{
-inline std::optional<std::string> wait_busy_file(fs::path const& path_file_target)
-{
-  auto path_file_lsof = search_path("lsof");
-  qreturn_if(not path_file_lsof, std::optional("Could not locate lsof binary"));
-
-  while(true)
-  {
-    auto ret = Subprocess(*path_file_lsof)
-      .with_piped_outputs()
-      .with_args(path_file_target)
-      .spawn()
-      .wait();
-    ebreak_if(not ret, "Failed to query status for busy file");
-    dbreak_if(*ret != 0, "break, file is not busy");
-  } // while
-
-  return std::nullopt;
-} // wait_busy_file()}}}
 
 // wait() {{{
 template<typename T, typename... Args>
