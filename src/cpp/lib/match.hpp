@@ -6,30 +6,29 @@
 #pragma once
 
 #include <functional>
-#include <optional>
+#include <expected>
 
-#include "../macro.hpp"
 #include "../std/concept.hpp"
 
 namespace ns_match
 {
 
-// class compare {{{
+// class lhs_comparator {{{
 template<typename Comp, typename... Args>
 requires std::is_default_constructible_v<Comp>
-class compare
+class lhs_comparator
 {
   private:
     std::tuple<std::decay_t<Args>...> m_tuple;
   public:
     // Constructor
-    compare(Args&&... args)
+    lhs_comparator(Args&&... args)
       : m_tuple(std::forward<Args>(args)...)
     {}
     // Comparison
     template<typename U>
     requires ( std::predicate<Comp,U,Args> and ... )
-    bool operator()(U&& u) const
+    bool operator()(U&& u) const noexcept
     {
       return std::apply([&](auto&&... e){ return (Comp{}(e, u) or ...); }, m_tuple);
     } // operator()
@@ -39,41 +38,41 @@ class compare
 template<typename... Args>
 requires ns_concept::Uniform<std::remove_cvref_t<Args>...>
   and (not ns_concept::SameAs<char const*, std::decay_t<Args>...>)
-[[nodiscard]] decltype(auto) equal(Args&&... args)
+[[nodiscard]] decltype(auto) equal(Args&&... args) noexcept
 {
-  return compare<std::equal_to<>,Args...>(std::forward<Args>(args)...);
+  return lhs_comparator<std::equal_to<>,Args...>(std::forward<Args>(args)...);
 }; // fn: equal() }}}
 
 // fn: equal() {{{
 template<typename... Args>
 requires ns_concept::SameAs<char const*, std::decay_t<Args>...>
-[[nodiscard]] decltype(auto) equal(Args&&... args)
+[[nodiscard]] decltype(auto) equal(Args&&... args) noexcept
 {
   auto to_string = [](auto&& e){ return std::string(e); };
-  return compare<std::equal_to<>, std::invoke_result_t<decltype(to_string), Args>...>(std::string(args)...);
+  return lhs_comparator<std::equal_to<>, std::invoke_result_t<decltype(to_string), Args>...>(std::string(args)...);
 }; // fn: equal() }}}
 
 // operator>>= {{{
 template<typename... T, typename U>
-[[nodiscard]] decltype(auto) operator>>=(compare<T...> const& partial_comp, U const& u)
+[[nodiscard]] decltype(auto) operator>>=(lhs_comparator<T...> const& partial_comp, U const& rhs) noexcept
 {
   // Make it lazy
-  return [&](auto&& e)
+  return [&](auto const& e)
   {
     if constexpr ( std::regular_invocable<U> )
     {
       if constexpr ( std::is_void_v<std::invoke_result_t<U>>  )
       {
-        return (partial_comp(e))? (u(), std::make_optional(true)) : std::nullopt;
+        return (partial_comp(e))? (rhs(), std::expected<void,std::string>{}) : std::unexpected("");
       } // if
       else
       {
-        return (partial_comp(e))? std::make_optional<std::invoke_result_t<U>>(u()) : std::nullopt;
+        return (partial_comp(e))? std::expected<std::invoke_result_t<U>,std::string>(rhs()) : std::unexpected("");
       } // else
     } // if
     else
     {
-      return (partial_comp(e))? std::make_optional(u) : std::nullopt;
+      return (partial_comp(e))? std::expected<U,std::string>(rhs) : std::unexpected("");
     } // else if
   };
 } // }}}
@@ -82,19 +81,19 @@ template<typename... T, typename U>
 template<typename T, typename... Args>
 requires ( sizeof...(Args) > 0 )
 and ( std::is_invocable_v<Args,T> and ... )
-and ( ns_concept::IsInstanceOf<std::invoke_result_t<Args,T>, std::optional> and ... )
-[[nodiscard]] auto match(T&& t, Args&&... args)
-  -> typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type
+and ( ns_concept::IsInstanceOf<std::invoke_result_t<Args,T>, std::expected> and ... )
+[[nodiscard]] auto match(T&& t, Args&&... args) noexcept
+  -> std::expected<typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type,std::string>
 {
-  std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T> result = std::nullopt;
+  std::expected<typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type, std::string> result;
 
   // Use fold expression to evaluate each argument
-  ((result = args(t), result.has_value()) || ...);
-
-  // Check if has match
-  ethrow_if(not result.has_value(), "Could not match '{}'"_fmt(t));
-
-  return *result;
+  if(not ((result = args(t), result.has_value()) || ...))
+  {
+    result = std::unexpected("No match value match for type");
+  }
+  
+  return result;
 } // match() }}}
 
 } // namespace ns_match
