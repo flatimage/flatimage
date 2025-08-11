@@ -12,7 +12,6 @@
 #include <regex>
 
 #include "../std/vector.hpp"
-#include "../std/functional.hpp"
 #include "../std/filesystem.hpp"
 #include "../macro.hpp"
 #include "log.hpp"
@@ -89,23 +88,23 @@ class Bwrap
     Bwrap(Bwrap&&) = delete;
     Bwrap& operator=(Bwrap const&) = delete;
     Bwrap& operator=(Bwrap&&) = delete;
-    Bwrap& symlink_nvidia(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
-    Bwrap& with_binds_from_file(fs::path const& path_file_bindings);
-    Bwrap& bind_home();
-    Bwrap& bind_media();
-    Bwrap& bind_audio();
-    Bwrap& bind_wayland();
-    Bwrap& bind_xorg();
-    Bwrap& bind_dbus_user();
-    Bwrap& bind_dbus_system();
-    Bwrap& bind_udev();
-    Bwrap& bind_input();
-    Bwrap& bind_usb();
-    Bwrap& bind_network();
-    Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
-    Bwrap& with_bind(fs::path const& src, fs::path const& dst);
-    Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
-    [[nodiscard]] bwrap_run_ret_t run(ns_permissions::PermissionBits const& permissions
+    [[maybe_unused]] [[nodiscard]] Bwrap& symlink_nvidia(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
+    [[maybe_unused]] [[nodiscard]] Bwrap& with_binds_from_file(fs::path const& path_file_bindings);
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_home();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_media();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_audio();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_wayland();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_xorg();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_dbus_user();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_dbus_system();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_udev();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_input();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_usb();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_network();
+    [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
+    [[maybe_unused]] [[nodiscard]] Bwrap& with_bind(fs::path const& src, fs::path const& dst);
+    [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
+    [[maybe_unused]] [[nodiscard]] bwrap_run_ret_t run(ns_permissions::PermissionBits const& permissions
       , fs::path const& path_dir_app_bin);
 }; // class: Bwrap
 
@@ -331,11 +330,13 @@ inline Bwrap& Bwrap::with_binds_from_file(fs::path const& path_file_bindings)
     auto src = binding("src").template value<std::string>();
     auto dst = binding("dst").template value<std::string>();
     econtinue_if(not type or not src or not dst, "Missing field in binding database");
-    m_args.push_back(ns_match::match(type.value()
+    auto type_value = ns_match::match(type.value()
       , ns_match::equal("ro") >>= std::string{"--ro-bind-try"}
       , ns_match::equal("rw") >>= std::string{"--bind-try"}
       , ns_match::equal("dev") >>= std::string{"--dev-bind-try"}
-    ));
+    );
+    econtinue_if(not type_value, "Invalid value '{}' for binding type"_fmt(type));
+    m_args.push_back(type_value.value());
     m_args.push_back(ns_env::expand(src.value()).value_or(src.value()));
     m_args.push_back(ns_env::expand(dst.value()).value_or(dst.value()));
   } // for
@@ -518,8 +519,7 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
 {
   ns_log::debug()("PERM(GPU)");
   ns_vector::push_back(m_args, "--dev-bind-try", "/dev/dri", "/dev/dri");
-  symlink_nvidia(path_dir_root_guest, path_dir_root_host);
-  return *this;
+  return symlink_nvidia(path_dir_root_guest, path_dir_root_host);
 } // with_bind_gpu() }}}
 
 // run() {{{
@@ -527,17 +527,17 @@ inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissi
   , fs::path const& path_dir_app_bin)
 {
   // Configure bindings
-  ns_functional::call_if(permissions.home        , [&]{ bind_home()        ; });
-  ns_functional::call_if(permissions.media       , [&]{ bind_media()       ; });
-  ns_functional::call_if(permissions.audio       , [&]{ bind_audio()       ; });
-  ns_functional::call_if(permissions.wayland     , [&]{ bind_wayland()     ; });
-  ns_functional::call_if(permissions.xorg        , [&]{ bind_xorg()        ; });
-  ns_functional::call_if(permissions.dbus_user   , [&]{ bind_dbus_user()   ; });
-  ns_functional::call_if(permissions.dbus_system , [&]{ bind_dbus_system() ; });
-  ns_functional::call_if(permissions.udev        , [&]{ bind_udev()        ; });
-  ns_functional::call_if(permissions.input       , [&]{ bind_input()       ; });
-  ns_functional::call_if(permissions.usb         , [&]{ bind_usb()         ; });
-  ns_functional::call_if(permissions.network     , [&]{ bind_network()     ; });
+  if(permissions.home){ std::ignore = bind_home(); };
+  if(permissions.media){ std::ignore = bind_media(); };
+  if(permissions.audio){ std::ignore = bind_audio(); };
+  if(permissions.wayland){ std::ignore = bind_wayland(); };
+  if(permissions.xorg){ std::ignore = bind_xorg(); };
+  if(permissions.dbus_user){ std::ignore = bind_dbus_user(); };
+  if(permissions.dbus_system){ std::ignore = bind_dbus_system(); };
+  if(permissions.udev){ std::ignore = bind_udev(); };
+  if(permissions.input){ std::ignore = bind_input(); };
+  if(permissions.usb){ std::ignore = bind_usb(); };
+  if(permissions.network){ std::ignore = bind_network(); };
 
   auto opt_path_file_bash = ns_subprocess::search_path("bash");
   ethrow_if(not opt_path_file_bash.has_value(), "Could not find bash");
