@@ -12,20 +12,23 @@
   ns_log::ec([]<typename... Args>(Args&&... args){ return fun(std::forward<Args>(args)...); }, __VA_ARGS__)
 
 // Pop rust-style for std::expected
-#define expect(expr)                                    \
+#define expect(expr,...)                             \
 ({                                                   \
-  auto _res = (expr);                                \
-  if (!_res)                                         \
-    return std::unexpected(_res.error());            \
-  _res.value();                                      \
+  auto __expected_ret = (expr);                      \
+  if (!__expected_ret)                               \
+  {                                                  \
+    __VA_OPT__(ns_log::error()(__VA_ARGS__));        \
+    return std::unexpected(__expected_ret.error());  \
+  }                                                  \
+  __expected_ret.value();                            \
 })
 
-#define expect_map_error(expr, fun)                     \
+#define expect_map_error(expr, fun)                  \
 ({                                                   \
-  auto _res = (expr);                                \
-  if (!_res)                                         \
-    return fun(_res.error());                        \
-  _res.value();                                      \
+  auto __expected_ret = (expr);                      \
+  if (!__expected_ret)                               \
+    return fun(__expected_ret.error());              \
+  __expected_ret.value();                            \
 })
 
 // Throw
