@@ -17,7 +17,7 @@ namespace ns_log
 
 enum class Level : int
 {
-  QUIET,
+  CRITICAL,
   ERROR,
   INFO,
   DEBUG,
@@ -49,7 +49,7 @@ class Logger
 
 // fn: Logger::Logger {{{
 inline Logger::Logger()
-  : m_level(Level::QUIET)
+  : m_level(Level::CRITICAL)
 {
 } // fn: Logger::Logger }}}
 
@@ -139,6 +139,26 @@ class Location
     } // get
 }; // class: Location }}}
 
+// class debug {{{
+class debug
+{
+  private:
+    Location m_loc;
+
+  public:
+    debug(Location location = {}) : m_loc(location) {}
+    template<ns_concept::StringRepresentable T, typename... Args>
+    requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
+    void operator()(T&& format, Args&&... args)
+    {
+      auto& opt_ostream_sink = logger.get_sink_file();
+      print_if(opt_ostream_sink, *opt_ostream_sink, "D::{}::{}\n"_fmt(m_loc.get(), format), args...);
+      print_if((logger.get_level() >= Level::DEBUG), std::cerr, "D::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
+      logger.flush();
+    } // debug
+}; // class debug }}}
+
+
 // class info {{{
 class info
 {
@@ -177,24 +197,24 @@ class error
     } // error
 }; // class error }}}
 
-// class debug {{{
-class debug
+// class critical {{{
+class critical
 {
   private:
     Location m_loc;
 
   public:
-    debug(Location location = {}) : m_loc(location) {}
+    critical(Location location = {}) : m_loc(location) {}
     template<ns_concept::StringRepresentable T, typename... Args>
     requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
     void operator()(T&& format, Args&&... args)
     {
       auto& opt_ostream_sink = logger.get_sink_file();
-      print_if(opt_ostream_sink, *opt_ostream_sink, "D::{}::{}\n"_fmt(m_loc.get(), format), args...);
-      print_if((logger.get_level() >= Level::DEBUG), std::cerr, "D::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
+      print_if(opt_ostream_sink, *opt_ostream_sink, "C::{}::{}\n"_fmt(m_loc.get(), format), args...);
+      print_if((logger.get_level() >= Level::CRITICAL), std::cerr, "C::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
       logger.flush();
-    } // debug
-}; // class debug }}}
+    } // critical
+}; // class critical }}}
 
 // fn: exception {{{
 inline void exception(auto&& fn)
@@ -214,6 +234,7 @@ inline auto ec(F&& fn, Args&&... args) -> std::invoke_result_t<F, Args...>
   {
     fn(std::forward<Args>(args)..., ec);
     if ( ec ) { ns_log::error()(ec.message()); } // if
+    return;
   }
   else
   {
