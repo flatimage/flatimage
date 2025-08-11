@@ -21,7 +21,6 @@
 #include "../cpp/lib/env.hpp"
 #include "../cpp/lib/log.hpp"
 #include "../cpp/lib/db.hpp"
-#include "../cpp/lib/ipc.hpp"
 #include "../cpp/lib/linux.hpp"
 #include "fifo.hpp"
 #include "config.hpp"

@@ -18,7 +18,6 @@
 #include <unordered_map>
 
 #include "../cpp/lib/log.hpp"
-#include "../cpp/lib/ipc.hpp"
 #include "../cpp/lib/db.hpp"
 #include "../cpp/lib/env.hpp"
 #include "../cpp/macro.hpp"
@@ -81,7 +80,7 @@ int main(int argc, char** argv)
   // Configure logger file
   fs::path path_file_log = fs::path{path_dir_portal} / "daemon.{}.log"_fmt(mode);
   ns_log::set_sink_file(path_file_log);
-  ns_log::set_level((ns_env::exists("FIM_DEBUG", "1"))? ns_log::Level::DEBUG : ns_log::Level::QUIET);
+  ns_log::set_level((ns_env::exists("FIM_DEBUG", "1"))? ns_log::Level::DEBUG : ns_log::Level::CRITICAL);
 
   // Create a fifo to receive commands from
   fs::path path_fifo_in = expect_map_error(
