@@ -5,18 +5,11 @@
 
 #pragma once
 
-#include <optional>
 #include <string>
 #include <expected>
 
 namespace ns_exception
 {
-
-template<std::regular_invocable F>
-void ignore(F&& f)
-{
-  try { f(); } catch (...) {}
-} // function: ignore
 
 template<std::regular_invocable F, typename T>
 requires std::convertible_to<std::remove_cvref_t<std::invoke_result_t<F>>, std::remove_cvref_t<T>>
@@ -53,12 +46,6 @@ decltype(auto) or_else(F&& f, G&& g)
     try { return f(); } catch (...) { return g(); }
   } // else
 } // function: or_else
-
-template<std::regular_invocable F>
-auto to_optional(F&& f) -> std::optional<std::invoke_result_t<F>>
-{
-  try { return std::make_optional(f()); } catch (...) { return std::nullopt; }
-} // function: to_optional
 
 template<std::regular_invocable F>
 requires (not std::is_void_v<std::invoke_result_t<F>>)
