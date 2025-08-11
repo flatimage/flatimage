@@ -7,8 +7,8 @@
 
 #include <cstring>
 
-#include "../reserved.hpp"
 #include "../match.hpp"
+#include "reserved.hpp"
 
 namespace ns_reserved::ns_permissions
 {
@@ -20,7 +20,6 @@ namespace fs = std::filesystem;
 
 }
 
-// struct Bits {{{
 struct Bits
 {
   uint64_t home        : 1 = 0;
@@ -35,11 +34,11 @@ struct Bits
   uint64_t input       : 1 = 0;
   uint64_t gpu         : 1 = 0;
   uint64_t network     : 1 = 0;
-  Bits() = default;
-  void set(std::string permission, bool value)
+  Bits() noexcept = default;
+  [[nodiscard]] std::expected<void,std::string> set(std::string permission, bool value) noexcept
   {
-    std::ranges::transform(permission, permission.begin(), [](char c) { return std::tolower(c); });
-    std::ignore = ns_match::match(permission
+    std::ranges::transform(permission, permission.begin(), ::tolower);
+    return ns_match::match(permission
       , ns_match::equal("home")        >>= [&,this]{ home = value; }
       , ns_match::equal("media")       >>= [&,this]{ media = value; }
       , ns_match::equal("audio")       >>= [&,this]{ audio = value; }
@@ -54,7 +53,7 @@ struct Bits
       , ns_match::equal("network")     >>= [&,this]{ network = value; }
     );
   } // set
-  std::vector<std::string> to_vector_string()
+  [[nodiscard]] std::vector<std::string> to_vector_string() noexcept
   {
     std::vector<std::string> out;
     if ( home )        { out.push_back("home"); }
@@ -71,89 +70,87 @@ struct Bits
     if ( network )     { out.push_back("network"); }
     return out;
   }
-}; // }}}
+};
 
-// write() {{{
-inline std::optional<std::string> write(fs::path const& path_file_binary
-  , uint64_t offset
-  , uint64_t size
-  , Bits bits
-)
+/**
+ * @brief Write the Bits struct to the given binary
+ * 
+ * @param path_file_binary Binary in which to write the Bits struct
+ * @param bits The bits struct to write into the binary
+ * @return void on success, or the respective error
+ */
+inline std::expected<void,std::string> write(fs::path const& path_file_binary, Bits const& bits) noexcept
 {
-  return ns_reserved::write(path_file_binary, offset, size, reinterpret_cast<char*>(&bits), sizeof(bits));
-} // write() }}}
+  uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
+  uint64_t offset_end = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_END;
+  return ns_reserved::write(path_file_binary, offset_begin, offset_end, reinterpret_cast<char const*>(&bits), sizeof(bits));
+}
 
-// read() {{{
-inline std::expected<Bits,std::string> read(fs::path const& path_file_binary
-  , uint64_t offset
-  , uint64_t size)
+/**
+ * @brief Read the Bits struct from the given binary
+ * 
+ * @param path_file_binary Binary which to read the Bits struct from
+ * @return The Bits struct on success, or the respective error
+ */
+inline std::expected<Bits,std::string> read(fs::path const& path_file_binary) noexcept
 {
+  uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
+  uint64_t size = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_END - offset_begin;
+  constexpr size_t const size_bits = sizeof(Bits);
+  char buffer[size_bits];
+  qreturn_if(size_bits != size, std::unexpected("Trying to read an exceeding number of bytes: {} vs {}"_fmt(size_bits, size)));
+  expect(ns_reserved::read(path_file_binary, offset_begin, buffer, size_bits));
   Bits bits;
-  char buffer[sizeof(Bits)];
-  qreturn_if(sizeof(Bits) > size, std::unexpected("Not enough space for read"));
-  auto expected_read = ns_reserved::read(path_file_binary, offset, sizeof(bits), buffer);
-  qreturn_if(not expected_read, std::unexpected(expected_read.error()));
   std::memcpy(&bits, buffer, sizeof(bits));
   return bits;
-} // read() }}}
+}
 
-// class Permissions {{{
 class Permissions
 {
   private:
     fs::path const& m_path_file_binary;
-    int64_t m_offset;
-    int64_t m_size;
   public:
-    Permissions(fs::path const& path_file_binary
-      , int64_t begin
-      , int64_t end
-    ) : m_path_file_binary(path_file_binary)
-      , m_offset(begin)
-      , m_size(end)
-    {}
+    Permissions(fs::path const& path_file_binary) : m_path_file_binary(path_file_binary) {}
     template<ns_concept::Iterable R>
-    inline void set(R&& r)
+    [[nodiscard]] inline std::expected<void,std::string> set(R&& r)
     {
       Bits bits;
-      std::ranges::for_each(r, [&](auto&& e){ bits.set(e, true); });
-      auto error = write(m_path_file_binary, m_offset, m_size, bits);
-      ereturn_if(error, "Error to write permission bits: {}"_fmt(*error));
+      for(auto&& e : r) { expect(bits.set(e, true)); };
+      expect(write(m_path_file_binary, bits));
+      return {};
     }
 
     template<ns_concept::Iterable R>
-    inline void add(R&& r)
+    [[nodiscard]] inline std::expected<void,std::string> add(R&& r)
     {
-      auto expected = read(m_path_file_binary, m_offset, m_size);
-      ereturn_if(not expected, "Could not read permission bits: {}"_fmt(expected.error()));
-      std::ranges::for_each(r, [&](auto&& e){ expected->set(e, true); });
-      auto error = write(m_path_file_binary, m_offset, m_size, *expected);
-      ereturn_if(error, "Error to write permission bits: {}"_fmt(*error));
+      Bits bits = expect(read(m_path_file_binary));
+      for(auto&& e : r) { expect(bits.set(e, true)); };
+      expect(write(m_path_file_binary, bits));
+      return {};
     }
 
     template<ns_concept::Iterable R>
-    inline void del(R&& r)
+    [[nodiscard]] inline std::expected<void,std::string> del(R&& r)
     {
-      auto expected = read(m_path_file_binary, m_offset, m_size);
-      ereturn_if(not expected, "Could not read permission bits: {}"_fmt(expected.error()));
-      std::ranges::for_each(r, [&](auto&& e){ expected->set(e, false); });
-      auto error = write(m_path_file_binary, m_offset, m_size, *expected);
-      ereturn_if(error, "Error to write permission bits: {}"_fmt(*error));
+      Bits bits = expect(read(m_path_file_binary));
+      for(auto&& e : r) { expect(bits.set(e, false)); };
+      expect(write(m_path_file_binary, bits));
+      return {};
     }
 
-    inline std::expected<Bits, std::string> get()
+    [[nodiscard]] inline std::expected<Bits, std::string> get() noexcept
     {
-      return read(m_path_file_binary, m_offset, m_size);
+      return read(m_path_file_binary);
     }
 
-    inline std::vector<std::string> to_vector_string()
+    [[nodiscard]] inline std::vector<std::string> to_vector_string() noexcept
     {
       std::vector<std::string> out;
-      auto expected = read(m_path_file_binary, m_offset, m_size);
+      auto expected = read(m_path_file_binary);
       ereturn_if(not expected, "Failed to read permissions: {}"_fmt(expected.error()), out);
       return expected->to_vector_string();
     }
-}; // }}}
+};
 
 } // namespace ns_reserved::ns_permissions
 
