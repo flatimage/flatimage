@@ -145,15 +145,15 @@ struct NAME \
   public: \
     size_t const size = VA_SIZE(__VA_ARGS__); \
     ENUM_TO_MEMBER(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__) \
-    NAME() = default;\
+    NAME() : m_current(enum_t::NONE) {} \
     NAME(NAME const&) = default;\
     NAME(NAME&&) = default;\
     NAME(enum_t entry) : m_current(entry) {}\
-    NAME(std::string str_enum) \
+    NAME(std::string str_enum) : m_current(enum_t::NONE) \
     { \
       std::ranges::transform(str_enum, str_enum.begin(), [](char c){ return std::toupper(c); }); \
       ENUM_CASE_FROM_STRING(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__) \
-      std::stringstream ss; \
+      m_current = NAME::NONE; \
       std::cerr << "Could not determine enum entry from '" << str_enum << "'\n"; \
     } \
     operator enum_t() const \
@@ -166,7 +166,7 @@ struct NAME \
       { \
         ENUM_CASE_TO_STRING(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__) \
       } \
-      std::cerr << "Could not match enum entry to convert to string\n"; \
+      return ""; /* Unreachable */  \
     } \
     bool operator<(NAME const& other) const \
     { \
@@ -178,11 +178,6 @@ struct NAME \
     } \
     NAME& operator=(NAME const& other) { m_current = other.m_current; return *this; }\
     NAME& operator=(NAME&& other) { m_current = other.m_current; return *this; }\
-    enum_t operator=(enum_t const& other) \
-    { \
-      m_current = other;\
-      return other; \
-    } \
 }; \
 ENUM_STATIC_INIT(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__)
 

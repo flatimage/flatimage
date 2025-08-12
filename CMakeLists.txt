@@ -77,7 +77,12 @@ target_link_libraries(boot PRIVATE
   /usr/lib/libcom_err.a
   /usr/lib/libz.a
 )
-target_compile_options(boot PRIVATE --std=gnu++23 -static -Wall -Os -Wextra)
+target_compile_options(boot PRIVATE --std=gnu++23 -static -Wall -Os -Wextra
+  -Wformat=2 -Wold-style-cast -Wcast-align -Wnull-dereference -Wdouble-promotion
+  -Wlogical-op -Wduplicated-cond -Wuseless-cast -Wredundant-decls
+  -Wmissing-include-dirs -Wmissing-field-initializers -Wempty-body
+  -Wimplicit-fallthrough -Wswitch-enum -Wzero-as-null-pointer-constant
+)
 target_link_options(boot PRIVATE -static)
 target_compile_definitions(boot PRIVATE
   FIM_DIST="$ENV{FIM_DIST}"

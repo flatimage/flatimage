@@ -34,7 +34,8 @@ class Dwarfs
     Dwarfs& operator=(Dwarfs&&) = delete;
 
     Dwarfs(fs::path const& path_file_image, fs::path const& path_dir_mount, uint64_t offset, uint64_t size_image, pid_t pid_to_die_for)
-      : m_path_dir_mountpoint(path_dir_mount)
+      : m_subprocess(nullptr)
+      , m_path_dir_mountpoint(path_dir_mount)
     {
       // Check if image exists and is a regular file
       ethrow_if(not fs::is_regular_file(path_file_image)

@@ -57,23 +57,22 @@ requires ns_concept::SameAs<char const*, std::decay_t<Args>...>
 template<typename... T, typename U>
 [[nodiscard]] decltype(auto) operator>>=(lhs_comparator<T...> const& partial_comp, U const& rhs) noexcept
 {
-  // Make it lazy
   return [&](auto const& e)
   {
     if constexpr ( std::regular_invocable<U> )
     {
       if constexpr ( std::is_void_v<std::invoke_result_t<U>>  )
       {
-        return (partial_comp(e))? (rhs(), Expected<void>{}) : Unexpected("");
+        return (partial_comp(e))? (rhs(), Expected<void>{}) : std::unexpected("No match void");
       } // if
       else
       {
-        return (partial_comp(e))? Expected<std::invoke_result_t<U>>(rhs()) : Unexpected("");
+        return (partial_comp(e))? Expected<std::invoke_result_t<U>>(rhs()) : std::unexpected("No match invocable");
       } // else
     } // if
     else
     {
-      return (partial_comp(e))? Expected<U>(rhs) : Unexpected("");
+      return (partial_comp(e))? Expected<U>(rhs) : std::unexpected("No match type");
     } // else if
   };
 } // }}}
@@ -86,15 +85,36 @@ and ( ns_concept::IsInstanceOf<std::invoke_result_t<Args,T>, std::expected> and 
 [[nodiscard]] auto match(T&& t, Args&&... args) noexcept
   -> Expected<typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type>
 {
-  Expected<typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type> result;
-
-  // Use fold expression to evaluate each argument
-  if(not ((result = args(t), result.has_value()) || ...))
-  {
-    result = Unexpected("No match value match for type");
-  }
+  using Type = typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type;
   
-  return result;
+  std::string msg_error;
+  if constexpr (ns_concept::StringRepresentable<T>)
+  {
+    msg_error = "No match for '{}'"_fmt(ns_string::to_string(t));
+  }
+  else
+  {
+    msg_error = "No matched value";
+  }
+
+  if constexpr (std::is_void_v<Type>)
+  {
+    return (args(t) || ...)? Expected<Type>{} : std::unexpected(msg_error);
+  }
+  else
+  {
+    auto f_check = [](auto&& _t, auto&& _args, auto& _out)
+    {
+      auto expected_result = _args(_t);
+      if(expected_result) { _out = expected_result.value(); }
+      return expected_result;
+    };
+    if(Type result; (f_check(t, std::forward<Args>(args), result) || ...))
+    {
+      return result;
+    }
+    return Unexpected(msg_error);
+  }
 } // match() }}}
 
 } // namespace ns_match

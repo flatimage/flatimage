@@ -86,7 +86,7 @@ inline Expected<CmdType> parse(int argc , char** argv) noexcept
   
   VecArgs args(argv+1, argv+argc);
 
-  return Expect(ns_match::match(args.pop_front("Missing fim- command"),
+  return Expect(ns_match::match(Expect(args.pop_front("Missing fim- command")),
     ns_match::equal("fim-exec") >>= [&] -> Expected<CmdType>
     {
       return CmdType(CmdExec(Expect(args.pop_front("Incorrect number of arguments for fim-exec"))
@@ -251,7 +251,8 @@ inline Expected<CmdType> parse(int argc , char** argv) noexcept
     ns_match::equal("fim-instance") >>= [&] -> Expected<CmdType>
     {
       std::string msg = "Missing op for 'fim-instance' (<exec|list>)";
-      CmdInstanceOp op(Expect(args.pop_front(msg)));
+      std::string str_op = Expect(args.pop_front(msg));
+      CmdInstanceOp op(str_op);
       // List
       if(op == CmdInstanceOp::LIST)
       {
@@ -422,14 +423,14 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
       {
         auto ptr_is_enable = std::get_if<std::set<ns_desktop::IntegrationItem>>(&cmd->arg);
         qreturn_if(ptr_is_enable == nullptr, Unexpected("Could not get items to configure desktop integration"));
-        ns_desktop::enable(config,*ptr_is_enable);
+        Expect(ns_desktop::enable(config,*ptr_is_enable));
       }
       break;
       case ns_parser::CmdDesktopOp::SETUP:
       {
         auto ptr_path_file_src_json = std::get_if<fs::path>(&cmd->arg);
         qreturn_if(ptr_path_file_src_json == nullptr, Unexpected("Could not convert variant value to fs::path"));
-        ns_desktop::setup(config, *ptr_path_file_src_json);
+        Expect(ns_desktop::setup(config, *ptr_path_file_src_json));
       } // case
       break;
       case ns_parser::CmdDesktopOp::NONE: return Unexpected("Invalid desktop operation");
@@ -460,14 +461,14 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
     // Perform selected op
     switch(cmd->op)
     {
-      case CmdBindOp::ADD: ns_cmd::ns_bind::add(config.path_file_config_bindings, *cmd); break;
-      case CmdBindOp::DEL: ns_cmd::ns_bind::del(config.path_file_config_bindings, *cmd); break;
+      case CmdBindOp::ADD: Expect(ns_cmd::ns_bind::add(config.path_file_config_bindings, *cmd)); break;
+      case CmdBindOp::DEL: Expect(ns_cmd::ns_bind::del(config.path_file_config_bindings, *cmd)); break;
       case CmdBindOp::LIST: ns_cmd::ns_bind::list(config.path_file_config_bindings); break;
       case CmdBindOp::NONE: return Unexpected("Invalid bind operation");
     } // switch
   } // else if
   // Commit changes as a novel layer into the flatimage
-  else if ( auto cmd = std::get_if<ns_parser::CmdCommit>(&variant_cmd) )
+  else if ( std::get_if<ns_parser::CmdCommit>(&variant_cmd) )
   {
     // Set source directory and target compressed file
     fs::path path_file_layer_tmp = config.path_dir_host_config_tmp / "layer.tmp";
@@ -575,7 +576,7 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
     }
   } // else if
   // Update default command on database
-  else if ( auto cmd = std::get_if<ns_parser::CmdNone>(&variant_cmd) )
+  else if ( std::get_if<ns_parser::CmdNone>(&variant_cmd) )
   {
     // Execute default command
     return f_bwrap([&]

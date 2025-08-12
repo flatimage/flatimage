@@ -472,26 +472,24 @@ inline Expected<void> setup(ns_config::FlatimageConfig const& config, fs::path c
 } // setup() }}}
 
 // enable() {{{
-inline void enable(ns_config::FlatimageConfig const& config, std::set<IntegrationItem> set_integrations)
+inline Expected<void> enable(ns_config::FlatimageConfig const& config, std::set<IntegrationItem> set_integrations)
 {
   // Read json
-  auto expected_json = read_json_from_binary(config);
-  ereturn_if(not expected_json, "Could not read desktop json: {}"_fmt(expected_json.error()));
+  auto str_json = Expect(read_json_from_binary(config));
   // Deserialize json
-  auto desktop = ns_db::ns_desktop::deserialize(expected_json.value());
-  ereturn_if(not desktop, "Could not deserialize desktop json data");
+  auto desktop = Expect(ns_db::ns_desktop::deserialize(str_json));
   // Update integrations value
-  desktop->set_integrations(set_integrations);
-  std::ranges::transform(set_integrations
-    , std::ostream_iterator<std::string>(std::cout, "\n")
-    , [](auto&& item){ return std::string{item}; }
-  );
+  desktop.set_integrations(set_integrations);
+  // Print to standard output
+  for(auto const& str_integration : set_integrations)
+  {
+    std::println("{}", std::string{str_integration});
+  }
   // Serialize json
-  auto expected_str_raw_json = ns_db::ns_desktop::serialize(desktop.value());
-  ereturn_if(not expected_str_raw_json, "Could not serialize json to enable desktop integration");
+  auto str_raw_json = Expect(ns_db::ns_desktop::serialize(desktop));
   // Write json
-  auto expected = write_json_to_binary(config, *expected_str_raw_json);
-  ereturn_if(not expected, "Failed to write json: {}"_fmt(expected.error()));
+  Expect(write_json_to_binary(config, str_raw_json));
+  return {};
 } // enable() }}}
 
 } // namespace ns_desktop

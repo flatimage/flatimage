@@ -32,7 +32,7 @@ inline Expected<fs::path> canonical(fs::path const& path)
   // Adjust for relative path
   if (not ret.string().starts_with("/"))
   {
-    ret = fs::path(fs::path{"./"} / ret);
+    ret = fs::path{"./"} / ret;
   } // if
 
   // Make path cannonical

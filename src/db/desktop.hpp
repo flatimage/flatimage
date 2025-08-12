@@ -29,6 +29,7 @@ class Desktop
     std::set<IntegrationItem> m_set_integrations;
     std::set<std::string> m_set_categories;
   public:
+    Desktop();
     [[maybe_unused]] std::string const& get_name() const { return m_name; }
     [[maybe_unused]] Expected<fs::path> const& get_path_file_icon() const { return m_path_file_icon; }
     [[maybe_unused]] std::set<IntegrationItem> const& get_integrations() const { return m_set_integrations; }
@@ -40,6 +41,13 @@ class Desktop
   friend Expected<std::string> serialize(Desktop const& desktop) noexcept;
 }; // Desktop }}}
 
+
+inline Desktop::Desktop()
+  : m_name()
+  , m_path_file_icon(std::unexpected("m_path_file_icon is undefined"))
+  , m_set_integrations()
+  , m_set_categories()
+{}
 
 inline Expected<Desktop> from_string(std::string_view raw_json) noexcept
 {

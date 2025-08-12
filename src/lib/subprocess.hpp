@@ -129,7 +129,14 @@ class Subprocess
 template<ns_concept::StringRepresentable T>
 Subprocess::Subprocess(T&& t)
   : m_program(ns_string::to_string(t))
+  , m_args()
+  , m_env()
+  , m_opt_pid(std::nullopt)
+  , m_vec_pids_pipe()
+  , m_fstdout(std::nullopt)
+  , m_fstderr(std::nullopt)
   , m_with_piped_outputs(false)
+  , m_die_on_pid(false)
 {
   // argv0 is program name
   m_args.push_back(m_program);
@@ -490,7 +497,7 @@ inline Subprocess& Subprocess::spawn()
   envp_custom[m_env.size()] = nullptr;
 
   // Perform execve
-  execve(m_program.c_str(), (char**) argv_custom.get(), (char**) envp_custom.get());
+  execve(m_program.c_str(), const_cast<char**>(argv_custom.get()), const_cast<char**>(envp_custom.get()));
 
   // Log error
   ns_log::error()("execve() failed: ", strerror(errno));

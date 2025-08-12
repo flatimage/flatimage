@@ -6,9 +6,9 @@
 #pragma once
 
 #include <filesystem>
-#include "../cpp/lib/fuse.hpp"
-#include "../cpp/lib/subprocess.hpp"
-#include "../cpp/macro.hpp"
+#include "../lib/fuse.hpp"
+#include "../lib/subprocess.hpp"
+#include "../macro.hpp"
 
 namespace ns_squashfs
 {
@@ -34,7 +34,8 @@ class SquashFs
     SquashFs& operator=(SquashFs&&) = delete;
 
     SquashFs(fs::path const& path_file_image, fs::path const& path_dir_mount, uint64_t offset)
-      : m_path_dir_mountpoint(path_dir_mount)
+      : m_subprocess(nullptr)
+      , m_path_dir_mountpoint(path_dir_mount)
     {
       // Check if image exists and is a regular file
       ethrow_if(not fs::is_regular_file(path_file_image)

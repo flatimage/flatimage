@@ -109,7 +109,7 @@ int main(int argc, char** argv)
   } // if
 
   // Launch flatimage
-  if ( auto code = boot(argc, argv, ns_config::FlatimageConfig(ns_config::config())) )
+  if (auto code = boot(argc, argv, ns_config::config()))
   {
     return code.value();
   } // if

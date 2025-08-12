@@ -81,10 +81,10 @@ concept IsVector = is_vector<T>::value;
 
 
 template<typename T>
-concept StringConvertible = std::is_convertible_v<std::decay_t<T>, std::string>;
+concept StringConvertible = std::is_convertible_v<std::remove_cvref_t<T>, std::string>;
 
 template<typename T>
-concept StringConstructible = std::constructible_from<std::string, std::decay_t<T>>;
+concept StringConstructible = std::constructible_from<std::string, std::remove_cvref_t<T>>;
 
 template<typename T>
 concept Numeric = std::integral<std::remove_cvref_t<T>> or std::floating_point<std::remove_cvref_t<T>>;

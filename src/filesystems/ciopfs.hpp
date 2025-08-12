@@ -30,7 +30,8 @@ class Ciopfs
 
   public:
     Ciopfs( fs::path const& path_dir_lower , fs::path const& path_dir_upper)
-      : m_path_dir_upper(path_dir_upper)
+      : m_subprocess(nullptr)
+      , m_path_dir_upper(path_dir_upper)
     {
       ethrow_if(not fs::exists(path_dir_lower), "Lowerdir does not exist for ciopfs");
 

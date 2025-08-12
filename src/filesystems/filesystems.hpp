@@ -58,6 +58,12 @@ class Filesystems
 // fn: Filesystems::Filesystems {{{
 inline Filesystems::Filesystems(ns_config::FlatimageConfig const& config)
   : m_path_dir_mount(config.path_dir_mount)
+  , m_vec_path_dir_mountpoints()
+  , m_layers()
+  , m_ciopfs(nullptr)
+  , m_overlayfs(nullptr)
+  , m_unionfs(nullptr)
+  , m_opt_pid_janitor(std::nullopt)
 {
   // Mount compressed layers
   uint64_t index_fs = mount_dwarfs(config.path_dir_mount_layers, config.path_file_binary, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
@@ -153,7 +159,7 @@ inline void Filesystems::spawn_janitor()
   std::ranges::transform(vec_argv_custom, argv_custom.get(), [](auto&& e) { return e.c_str(); });
 
   // Execve to janitor
-  execve(path_file_janitor.c_str(), (char**) argv_custom.get(), environ);
+  execve(path_file_janitor.c_str(), const_cast<char**>(argv_custom.get()), environ);
 
   // Exit process in case of an error
   std::abort();
@@ -168,17 +174,17 @@ inline uint64_t Filesystems::mount_dwarfs(fs::path const& path_dir_mount, fs::pa
   // Filesystem index
   uint64_t index_fs{};
 
-  auto f_mount = [this](fs::path path_file_binary, fs::path const& path_dir_mount, uint64_t index_fs, uint64_t offset, uint64_t size_fs)
+  auto f_mount = [this](fs::path _path_file_binary, fs::path const& _path_dir_mount, uint64_t _index_fs, uint64_t _offset, uint64_t _size_fs)
   {
     // Create mountpoint
-    fs::path path_dir_mount_index = path_dir_mount / std::to_string(index_fs);
+    fs::path path_dir_mount_index = _path_dir_mount / std::to_string(_index_fs);
     lec(fs::create_directories,path_dir_mount_index);
     // Mount filesystem
-    ns_log::debug()("Offset to filesystem is '{}'", offset);
-    this->m_layers.emplace_back(std::make_unique<ns_dwarfs::Dwarfs>(path_file_binary
+    ns_log::debug()("Offset to filesystem is '{}'", _offset);
+    this->m_layers.emplace_back(std::make_unique<ns_dwarfs::Dwarfs>(_path_file_binary
       , path_dir_mount_index
-      , offset
-      , size_fs
+      , _offset
+      , _size_fs
       , getpid()
     ));
     // Include in mountpoints vector

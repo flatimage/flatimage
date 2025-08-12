@@ -75,30 +75,27 @@ class Db
     json_t const& data() const;
     // Operators
     template<typename T>
-    T operator=(T&& t);
+    Db& operator=(T&& t);
     [[maybe_unused]] [[nodiscard]] Db operator()(std::string const& t);
     // Friends
     friend std::ostream& operator<<(std::ostream& os, Db const& db);
 }; // class: Db }}}
 
 // Db::Db() {{{
-inline Db::Db() noexcept
+inline Db::Db() noexcept : m_json(json_t::parse("{}"))
 {
-  m_json = json_t::parse("{}");
 } // Db::Db() }}}
 
 // Db::Db() {{{
 template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
-inline Db::Db(std::reference_wrapper<T> const& json) noexcept
+inline Db::Db(std::reference_wrapper<T> const& json) noexcept : m_json(json)
 {
-  m_json = json;
 } // Db::Db() }}}
 
 // Db::Db() {{{
 template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
-inline Db::Db(T&& json) noexcept
+inline Db::Db(T&& json) noexcept : m_json(json)
 {
-  m_json = json;
 } // Db::Db() }}}
 
 // data() {{{
@@ -248,10 +245,10 @@ inline void Db::clear()
 
 // operator= {{{
 template<typename T>
-T Db::operator=(T&& t)
+Db& Db::operator=(T&& t)
 {
   data() = t;
-  return t;
+  return *this;
 } // operator= }}}
 
 // operator() {{{

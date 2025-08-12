@@ -49,7 +49,8 @@ class Logger
 
 // fn: Logger::Logger {{{
 inline Logger::Logger()
-  : m_level(Level::CRITICAL)
+  : m_opt_os(std::nullopt)
+  , m_level(Level::CRITICAL)
 {
 } // fn: Logger::Logger }}}
 

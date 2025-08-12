@@ -34,7 +34,8 @@ class Overlayfs
         , fs::path const& path_dir_workdir
         , pid_t pid_to_die_for
       )
-      : m_path_dir_mountpoint(path_dir_mountpoint)
+      : m_subprocess(nullptr)
+      , m_path_dir_mountpoint(path_dir_mountpoint)
     {
       ethrow_if (not fs::exists(path_dir_upperdir) and not fs::create_directories(path_dir_upperdir)
         , "Could not create modifications dir for overlayfs"
