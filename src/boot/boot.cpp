@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : boot
-///
+/**
+ * @file boot.cpp
+ * @author Ruan Formigoni
+ * @brief The main flatimage program
+ *
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #include <elf.h>
 #include <cstdlib>
@@ -29,17 +32,30 @@ extern "C"
 // Unix environment variables
 extern char** environ;
 
-// boot() {{{
-Expected<int> boot(int argc, char** argv, ns_config::FlatimageConfig config)
+/**
+ * @brief Boots the main flatimage program and the portal process
+ * 
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return The return code of the process or an internal flatimage error '125'
+ */
+[[nodiscard]] Expected<int> boot(int argc, char** argv)
 {
+  ns_config::FlatimageConfig config = ns_config::config();
   // Set log file
   ns_log::set_sink_file(config.path_dir_mount.string() + ".boot.log");
   // Start host portal
   ns_portal::Portal portal = ns_portal::Portal(getpid(), "host");
   // Parse flatimage command if exists
   return Expect(ns_parser::parse_cmds(config, argc, argv));
-} // boot() }}}
+}
 
+/**
+ * @brief Set the logger level
+ * 
+ * @param argc Argument count
+ * @param argv Argument vector
+ */
 void set_logger_level(int argc, char** argv)
 {
   // Force debug mode
@@ -59,7 +75,6 @@ void set_logger_level(int argc, char** argv)
     ns_log::set_level(ns_log::Level::INFO);
 }
 
-// main() {{{
 int main(int argc, char** argv)
 {
   // Configure logger
@@ -109,7 +124,7 @@ int main(int argc, char** argv)
   } // if
 
   // Launch flatimage
-  if (auto code = boot(argc, argv, ns_config::config()))
+  if (auto code = boot(argc, argv))
   {
     return code.value();
   } // if
@@ -119,6 +134,6 @@ int main(int argc, char** argv)
   } // else
 
   return 125;
-} // main() }}}
+}
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/
