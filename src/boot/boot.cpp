@@ -66,13 +66,16 @@ void set_logger_level(int argc, char** argv)
   }
   // Default critical only mode when no commands are passed
   // Default critical only mode when commands are fim-root or fim-exec
-  if(argc < 2 or std::string_view{argv[1]} == "fim-exec" or std::string_view{argv[1]} == "fim-root")
+  if(argc < 2
+  or std::string_view{argv[1]} == "fim-exec"
+  or std::string_view{argv[1]} == "fim-root"
+  or not std::string_view{argv[1]}.starts_with("fim-"))
   {
     ns_log::set_level(ns_log::Level::CRITICAL);
     return;
   }
   // Otherwise, info mode is the default
-    ns_log::set_level(ns_log::Level::INFO);
+  ns_log::set_level(ns_log::Level::INFO);
 }
 
 int main(int argc, char** argv)
