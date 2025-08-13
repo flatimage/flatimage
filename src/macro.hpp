@@ -43,6 +43,14 @@ using Expected = std::expected<T, std::string>;
     return std::unexpected(std::move(_msg));                            \
   }(__VA_ARGS__))
 
+// Expected or default-constructed
+template<typename T>
+T ExpectedOrDefault(Expected<T> expected)
+{
+  if(expected) { return expected.value(); }
+  return T{};
+}
+
 #define expect_map_error(expr, fun)                  \
 ({                                                   \
   auto __expected_ret = (expr);                      \
