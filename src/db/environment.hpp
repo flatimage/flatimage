@@ -94,7 +94,7 @@ namespace fs = std::filesystem;
  * @param entries List of environment variables to append to the existing ones
  * @return Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> add(fs::path const& path_file_db_environment, std::vector<std::string> entries)
+[[nodiscard]] inline Expected<void> add(fs::path const& path_file_db_environment, std::vector<std::string> const& entries)
 {
   // Validate entries
   Expect(validate(entries));
@@ -117,13 +117,10 @@ namespace fs = std::filesystem;
  * @param entries List of environment variables to set
  * @return Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> set(fs::path const& path_file_db_environment, std::vector<std::string> entries)
+[[nodiscard]] inline Expected<void> set(fs::path const& path_file_db_environment, std::vector<std::string> const& entries)
 {
-  if(std::error_code ec; not fs::remove(path_file_db_environment, ec))
-  {
-    std::string str_msg = std::format("Could not erase file '{}'", path_file_db_environment.string());
-    return Unexpected(str_msg);
-  }
+  auto db = ns_db::Db();
+  Expect(ns_db::write_file(path_file_db_environment, db));
   Expect(add(path_file_db_environment, entries));
   return {};
 }
