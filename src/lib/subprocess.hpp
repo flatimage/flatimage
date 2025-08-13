@@ -16,6 +16,7 @@
 #include <sys/prctl.h>
 #include <ranges>
 
+#include "env.hpp"
 #include "log.hpp"
 #include "../macro.hpp"
 #include "../std/vector.hpp"
@@ -31,28 +32,23 @@ namespace fs = std::filesystem;
 } // namespace
 
 // search_path() {{{
-inline std::optional<std::string> search_path(std::string const& s)
+inline Expected<std::string> search_path(std::string const& s)
 {
-  const char* cstr_path = getenv("PATH");
-  ereturn_if(cstr_path == nullptr, "PATH: Could not read PATH", std::nullopt);
-
-  std::string str_path{cstr_path};
-  auto view = str_path | std::views::split(':');
+  std::error_code ec;
+  // Get PATH split view
+  auto view = Expect(ns_env::get_expected("PATH")) | std::views::split(':');
+  // Search for binary
   auto it = std::find_if(view.begin(), view.end(), [&](auto&& e)
   {
     ns_log::debug()("PATH: Check for {}", fs::path(e.begin(), e.end()) / s);
-    return fs::exists(fs::path(e.begin(), e.end()) / s);
+    return fs::exists(fs::path(e.begin(), e.end()) / s, ec);
   });
-
-  if (it != view.end())
+  // Check for no matches
+  if (it == view.end())
   {
-    auto result = fs::path((*it).begin(), (*it).end()) / s;
-    ns_log::debug()("PATH: Found '{}'", result);
-    return result;
-  } // if
-
-  ns_log::debug()("PATH: Could not find '{}'", s);
-  return std::nullopt;
+    return Unexpected("PATH: Could not find '{}'", s);
+  }
+  return fs::path((*it).begin(), (*it).end()) / s;
 } // search_path()}}}
 
 // class Subprocess {{{
@@ -136,7 +132,7 @@ Subprocess::Subprocess(T&& t)
   , m_fstdout(std::nullopt)
   , m_fstderr(std::nullopt)
   , m_with_piped_outputs(false)
-  , m_die_on_pid(false)
+  , m_die_on_pid(std::nullopt)
 {
   // argv0 is program name
   m_args.push_back(m_program);
