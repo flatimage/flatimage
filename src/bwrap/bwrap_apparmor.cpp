@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : bwrap_apparmor
-///
+/**
+ * @file bwrap_apparmor.cpp
+ * @author Ruan Formigoni
+ * @brief Configures apparmor to allow the execution of [bubblewrap](https://github.com/containers/bubblewrap)
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #include <filesystem>
 

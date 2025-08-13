@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : bwrap
-///
+/**
+ * @file bwrap.hpp
+ * @author Ruan Formigoni
+ * @brief Configures and launches [bubblewrap](https://github.com/containers/bubblewrap)
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -75,7 +78,6 @@ class Bwrap
     Expected<fs::path> test_and_setup(fs::path const& path_file_bwrap);
 
   public:
-    template<ns_concept::StringRepresentable... Args>
     Bwrap(bool is_root
       , std::optional<Overlay> opt_overlay
       , fs::path const& path_dir_root
@@ -106,10 +108,19 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
     [[maybe_unused]] [[nodiscard]] bwrap_run_ret_t run(ns_permissions::PermissionBits const& permissions
       , fs::path const& path_dir_app_bin);
-}; // class: Bwrap
+};
 
-// Bwrap() {{{
-template<ns_concept::StringRepresentable... Args>
+/**
+ * @brief Construct a new Bwrap:: Bwrap object
+ * 
+ * @param is_root A flag to set the sandbox user as root
+ * @param opt_overlay Optional overlay filesystem configuration
+ * @param path_dir_root Path to the sandbox root directory
+ * @param path_file_bashrc Path to the `.bashrc` file used by the sandbox shell
+ * @param path_file_program Program to launch in the sandbox
+ * @param program_args Arguments for the program launched in the sandbox
+ * @param program_env Environment for the program launched in the sandbox
+ */
 inline Bwrap::Bwrap(
       bool is_root
     , std::optional<Overlay> opt_overlay
@@ -188,9 +199,11 @@ inline Bwrap::Bwrap(
 
   // Check if XDG_RUNTIME_DIR is set or try to set it manually
   set_xdg_runtime_dir();
-} // Bwrap() }}}
+}
 
-// ~Bwrap() {{{
+/**
+ * @brief Destroy the Bwrap:: Bwrap object
+ */
 inline Bwrap::~Bwrap()
 {
   if ( m_opt_path_dir_work )
@@ -202,9 +215,15 @@ inline Bwrap::~Bwrap()
       | fs::perms::others_read | fs::perms::others_exec
     );
   } // if
-} // ~Bwrap() }}}
+}
 
-// overlayfs() {{{
+/**
+ * @brief Configures the bubblewrap overlay filesystem options
+ * 
+ * @param vec_path_dir_layer Directories to overlay
+ * @param path_dir_upper Path to the upper directory where changes are saved to
+ * @param path_dir_work Path to the work directory, required by overlayfs
+ */
 inline void Bwrap::overlay(std::vector<fs::path> const& vec_path_dir_layer
   , fs::path const& path_dir_upper
   , fs::path const& path_dir_work)
@@ -216,18 +235,25 @@ inline void Bwrap::overlay(std::vector<fs::path> const& vec_path_dir_layer
     ns_vector::push_back(m_args, "--overlay-src", path_dir_layer);
   } // for
   ns_vector::push_back(m_args, "--overlay", path_dir_upper, path_dir_work, "/");
-} // overlayfs() }}}
+}
 
-// set_xdg_runtime_dir() {{{
+/**
+ * @brief Configures the XDG_RUNTIME_DIR variable in the sandbox
+ */
 inline void Bwrap::set_xdg_runtime_dir()
 {
   m_path_dir_xdg_runtime = ns_env::get_or_else("XDG_RUNTIME_DIR", "/run/user/{}"_fmt(getuid()));
   ns_log::info()("XDG_RUNTIME_DIR: {}", m_path_dir_xdg_runtime);
   m_program_env.push_back("XDG_RUNTIME_DIR={}"_fmt(m_path_dir_xdg_runtime));
   ns_vector::push_back(m_args, "--setenv", "XDG_RUNTIME_DIR", m_path_dir_xdg_runtime);
-} // set_xdg_runtime_dir() }}}
+}
 
-// test_and_setup() {{{
+/**
+ * @brief Runs bubblewrap and tries to integrate with apparmor if execution fails
+ * 
+ * @param path_file_bwrap_src Path to the bubblewrap binary
+ * @return The path of the bubblewrap binary greenlit in apparmor
+ */
 inline Expected<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src)
 {
   // Test current bwrap binary
@@ -259,9 +285,15 @@ inline Expected<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_
   qreturn_if(not ret, Unexpected("Could not find create profile (abnormal exit)"));
   qreturn_if(ret and *ret != 0, Unexpected("Could not find create profile with exit code '{}'"_fmt(*ret)));
   return path_file_bwrap_opt;
-} // test_and_setup() }}}
+}
 
-// symlink_nvidia() {{{
+/**
+ * @brief Setup symlinks to nvidia drivers
+ * 
+ * @param path_dir_root_guest Path to the root directory of the sandbox
+ * @param path_dir_root_host Path to the root directory of the host system (from the guest)
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host)
 {
   std::regex regex_exclude("gst|icudata|egl-wayland", std::regex_constants::extended);
@@ -317,9 +349,14 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
   } // for
 
   return *this;
-} // symlink_nvidia() }}}
+}
 
-// with_binds_from_file() {{{
+/**
+ * @brief Allows to specify custom bindings from a json file
+ * 
+ * @param path_file_bindings Path to the json file which contains the bindings
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::with_binds_from_file(fs::path const& path_file_bindings)
 {
   // Load bindings from the filesystem if any
@@ -341,23 +378,39 @@ inline Bwrap& Bwrap::with_binds_from_file(fs::path const& path_file_bindings)
     m_args.push_back(ns_env::expand(dst.value()).value_or(dst.value()));
   } // for
   return *this;
-} // with_binds_from_file() }}}
+}
 
-// with_bind() {{{
+/**
+ * @brief Includes a binding from the host to the guest
+ * 
+ * @param src Source of the binding from the host
+ * @param dst Destination of the binding in the guest
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::with_bind(fs::path const& src, fs::path const& dst)
 {
   ns_vector::push_back(m_args, "--bind-try", src, dst);
   return *this;
-} // with_bind() }}}
+}
 
-// with_bind_ro() {{{
+/**
+ * @brief Includes a read-only binding from the host to the guest
+ * 
+ * @param src Source of the binding from the host
+ * @param dst Destination of the binding in the guest
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::with_bind_ro(fs::path const& src, fs::path const& dst)
 {
   ns_vector::push_back(m_args, "--ro-bind-try", src, dst);
   return *this;
-} // with_bind_ro() }}}
+}
 
-// bind_home() {{{
+/**
+ * @brief Includes a binding from the host $HOME to the guest
+ * 
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_home()
 {
   if ( m_is_root ) { return *this; }
@@ -365,9 +418,15 @@ inline Bwrap& Bwrap::bind_home()
   const char* str_dir_home = ns_env::get_or_throw("HOME");
   ns_vector::push_back(m_args, "--bind-try", str_dir_home, str_dir_home);
   return *this;
-} // bind_home() }}}
+}
 
-// bind_media() {{{
+/**
+ * @brief Binds the host's media directories to the guest
+ * 
+ * The bindings are `/media`, `/run/media`, and `/mnt`
+ * 
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_media()
 {
   ns_log::debug()("PERM(MEDIA)");
@@ -375,9 +434,15 @@ inline Bwrap& Bwrap::bind_media()
   ns_vector::push_back(m_args, "--bind-try", "/run/media", "/run/media");
   ns_vector::push_back(m_args, "--bind-try", "/mnt", "/mnt");
   return *this;
-} // bind_media() }}}
+}
 
-// bind_audio() {{{
+/**
+ * @brief Binds the host's audio sockets and devices to the guest
+ * 
+ * The bindings are $XDG_RUNTIME_DIR/{/pulse/native,pipewire-0}
+ *
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_audio()
 {
   ns_log::debug()("PERM(AUDIO)");
@@ -398,9 +463,16 @@ inline Bwrap& Bwrap::bind_audio()
   ns_vector::push_back(m_args, "--bind-try", "/proc/asound", "/proc/asound");
 
   return *this;
-} // bind_audio() }}}
+}
 
-// bind_wayland() {{{
+/**
+ * @brief Binds the wayland socket from the host to the guest
+ * 
+ * Requires the WAYLAND_DISPLAY variable set
+ * The binding is $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY
+ *
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_wayland()
 {
   ns_log::debug()("PERM(WAYLAND)");
@@ -416,9 +488,16 @@ inline Bwrap& Bwrap::bind_wayland()
   ns_vector::push_back(m_args, "--setenv", "WAYLAND_DISPLAY", env_wayland_display);
 
   return *this;
-} // bind_wayland() }}}
+}
 
-// bind_xorg() {{{
+/**
+ * @brief Binds the xorg socket from the host to the guest
+ * 
+ * Requires the DISPLAY environment variable set
+ * Requires the XAUTHORITY environment variable set
+ *
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_xorg()
 {
   ns_log::debug()("PERM(XORG)");
@@ -436,9 +515,15 @@ inline Bwrap& Bwrap::bind_xorg()
   ns_vector::push_back(m_args, "--setenv", "DISPLAY", env_display);
 
   return *this;
-} // bind_xorg() }}}
+}
 
-// bind_dbus_user() {{{
+/**
+ * @brief Binds the user session bus from the host to the guest
+ * 
+ * Requires the DBUS_SESSION_BUS_ADDRESS environment variable set
+ *
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_dbus_user()
 {
   ns_log::debug()("PERM(DBUS_USER)");
@@ -467,43 +552,77 @@ inline Bwrap& Bwrap::bind_dbus_user()
   ns_vector::push_back(m_args, "--bind-try", str_dbus_session_bus_path, str_dbus_session_bus_path);
 
   return *this;
-} // bind_dbus_user() }}}
+}
 
-// bind_dbus_system() {{{
+/**
+ * @brief Binds the syst from the host to the guest
+ * 
+ * the binding is `/run/dbus/system_bus_socket`
+ *
+ * @return bwrap& a reference to *this
+ */
 inline Bwrap& Bwrap::bind_dbus_system()
 {
-  ns_log::debug()("PERM(DBUS_SYSTEM)");
+  ns_log::debug()("perm(dbus_system)");
   ns_vector::push_back(m_args, "--bind-try", "/run/dbus/system_bus_socket", "/run/dbus/system_bus_socket");
   return *this;
-} // bind_dbus_system() }}}
+}
 
-// bind_udev() {{{
+/**
+ * @brief binds the udev folder from the host to the guest
+ * 
+ * The binding is `/run/udev`
+ *
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_udev()
 {
   ns_log::debug()("PERM(UDEV)");
   ns_vector::push_back(m_args, "--bind-try", "/run/udev", "/run/udev");
   return *this;
-} // bind_udev() }}}
+}
 
-// bind_input() {{{
+/**
+ * @brief Binds the input devices from the host to the guest
+ * 
+ * The bindings are `/dev/{input,uinput}`
+ *
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_input()
 {
   ns_log::debug()("PERM(INPUT)");
   ns_vector::push_back(m_args, "--dev-bind-try", "/dev/input", "/dev/input");
   ns_vector::push_back(m_args, "--dev-bind-try", "/dev/uinput", "/dev/uinput");
   return *this;
-} // bind_input() }}}
+}
 
-// bind_usb() {{{
+/**
+ * @brief Binds the usb devices from the host to the guest
+ * 
+ * The bindings are `/dev/bus/usb` and `/dev/usb`
+ *
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_usb()
 {
   ns_log::debug()("PERM(USB)");
   ns_vector::push_back(m_args, "--dev-bind-try", "/dev/bus/usb", "/dev/bus/usb");
   ns_vector::push_back(m_args, "--dev-bind-try", "/dev/usb", "/dev/usb");
   return *this;
-} // bind_usb() }}}
+}
 
-// bind_network() {{{
+/**
+ * @brief Binds the network configuration from the host to the guest
+ * 
+ * The bindings are:
+ * - `/etc/host.conf`
+ * - `/etc/hosts`
+ * - `/etc/nsswitch.conf`
+ * - `/etc/resolv.conf`
+ *
+ * @return Bwrap& A reference to *this
+ */
 inline Bwrap& Bwrap::bind_network()
 {
   ns_log::debug()("PERM(NETWORK)");
@@ -512,17 +631,29 @@ inline Bwrap& Bwrap::bind_network()
   ns_vector::push_back(m_args, "--bind-try", "/etc/nsswitch.conf", "/etc/nsswitch.conf");
   ns_vector::push_back(m_args, "--bind-try", "/etc/resolv.conf", "/etc/resolv.conf");
   return *this;
-} // bind_network() }}}
+}
 
-// with_bind_gpu() {{{
+/**
+ * @brief Binds the gpu device from the host to the guest
+ * 
+ * @param path_dir_root_guest Path to the root directory of the sandbox
+ * @param path_dir_root_host Path to the root directory of the host system (from the guest)
+ * @return Bwrap& 
+ */
 inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host)
 {
   ns_log::debug()("PERM(GPU)");
   ns_vector::push_back(m_args, "--dev-bind-try", "/dev/dri", "/dev/dri");
   return symlink_nvidia(path_dir_root_guest, path_dir_root_host);
-} // with_bind_gpu() }}}
+}
 
-// run() {{{
+/**
+ * @brief Runs the command in the bubblewrap sandbox
+ * 
+ * @param permissions Permissions for the program, configured in bubblewrap
+ * @param path_dir_app_bin Path to the binary directory of flatimage's binary files
+ * @return bwrap_run_ret_t 
+ */
 inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissions
   , fs::path const& path_dir_app_bin)
 {
@@ -590,7 +721,7 @@ inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissi
 
   // Return value and possible errors
   return {.code=code.value_or(125), .syscall_nr=syscall_nr, .errno_nr=errno_nr};
-} // run() }}}
+}
 
 } // namespace ns_bwrap
 

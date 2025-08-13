@@ -1,3 +1,11 @@
+/**
+ * @file relocate.hpp
+ * @author Ruan Formigoni
+ * @brief Used to copy execve the flatimage program
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
+
 #include <expected>
 #include <string>
 #include <system_error>
@@ -51,7 +59,17 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   "wc","wget","which","who","whoami","whois","xargs","xxd","xz","xzcat","yes","zcat","zcip",
 };
 
-// relocate_impl() {{{
+/**
+ * @brief Relocate the binary (by copying it) from the image.
+ * 
+ * The binary is copied from the image to the instance directory,
+ * for an execve to be performed. This is done to free the main
+ * flatimage file to mount the filesystems.
+ *
+ * @param argv Argument vector passed to the main program
+ * @param offset Offset to the reserved space, past the elf and appended binaries
+ * @return Nothing on success, or the respective error
+ */
 [[nodiscard]] inline Expected<void> relocate_impl(char** argv, uint32_t offset)
 {
   std::error_code ec;
@@ -204,10 +222,17 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   // Launch Runner
   int code = execve("{}/fim_boot"_fmt(path_dir_instance).c_str(), argv, environ);
   return Unexpected("Could not perform 'evecve({})': {}"_fmt(code, strerror(errno)));
-} // relocate_impl() }}}
+}
 
 } // namespace
 
+/**
+ * @brief Calls the implementation of relocate
+ * 
+ * @param argv Argument vector passed to the main program
+ * @param offset Offset to the reserved space, past the elf and appended binaries
+ * @return Nothing on success, or the respective error
+ */
 [[nodiscard]] inline Expected<void> relocate(char** argv, int32_t offset)
 {
   // Get path to self
