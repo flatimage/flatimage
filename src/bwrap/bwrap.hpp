@@ -106,7 +106,7 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind(fs::path const& src, fs::path const& dst);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
-    [[maybe_unused]] [[nodiscard]] bwrap_run_ret_t run(ns_permissions::PermissionBits const& permissions
+    [[maybe_unused]] [[nodiscard]] Expected<bwrap_run_ret_t> run(ns_permissions::PermissionBits const& permissions
       , fs::path const& path_dir_app_bin);
 };
 
@@ -184,7 +184,7 @@ inline Bwrap::Bwrap(
   } // if
   else
   {
-    ethrow_if(not fs::is_directory(path_dir_root)
+    elog_if(not fs::is_directory(path_dir_root)
       , "'{}' does not exist or is not a directory"_fmt(path_dir_root)
     );
     ns_vector::push_back(m_args, "--bind", path_dir_root, "/");
@@ -272,14 +272,11 @@ inline Expected<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_
     .wait();
   qreturn_if (ret and *ret == 0, path_file_bwrap_opt);
   // Error might be EACCES, try to integrate with apparmor
-  auto opt_path_file_pkexec = ns_subprocess::search_path("pkexec");
-  qreturn_if(not opt_path_file_pkexec.has_value(), Unexpected("Could not find pkexec binary"));
-  auto opt_path_file_bwrap_apparmor = ns_subprocess::search_path("fim_bwrap_apparmor");
-  qreturn_if(not opt_path_file_bwrap_apparmor.has_value(), Unexpected("Could not find bwrap_apparmor binary"));
-  auto expected_path_dir_mount = ns_exception::to_expected([]{ return ns_env::get_or_throw("FIM_DIR_MOUNT"); });
-  qreturn_if(not expected_path_dir_mount, expected_path_dir_mount.error());
-  ret = ns_subprocess::Subprocess(*opt_path_file_pkexec)
-    .with_args(*opt_path_file_bwrap_apparmor, *expected_path_dir_mount, path_file_bwrap_src)
+  fs::path path_file_pkexec = Expect(ns_subprocess::search_path("pkexec"));
+  fs::path path_file_bwrap_apparmor = Expect(ns_subprocess::search_path("fim_bwrap_apparmor"));
+  fs::path path_dir_mount = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
+  ret = ns_subprocess::Subprocess(path_file_pkexec)
+    .with_args(path_file_bwrap_apparmor, path_dir_mount, path_file_bwrap_src)
     .spawn()
     .wait();
   qreturn_if(not ret, Unexpected("Could not find create profile (abnormal exit)"));
@@ -415,7 +412,11 @@ inline Bwrap& Bwrap::bind_home()
 {
   if ( m_is_root ) { return *this; }
   ns_log::debug()("PERM(HOME)");
-  const char* str_dir_home = ns_env::get_or_throw("HOME");
+  const char* str_dir_home = ns_env::get("HOME");
+  if(str_dir_home == nullptr)
+  {
+    ns_log::error()("HOME environment variable is unset");
+  }
   ns_vector::push_back(m_args, "--bind-try", str_dir_home, str_dir_home);
   return *this;
 }
@@ -654,9 +655,11 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
  * @param path_dir_app_bin Path to the binary directory of flatimage's binary files
  * @return bwrap_run_ret_t 
  */
-inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissions
+inline Expected<bwrap_run_ret_t> Bwrap::run(ns_permissions::PermissionBits const& permissions
   , fs::path const& path_dir_app_bin)
 {
+  std::error_code ec;
+  
   // Configure bindings
   if(permissions.home){ std::ignore = bind_home(); };
   if(permissions.media){ std::ignore = bind_media(); };
@@ -670,36 +673,36 @@ inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissi
   if(permissions.usb){ std::ignore = bind_usb(); };
   if(permissions.network){ std::ignore = bind_network(); };
 
-  auto opt_path_file_bash = ns_subprocess::search_path("bash");
-  ethrow_if(not opt_path_file_bash.has_value(), "Could not find bash");
+  // Search for bash
+  fs::path path_file_bash = Expect(ns_subprocess::search_path("bash"));
 
   // Use builtin bwrap or native if exists
-  auto opt_path_file_bwrap = ns_subprocess::search_path("bwrap");
-  ethrow_if(not opt_path_file_bwrap.has_value(), "Could not find bwrap");
-  fs::path path_file_bwrap = *opt_path_file_bwrap;
-  ns_log::debug()("Using bwrap builtin");
+  fs::path path_file_bwrap = Expect(ns_subprocess::search_path("bwrap"));
 
   // Test bwrap and setup apparmor if it is required
-  auto expected_path_file_bwrap = test_and_setup(path_file_bwrap);
-  ethrow_if(not expected_path_file_bwrap, expected_path_file_bwrap.error());
+  // Adjust the bwrap path to the one integrated with apparmor if needed
+  path_file_bwrap = Expect(test_and_setup(path_file_bwrap));
 
   // Pipe to receive errors from bwrap
   int pipe_error[2];
-  ethrow_if(pipe(pipe_error) == -1, strerror(errno));
+  qreturn_if(pipe(pipe_error) == -1, strerror(errno), Unexpected("Could not open bwrap error pipe"));
 
   // Configure pipe read end as non-blocking
-  fcntl(pipe_error[0], F_SETFL, fcntl(pipe_error[0], F_GETFL, 0) | O_NONBLOCK);
+  if(fcntl(pipe_error[0], F_SETFL, fcntl(pipe_error[0], F_GETFL, 0) | O_NONBLOCK) < 0)
+  {
+    return Unexpected("Could not configure bwrap pipe to be non-blocking");
+  }
 
   // Get path to daemon
   fs::path path_file_daemon = path_dir_app_bin / "fim_portal_daemon";
-  ethrow_if(not fs::exists(path_file_daemon), "Missing portal daemon to run binary file path");
+  qreturn_if(not fs::exists(path_file_daemon, ec), Unexpected("Missing portal daemon to run binary file path"));
 
   // Run Bwrap
-  auto code = ns_subprocess::Subprocess(opt_path_file_bash.value())
-    .with_args("-c", R"("{}" "$@")"_fmt(*expected_path_file_bwrap), "--")
+  auto code = ns_subprocess::Subprocess(path_file_bash)
+    .with_args("-c", R"("{}" "$@")"_fmt(path_file_bwrap), "--")
     .with_args("--error-fd", std::to_string(pipe_error[1]))
     .with_args(m_args)
-    .with_args(opt_path_file_bash.value(), "-c", R"(&>/dev/null nohup "{}" "{}" guest & disown; "{}" "$@")"_fmt(path_file_daemon, getpid(), m_path_file_program), "--")
+    .with_args(path_file_bash, "-c", R"(&>/dev/null nohup "{}" "{}" guest & disown; "{}" "$@")"_fmt(path_file_daemon, getpid(), m_path_file_program), "--")
     .with_args(m_program_args)
     .with_env(m_program_env)
     .spawn()
@@ -720,7 +723,7 @@ inline bwrap_run_ret_t Bwrap::run(ns_permissions::PermissionBits const& permissi
   close(pipe_error[1]);
 
   // Return value and possible errors
-  return {.code=code.value_or(125), .syscall_nr=syscall_nr, .errno_nr=errno_nr};
+  return bwrap_run_ret_t{.code=code.value_or(125), .syscall_nr=syscall_nr, .errno_nr=errno_nr};
 }
 
 } // namespace ns_bwrap
