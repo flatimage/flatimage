@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <system_error>
 #include <unistd.h>
 #include <filesystem>
 #include <ranges>
@@ -191,6 +192,24 @@ inline FlatimageConfig config()
   config.path_file_config_environment = config.path_dir_config / "environment.json";
   config.path_file_config_bindings    = config.path_dir_config / "bindings.json";
   config.path_file_config_casefold    = config.path_dir_config / "casefold.json";
+  
+  // Create files if they do not exist
+  auto f_touch_json = [](fs::path const& path_file)
+  {
+    if(std::error_code ec; fs::exists(path_file, ec)) { return; }
+    if(std::ofstream file{path_file}; file.is_open())
+    {
+      file << "{}";
+    }
+    else
+    {
+      ns_log::error()("Could not create file '{}'", path_file);
+    }
+  };
+  f_touch_json(config.path_file_config_boot);
+  f_touch_json(config.path_file_config_environment);
+  f_touch_json(config.path_file_config_bindings);
+  f_touch_json(config.path_file_config_casefold);
 
   // LD_LIBRARY_PATH
   if ( ns_env::exists("LD_LIBRARY_PATH") )
