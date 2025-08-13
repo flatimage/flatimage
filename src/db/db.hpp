@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : db
-///
+/**
+ * @file db.hpp
+ * @author Ruan Formigoni
+ * @brief Used to manage the bindings from the host to the sandbox
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -39,7 +42,6 @@ concept IsString =
 
 using KeyType = json_t::value_t;
 
-// class Db {{{
 class Db
 {
   private:
@@ -79,59 +81,90 @@ class Db
     [[maybe_unused]] [[nodiscard]] Db operator()(std::string const& t);
     // Friends
     friend std::ostream& operator<<(std::ostream& os, Db const& db);
-}; // class: Db }}}
+};
 
-// Db::Db() {{{
+/**
+ * @brief Construct a new Db:: Db object
+ */
 inline Db::Db() noexcept : m_json(json_t::parse("{}"))
 {
-} // Db::Db() }}}
+}
 
-// Db::Db() {{{
+/**
+ * @brief Construct a new Db:: Db object
+ * 
+ * @param json Constructs a new Db with the nlohmann_json underlying type
+ */
 template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
 inline Db::Db(std::reference_wrapper<T> const& json) noexcept : m_json(json)
 {
-} // Db::Db() }}}
+}
 
-// Db::Db() {{{
+/**
+ * @brief Construct a new Db:: Db object
+ * 
+ * @param json Constructs a new Db with the nlohmann_json underlying type
+ */
 template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
 inline Db::Db(T&& json) noexcept : m_json(json)
 {
-} // Db::Db() }}}
+}
 
-// data() {{{
+/**
+ * @brief Gets the current json entry
+ * 
+ * @return json_t& A reference to the current json entry
+ */
 inline json_t& Db::data()
 {
   if (std::holds_alternative<std::reference_wrapper<json_t>>(m_json))
   {
     return std::get<std::reference_wrapper<json_t>>(m_json).get();
-  } // if
+  }
 
   return std::get<json_t>(m_json);
-} // data() }}}
+}
 
-// data() const {{{
+/**
+ * @brief Gets the current json entry
+ * 
+ * @return json_t& A reference to the current json entry
+ */
 inline json_t const& Db::data() const
 {
   return const_cast<Db*>(this)->data();
-} // data() const }}}
+}
 
-// keys() {{{
+/**
+ * @brief Get the keys of each json entry
+ * 
+ * @return std::vector<std::string> Json keys as strings
+ */
 inline std::vector<std::string> Db::keys() const noexcept
 {
   return data().items()
     | std::views::transform([&](auto&& e) { return e.key(); })
     | std::ranges::to<std::vector<std::string>>();
-} // keys() }}}
+}
 
-// items() {{{
+/**
+ * @brief Gets the keys and values of the current json entry
+ * 
+ * @return std::vector<std::pair<std::string,Db>> A list of pairs, the key and the value as a database entry
+ */
 inline std::vector<std::pair<std::string,Db>> Db::items() const noexcept
 {
   return data().items()
     | std::views::transform([](auto&& e){ return std::make_pair(e.key(), Db{e.value()}); })
     | std::ranges::to<std::vector<std::pair<std::string,Db>>>();
-} // items() }}}
+}
 
-// value() {{{
+/**
+ * @brief Get the value of the current json entry
+ * 
+ * @tparam V The type to convert the entry to
+ * @return Expected<V> The object of V or the respective error
+ */
 template<typename V>
 Expected<V> Db::value() noexcept
 {
@@ -139,23 +172,30 @@ Expected<V> Db::value() noexcept
   if constexpr ( std::same_as<V,Db> )
   {
     return Db{json};
-  } // if
+  }
   else if constexpr ( ns_concept::IsVector<V> )
   {
-    qreturn_if(not json.is_array(), Unexpected("Tried to create array with non-array entry"));
+    qreturn_if(not json.is_array(), std::unexpected("Tried to create array with non-array entry"));
     return std::ranges::subrange(json.begin(), json.end())
       | std::views::transform([](auto&& e){ return typename std::remove_cvref_t<V>::value_type(e); })
       | std::ranges::to<V>();
-  } // else if
+  }
   else
   {
     return ( json.is_string() )?
         Expected<V>(std::string{json})
-      : Unexpected("Json element is not a string");
-  } // else
-} // value() }}}
+      : std::unexpected("Json element is not a string");
+  }
+}
 
-// value_or_default() {{{
+/**
+ * @brief Get the current value of the json entry or a provided one (defaults to default-constructed)
+ * 
+ * @tparam V The target type
+ * @param k The key of the accessed json entry
+ * @param v The alternative value to return (optional)
+ * @return V The accessed value or the provided alternative
+ */
 template<typename V>
 V Db::value_or_default(IsString auto&& k, V&& v) const noexcept
 {
@@ -172,150 +212,196 @@ V Db::value_or_default(IsString auto&& k, V&& v) const noexcept
     return std::ranges::subrange(json.begin(), json.end())
       | std::views::transform([](auto&& e){ return typename std::remove_cvref_t<V>::value_type(e); })
       | std::ranges::to<V>();
-  } // if
+  }
   else
   {
     return V{json};
-  } // else
-} // value_or_default() }}}
+  }
+} 
 
-// apply() {{{
-// Key exists or is created, and is accessed
-template<typename F, IsString Ks>
-decltype(auto) Db::apply(F&& f, Ks&& ks)
-{
-  if (auto access = value(std::forward<Ks>(ks)))
-  {
-    return ns_exception::to_expected([&]{ return f(*access); });
-  } // if
-  return Unexpected("Could not apply function");
-} // apply() }}}
-
-// dump() {{{
+/**
+ * @brief Dumps the current json into a string
+ * 
+ * @return std::string The corresponding string
+ */
 inline std::string Db::dump()
 {
   return data().dump(2);
-} // dump() }}}
+}
 
-// empty() {{{
+/**
+ * @brief Checks if the json is empty
+ * 
+ * @return The boolean result
+ */
 inline bool Db::empty() const noexcept
 {
   return data().empty();
-} // empty() }}}
+}
 
-// contains() {{{
+/**
+ * @brief Checks if the json contains the provided key
+ * 
+ * @param key 
+ * @return The boolean result
+ */
 template<IsString T>
-bool Db::contains(T&& t) const noexcept
+bool Db::contains(T&& key) const noexcept
 {
-  return data().contains(t);
-} // contains() }}}
+  return data().contains(key);
+}
 
-// contains() {{{
+/**
+ * @brief Get the type of the current json element
+ * 
+ * @return KeyType An enumeration of the current json element type
+ */
 inline KeyType Db::type() const noexcept
 {
   return data().type();
-} // contains() }}}
+}
 
-// erase() {{{
+/**
+ * @brief Erases the provided key from the database
+ * 
+ * If the current json entry is:
+ *  - An array, it erases the entry from the array
+ *  - An object, it erases the key/value if exists
+ * 
+ * @param key 
+ * @return True if the key was removed, false otherwise
+ */
 template<IsString T>
-bool Db::erase(T&& t)
+bool Db::erase(T&& key)
 {
-  json_t& json = data();
+  auto str_key = ns_string::to_string(key);
 
-  auto key = ns_string::to_string(t);
+  json_t& json = data();
 
   if ( json.is_array() )
   {
-    // Search in array & erase if there is a match
-    auto it_search = std::find(json.begin(), json.end(), key);
+    auto it_search = std::find(json.begin(), json.end(), str_key);
     if ( it_search == json.end() ) { return false; }
     json.erase(std::distance(json.begin(), it_search));
     return true;
   }
+  else if(json.is_object())
+  {
+    return json.erase(str_key) > 0;
+  }
 
-  // Erase returns the number of elements removed
-  return json.erase(key) > 0;
-} // erase() }}}
+  return false;
+}
 
-// clear() {{{
+/**
+ * @brief Clears the current json contents
+ */
 inline void Db::clear()
 {
   data() = "{}";
-} // clear() }}}
+}
 
-// operator= {{{
+/**
+ * @brief Assigns a value to the current json entry
+ * 
+ * @param value The value to assign
+ * @return Db& A reference to *this
+ */
 template<typename T>
-Db& Db::operator=(T&& t)
+Db& Db::operator=(T&& value)
 {
-  data() = t;
+  data() = value;
   return *this;
-} // operator= }}}
+}
 
-// operator() {{{
-// Key exists or is created, and is accessed
-inline Db Db::operator()(std::string const& t)
+/**
+ * @brief Accesses or creates the key
+ * 
+ * @param key The key to access or create 
+ * @return Db A new database object with a reference to the accessed key, on failure it returns the current object
+ */
+inline Db Db::operator()(std::string const& key)
 {
   json_t& json = data();
 
-  return ns_exception::to_expected([&]
+  if(json.is_object() or json.empty())
   {
-    return Db{std::reference_wrapper<json_t>(json[t])};
-  }).value_or(*this);
-} // operator() }}}
+    return Db{std::reference_wrapper<json_t>(json[key])};
+  }
 
-// operator<< {{{
+  return *this;
+}
+
+/**
+ * @brief Prints the database to the target stream
+ * 
+ * @param os The target stream
+ * @param db The database to print to the stream
+ * @return std::ostream& A reference to the target stream
+ */
 inline std::ostream& operator<<(std::ostream& os, Db const& db)
 {
   os << db.data();
   return os;
-} // operator<< }}}
+}
 
-// read_file() {{{
-auto read_file(IsString auto&& t) -> Expected<Db>
+/**
+ * @brief Creates a database from the given input file
+ * 
+ * @param path_file_db The json file used to create the database from
+ * @return Expected<Db> The deserialized Db object
+ */
+[[nodiscard]] inline Expected<Db> read_file(fs::path const& path_file_db)
 {
-  fs::path path_file_db{ns_string::to_string(t)};
   std::error_code ec;
-  ereturn_if(not fs::exists(path_file_db, ec)
-    , "Invalid db file '{}'"_fmt(path_file_db)
-    , Db{}
-  );
+  qreturn_if(not fs::exists(path_file_db, ec), std::unexpected("Invalid db file '{}'"_fmt(path_file_db)));
   // Parse a file
-  auto f_parse_file = [](std::ifstream const& f) -> std::optional<json_t>
+  auto f_parse_file = [&path_file_db](std::ifstream const& f) -> Expected<json_t>
   {
     // Read to string
     std::string contents = ns_string::to_string(f.rdbuf());
     // Validate contents and return parsed result
     qreturn_if (json_t::accept(contents),  json_t::parse(contents));
     // Failed to parse
-    return std::nullopt;
+    return std::unexpected("Failed to parse db '{}'"_fmt(path_file_db));
   };
   // Open target file as read
   std::ifstream file(path_file_db, std::ios::in);
-  qreturn_if(not file.is_open(), Unexpected("Failed to open '{}'"_fmt(path_file_db)));
+  qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}'"_fmt(path_file_db)));
   // Try to parse
-  auto optional_json = f_parse_file(file);
-  qreturn_if(not optional_json, Unexpected("Failed to parse db '{}'"_fmt(path_file_db)));
-  // Return parsed database
-  return Db(optional_json.value());
-} // function: read_file }}}
+  return Db(Expect(f_parse_file(file)));
+}
 
-// write_file() {{{
-inline auto write_file(fs::path const& path_file_db, Db& db) -> Expected<void>
+/**
+ * @brief Writes the database object to the target json file
+ * 
+ * @param path_file_db The target json file
+ * @param db The database object
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+[[nodiscard]] inline Expected<void> write_file(fs::path const& path_file_db, Db& db)
 {
   std::ofstream file(path_file_db, std::ios::trunc);
-  qreturn_if(not file.is_open(), Unexpected("Failed to open '{}' for writing"));
+  qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}' for writing"));
   file << std::setw(2) << db.dump();
   file.close();
   return Expected<void>{};
-} // function: write_file }}}
+}
 
-// from_string() {{{
+/**
+ * @brief Creates a database from a literal json string
+ * 
+ * @tparam S The type must be representable as a string
+ * @param s The string representable json data
+ * @return Expected<Db> The database or the respective error
+ */
 template<ns_concept::StringRepresentable S>
 Expected<Db> from_string(S&& s)
 {
-  qreturn_if(not json_t::accept(ns_string::to_string(s)), Unexpected("Could not parse json file"));
-  return Db(json_t::parse(ns_string::to_string(s)));
-} // function: from_string }}}
+  std::string str_json = ns_string::to_string(s);
+  qreturn_if(not json_t::accept(str_json), std::unexpected("Could not parse json file"));
+  return Db(json_t::parse(str_json));
+}
 
 } // namespace ns_db
 
