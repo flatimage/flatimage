@@ -91,7 +91,7 @@ ENUM(CmdBindOp,ADD,DEL,LIST);
 ENUM(CmdBindType,RO,RW,DEV);
 struct CmdBind
 {
-  using cmd_bind_index_t = uint64_t;
+  using cmd_bind_index_t = int64_t;
   using cmd_bind_t = struct { CmdBindType type; std::string src; std::string dst; };
   using cmd_bind_data_t = std::variant<cmd_bind_index_t,cmd_bind_t,std::false_type>;
   constexpr static EnumCmd cmd = EnumCmd::BIND;

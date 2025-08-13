@@ -119,17 +119,14 @@ inline void Binds::erase(size_t index)
  */
 [[nodiscard]] inline Expected<Db> serialize(Binds const& binds) noexcept
 {
-  return ns_exception::to_expected([&]
+  ns_db::Db db;
+  for (auto&& bind : binds.get())
   {
-    ns_db::Db db;
-    for (auto&& bind : binds.get())
-    {
-      db(std::to_string(bind.index))("src") = bind.path_src;
-      db(std::to_string(bind.index))("dst") = bind.path_dst;
-      db(std::to_string(bind.index))("type") = (bind.type == Type::RO)? "ro" : (bind.type == Type::RW)? "rw" : "dev";
-    } // for
-    return db;
-  });
+    db(std::to_string(bind.index))("src") = bind.path_src;
+    db(std::to_string(bind.index))("dst") = bind.path_dst;
+    db(std::to_string(bind.index))("type") = (bind.type == Type::RO)? "ro" : (bind.type == Type::RW)? "rw" : "dev";
+  }
+  return db;
 }
 
 } // namespace ns_db::ns_bind

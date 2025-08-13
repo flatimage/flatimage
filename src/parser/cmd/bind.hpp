@@ -1,8 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : bind
-///@created     : Wednesday Sep 11, 2024 15:00:09 -03
-///
+/**
+ * @file bind.hpp
+ * @author Ruan Formigoni
+ * @brief Interface with the bindings database to (de-)serialize objects
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -26,7 +28,12 @@ namespace
 
 namespace fs = std::filesystem;
 
-// fn: get_highest_index() {{{
+/**
+ * @brief Get the highest index object
+ * 
+ * @param db The database to query
+ * @return index_t The highest index element or -1 or error
+ */
 [[nodiscard]] inline index_t get_highest_index(ns_db::Db const& db)
 {
   auto keys = db.keys();
@@ -37,60 +44,78 @@ namespace fs = std::filesystem;
   elog_if(keys.size() != bindings.size(), "Invalid indices in bindings database");
   auto it = std::ranges::max_element(bindings, std::less<>{});
   return ( it == bindings.end() )? -1 : *it;
-} // fn: get_highest_index() }}}
+}
 
 } // namespace
 
-// fn: add() {{{
-[[nodiscard]] inline Expected<void> add(fs::path const& path_file_config, CmdBind const& cmd)
+/**
+ * @brief Adds a binding instruction to the binding database
+ * 
+ * @param path_file_db_binding Path to the bindings database file
+ * @param cmd Binding instructions
+ * @return Expected<void> Nothing on success or the respective error
+ */
+[[nodiscard]] inline Expected<void> add(fs::path const& path_file_db_binding
+  , CmdBindType bind_type
+  , fs::path const& path_src
+  , fs::path const& path_dst
+)
 {
-  // Get src and dst paths
-  bind_t const * binds = std::get_if<bind_t>(&cmd.data);
-  qreturn_if(not binds, Unexpected("Invalid data type for 'add' command"));
   // Open database or reset if doesnt exist or is corrupted
-  ns_db::Db db = Expect(ns_db::read_file(path_file_config));
+  ns_db::Db db = Expect(ns_db::read_file(path_file_db_binding));
   // Find out the highest bind index
   std::string idx = std::to_string(get_highest_index(db) + 1);
   ns_log::info()("Binding index is '{}'", idx);
   // Include bindings
-  db(idx)("type") = (binds->type == CmdBindType::RO)? "ro"
-    : (binds->type == CmdBindType::RW)? "rw"
+  db(idx)("type") = (bind_type == CmdBindType::RO)? "ro"
+    : (bind_type == CmdBindType::RW)? "rw"
     : "dev";
-  db(idx)("src") = binds->src;
-  db(idx)("dst") =  binds->dst;
+  db(idx)("src") = path_src;
+  db(idx)("dst") =  path_dst;
   // Write database
-  Expect(ns_db::write_file(path_file_config, db));
+  Expect(ns_db::write_file(path_file_db_binding, db));
   return {};
-} // fn: add() }}}
+}
 
-// fn: del() {{{
-[[nodiscard]] inline Expected<void> del(fs::path const& path_file_config, CmdBind const& cmd)
+/**
+ * @brief Deletes a binding from the database
+ * 
+ * @param path_file_db_binding Path to the bindings database file
+ * @param cmd Structure with the index to remove from the database
+ * @return Expected<void> 
+ */
+[[nodiscard]] inline Expected<void> del(fs::path const& path_file_db_binding, ns_bind::index_t index)
 {
-  // Get index to erase
-  auto index = std::get_if<index_t>(&cmd.data);
-  qreturn_if(not index, Unexpected("Failed to read index value from bind database"));
+  std::error_code ec;
+  // Check if database exists
+  qreturn_if(not fs::exists(path_file_db_binding, ec), Unexpected("Empty binding database"));
   //  Open file
-  std::ifstream file{path_file_config};
-  qreturn_if(not file, Unexpected("Failed to open database to delete entry"));
+  std::ifstream file{path_file_db_binding};
+  qreturn_if(not file.is_open(), Unexpected("Failed to open binding database to delete entry"));
   // Deserialize bindings
-  auto expected_binds = ns_db::ns_bind::deserialize(file);
-  qreturn_if(not expected_binds, Unexpected(expected_binds.error()));
+  ns_db::ns_bind::Binds binds = Expect(ns_db::ns_bind::deserialize(file));
   // Erase index if exists
-  expected_binds->erase(*index);
+  binds.erase(index);
   // Write back to file
-  auto serialized = ns_db::ns_bind::serialize(expected_binds.value());
-  qreturn_if(not serialized, Unexpected("Could not serialize bindings"));
-  qreturn_if(not ns_db::write_file(path_file_config, serialized.value()),
-    Unexpected("Failed to write bindings database")
-  );
+  auto serialized = Expect(ns_db::ns_bind::serialize(binds));
+  Expect(ns_db::write_file(path_file_db_binding, serialized));
   return {};
-} // fn: del() }}}
+}
 
-// fn: list() {{{
-inline void list(fs::path const& path_file_config)
+/**
+ * @brief List bindings from the given bindings database
+ * 
+ * @param path_file_db_binding Path to the bindings database file
+ */
+[[nodiscard]] inline Expected<void> list(fs::path const& path_file_db_binding)
 {
-  println(ns_db::read_file(path_file_config).value_or(ns_db::Db()).dump());
-} // fn: list() }}}
+  auto db = Expect(ns_db::read_file(path_file_db_binding));
+  if(not db.empty())
+  {
+    std::println("{}", db.dump());
+  }
+  return {};
+}
 
 } // namespace ns_cmd::ns_bind
 
