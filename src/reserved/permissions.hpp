@@ -108,8 +108,9 @@ inline Expected<Bits> read(fs::path const& path_file_binary) noexcept
 class Permissions
 {
   private:
-    fs::path const& m_path_file_binary;
+    fs::path m_path_file_binary;
   public:
+    Permissions() = default;
     Permissions(fs::path const& path_file_binary) : m_path_file_binary(path_file_binary) {}
     template<ns_concept::Iterable R>
     [[nodiscard]] inline Expected<void> set(R&& r)
