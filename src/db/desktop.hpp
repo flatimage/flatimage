@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : desktop
-///
+/**
+ * @file desktop.hpp
+ * @author Ruan Formigoni
+ * @brief Defines a class that manages FlatImage's desktop integration
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -16,11 +19,6 @@ namespace ns_db::ns_desktop
 
 ENUM(IntegrationItem, ENTRY, MIMETYPE, ICON);
 
-namespace
-{
-
-}
-// struct Desktop {{{
 class Desktop
 {
   private:
@@ -37,11 +35,14 @@ class Desktop
     [[maybe_unused]] void set_name(std::string_view str_name) { m_name = str_name; }
     [[maybe_unused]] void set_integrations(std::set<IntegrationItem> const& set_integrations) { m_set_integrations = set_integrations; }
     [[maybe_unused]] void set_categories(std::set<std::string> const& set_categories) { m_set_categories = set_categories; }
-  friend Expected<Desktop> from_string(std::string_view raw_json) noexcept;
+  friend Expected<Desktop> deserialize(std::string_view raw_json) noexcept;
   friend Expected<std::string> serialize(Desktop const& desktop) noexcept;
 }; // Desktop }}}
 
 
+/**
+ * @brief Construct a new Desktop:: Desktop object
+ */
 inline Desktop::Desktop()
   : m_name()
   , m_path_file_icon(std::unexpected("m_path_file_icon is undefined"))
@@ -49,11 +50,17 @@ inline Desktop::Desktop()
   , m_set_categories()
 {}
 
-inline Expected<Desktop> from_string(std::string_view raw_json) noexcept
+/**
+ * @brief Deserializes a string into a `Desktop` class
+ * 
+ * @param raw_json The json string which to deserialize
+ * @return The `Desktop` class or the respective error
+ */
+[[maybe_unused]] [[nodiscard]] inline Expected<Desktop> deserialize(std::string_view str_raw_json) noexcept
 {
   Desktop desktop;
   // Open DB
-  auto db = Expect(ns_db::from_string(raw_json));
+  auto db = Expect(ns_db::from_string(str_raw_json));
   // Parse name (required)
   desktop.m_name = Expect(db("name").template value<std::string>());
   // Parse icon path (optional)
@@ -61,46 +68,45 @@ inline Expected<Desktop> from_string(std::string_view raw_json) noexcept
   // Parse enabled integrations (optional)
   if (auto integrations = db("integrations").template value<std::vector<std::string>>())
   {
-    std::ranges::for_each(integrations.value(), [&](auto&& e){ desktop.m_set_integrations.insert(e); });
+    std::ranges::for_each(Expect(integrations), [&](auto&& e){ desktop.m_set_integrations.insert(e); });
   } // if
   // Parse categories (required)
-  auto db_categories = db("categories").template value<std::vector<std::string>>().value();
+  auto db_categories = Expect(db("categories").template value<std::vector<std::string>>());
   std::ranges::for_each(db_categories, [&](auto&& e){ desktop.m_set_categories.insert(e); });
   return {};
 }
 
-// deserialize() {{{
-[[maybe_unused]] [[nodiscard]] inline Expected<Desktop> deserialize(std::string_view str_raw_json) noexcept
-{
-  return from_string(str_raw_json);
-}
-// deserialize() }}}
-
-// deserialize() {{{
+/**
+ * @brief Deserializes a input string stream into a `Desktop` class
+ * 
+ * @param stream_raw_json The json string which to deserialize
+ * @return The `Desktop` class or the respective error
+ */
 [[maybe_unused]] [[nodiscard]] inline Expected<Desktop> deserialize(std::ifstream& stream_raw_json) noexcept
 {
   std::stringstream ss;
   ss << stream_raw_json.rdbuf();
-  return from_string(ss.str());
+  return deserialize(ss.str());
 }
-// deserialize() }}}
 
-// serialize() {{{
+/**
+ * @brief Serializes a `Desktop` class into a json string
+ * 
+ * @param desktop The `Desktop` object to deserialize
+ * @return The serialized json data;
+ */
 [[maybe_unused]] [[nodiscard]] inline Expected<std::string> serialize(Desktop const& desktop) noexcept
 {
-  return ns_exception::to_expected([&]
+  auto db = ns_db::Db();
+  db("name") = desktop.m_name;
+  db("integrations") = desktop.m_set_integrations;
+  if (desktop.m_path_file_icon)
   {
-    auto db = ns_db::Db();
-    db("name") = desktop.m_name;
-    db("integrations") = desktop.m_set_integrations;
-    if (desktop.m_path_file_icon)
-    {
-      db("icon") = desktop.m_path_file_icon.value();
-    }
-    db("categories") = desktop.m_set_categories;
-    return db.dump();
-  });
-} // serialize() }}}
+    db("icon") = Expect(desktop.m_path_file_icon);
+  }
+  db("categories") = desktop.m_set_categories;
+  return db.dump();
+}
 
 } // namespace ns_db::ns_desktop
 

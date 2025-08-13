@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : bind
-///
+/**
+ * @file bind.hpp
+ * @author Ruan Formigoni
+ * @brief Used to manage the bindings from the host to the sandbox
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -16,66 +19,105 @@ namespace ns_db::ns_bind
 {
 
 ENUM(Type, RO, RW, DEV);
+/**
+ * @brief A binding from the host to the guest
+ */
 struct Bind
 {
   size_t index;
   fs::path path_src;
   fs::path path_dst;
   Type type;
-}; // struct: Bind
+};
 
-// struct Binds {{{
 struct Binds
 {
   private:
     std::vector<Bind> m_binds;
+    Binds() = default;
   public:
-    Binds(std::string_view raw_json)
-    {
-      auto db = ns_db::from_string(raw_json).value();
-      for(auto [key,value] : db.items())
-      {
-        auto type = value("type").template value<std::string>()
-          .transform_error([](auto&&){ return "bind: Failed to read type value"; })
-          .value();
-        m_binds.push_back(Bind {
-          .index = std::stoull(key),
-          .path_src = value("src").template value<std::string>()
-            .transform_error([](auto&&){ return "bind: Failed to read src value"; })
-            .value(),
-          .path_dst = value("dst").template value<std::string>()
-            .transform_error([](auto&&){ return "bind: Failed to read dst value"; })
-            .value(),
-          .type = (type == "ro")? Type::RO : (type == "rw")? Type::RW : Type::DEV
-        });
-      }
-    }
-    std::vector<Bind> const& get() const { return this->m_binds; }
-    void erase(size_t index)
-    {
-      if (std::erase_if(m_binds, [&](auto&& bind){ return bind.index == index; }) > 0)
-      {
-        ns_log::info()("Erase element with index '{}'", index);
-      }
-      else
-      {
-        ns_log::info()("No element with index '{}' found", index);
-      }
-      for(long i{}; auto& bind : m_binds) { bind.index = i++; }
-    }
-}; // Binds }}}
+    std::vector<Bind> const& get() const;
+    void erase(size_t index);
+    friend Expected<Binds> create(std::string_view raw_json);
+};
 
-// deserialize() {{{
-inline Expected<Binds> deserialize(std::ifstream& stream_raw_json) noexcept
+/**
+ * @brief Get current bindings
+ * 
+ * @return The vector of bindings
+ */
+[[nodiscard]] inline std::vector<Bind> const& Binds::get() const
+{
+  return this->m_binds;
+}
+
+/**
+ * @brief Erases a binding at the given index
+ * 
+ * @param index The index of the binding to erase
+ */
+inline void Binds::erase(size_t index)
+{
+  if (std::erase_if(m_binds, [&](auto&& bind){ return bind.index == index; }) > 0)
+  {
+    ns_log::info()("Erase element with index '{}'", index);
+  }
+  else
+  {
+    ns_log::info()("No element with index '{}' found", index);
+  }
+  for(long i{}; auto& bind : m_binds) { bind.index = i++; }
+}
+
+/**
+ * @brief Factory method that creates a `Binds` object from a json database
+ * 
+ * @param raw_json The json string
+ * @return The `Binds` class or the respective error
+ */
+[[nodiscard]] inline Expected<Binds> create(std::string_view raw_json)
+{
+  Binds binds;
+
+  auto db = Expect(ns_db::from_string(raw_json));
+
+  for(auto [key,value] : db.items())
+  {
+    auto type = Expect(value("type").template value<std::string>());
+    binds.m_binds.push_back(Bind
+    {
+      .index = std::stoull(key),
+      .path_src = Expect(value("src").template value<std::string>()),
+      .path_dst = Expect(value("dst").template value<std::string>()),
+      .type = (type == "ro")? Type::RO
+        : (type == "rw")? Type::RW
+        : (type == "rw")? Type::DEV
+        : Type::NONE
+    });
+  }
+  return binds;
+}
+
+/**
+ * @brief Deserialize a json file into the `Binds` class
+ * 
+ * @param stream_raw_json The stream which contains the json data 
+ * @return The `Binds` class or the respective error
+ */
+[[nodiscard]] inline Expected<Binds> deserialize(std::ifstream& stream_raw_json) noexcept
 {
   std::stringstream ss;
   ss << stream_raw_json.rdbuf();
-  return ns_exception::to_expected([&]{ return Binds(ss.str()); });
+  return create(ss.str());
 }
-// deserialize() }}}
 
-// serialize() {{{
-inline Expected<Db> serialize(Binds const& binds) noexcept
+/**
+ * @brief Serialize a `Binds` object into a json database
+ * 
+ * @param binds The bindings which to serialize
+ * @return The json database or the respective error
+ */
+[[nodiscard]] inline Expected<Db> serialize(Binds const& binds) noexcept
 {
   return ns_exception::to_expected([&]
   {
@@ -88,7 +130,7 @@ inline Expected<Db> serialize(Binds const& binds) noexcept
     } // for
     return db;
   });
-} // serialize() }}}
+}
 
 } // namespace ns_db::ns_bind
 
