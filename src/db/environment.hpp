@@ -98,8 +98,6 @@ namespace fs = std::filesystem;
 {
   // Validate entries
   Expect(validate(entries));
-  // Delete entries if they already exist, to avoid repeated ones
-  Expect(del(path_file_db_environment, entries));
   // Insert environment variables in the database
   auto db = Expect(ns_db::read_file(path_file_db_environment));
   for (auto&& [key,value] : key_value(entries))
