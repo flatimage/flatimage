@@ -18,13 +18,6 @@ auto value_or(F&& f, T&& t)
   try { return f(); } catch (...) { return t; }
 } // function: or_default
 
-template<std::regular_invocable F>
-requires std::is_default_constructible_v<std::invoke_result_t<F>>
-auto or_default(F&& f) -> std::invoke_result_t<F>
-{
-  try { return f(); } catch (...) { return std::invoke_result_t<F>{}; }
-} // function: or_default
-
 template<std::regular_invocable F, typename T>
 requires std::is_default_constructible_v<T>
 and std::is_convertible_v<T, std::invoke_result_t<F>>

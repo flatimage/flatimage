@@ -10,7 +10,6 @@
 
 #include "../common.hpp"
 #include "../std/concept.hpp"
-#include "../std/exception.hpp"
 
 namespace ns_log
 {
@@ -216,15 +215,6 @@ class critical
       logger.flush();
     } // critical
 }; // class critical }}}
-
-// fn: exception {{{
-inline void exception(auto&& fn)
-{
-  if (auto expected = ns_exception::to_expected(fn); not expected)
-  {
-    ns_log::error()(expected.error());
-  } // if
-} // }}}
 
 // fn: ec {{{
 template<typename F, typename... Args>
