@@ -78,6 +78,7 @@ struct FlatimageConfig
   bool is_root;
   bool is_readonly;
   bool is_debug;
+  bool is_casefold;
 
   OverlayType overlay_type;
   uint64_t offset_reserved;
@@ -128,6 +129,7 @@ inline FlatimageConfig config()
   config.is_root = ns_env::exists("FIM_ROOT", "1");
   config.is_readonly = ns_env::exists("FIM_RO", "1");
   config.is_debug = ns_env::exists("FIM_DEBUG", "1");
+  config.is_casefold = ns_env::exists("FIM_CASEFOLD", "1");
   config.overlay_type = ns_env::exists("FIM_FUSE_UNIONFS", "1")? OverlayType::FUSE_UNIONFS
     : ns_env::exists("FIM_FUSE_OVERLAYFS", "1")? OverlayType::FUSE_OVERLAYFS
     : OverlayType::BWRAP;
@@ -231,8 +233,7 @@ inline decltype(auto) get_mounted_layers(fs::path const& path_dir_layers)
     | std::views::filter([](auto&& e){ return fs::is_directory(e.path()); })
     | std::views::transform([](auto&& e){ return e.path(); })
     | std::ranges::to<std::vector<fs::path>>();
-  // Reverse sort
-  std::ranges::sort(vec_path_dir_layer, std::greater<>{});
+  std::ranges::sort(vec_path_dir_layer);
   return vec_path_dir_layer;
 } // get_mounted_layers() }}}
 

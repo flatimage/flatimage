@@ -229,7 +229,7 @@ inline void Bwrap::overlay(std::vector<fs::path> const& vec_path_dir_layer
   , fs::path const& path_dir_work)
 {
   // Build --overlay related commands
-  for(fs::path const& path_dir_layer : vec_path_dir_layer | std::views::reverse)
+  for(fs::path const& path_dir_layer : vec_path_dir_layer)
   {
     ns_log::info()("Overlay layer '{}'", path_dir_layer);
     ns_vector::push_back(m_args, "--overlay-src", path_dir_layer);

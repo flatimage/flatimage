@@ -1,16 +1,20 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : dwarfs
-///
+/**
+ * @file dwarfs.hpp
+ * @author Ruan Formigoni
+ * @brief Manage dwarfs filesystems
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
 #include <filesystem>
-#include "../lib/fuse.hpp"
+
 #include "../lib/subprocess.hpp"
 #include "../macro.hpp"
+#include "filesystem.hpp"
 
-namespace ns_dwarfs
+namespace ns_filesystems::ns_dwarfs
 {
 
 namespace
@@ -20,66 +24,80 @@ namespace fs = std::filesystem;
 
 };
 
-// class Dwarfs {{{
-class Dwarfs
+class Dwarfs final : public ns_filesystem::Filesystem
 {
   private:
-    std::unique_ptr<ns_subprocess::Subprocess> m_subprocess;
-    fs::path m_path_dir_mountpoint;
-
+    fs::path m_path_file_image;
+    uint64_t m_offset;
+    uint64_t m_size_image;
   public:
-    Dwarfs(Dwarfs const&) = delete;
-    Dwarfs(Dwarfs&&) = delete;
-    Dwarfs& operator=(Dwarfs const&) = delete;
-    Dwarfs& operator=(Dwarfs&&) = delete;
+    Dwarfs(pid_t pid_to_die_for
+      , fs::path const& path_dir_mount
+      , fs::path const& path_file_image
+      , uint64_t offset
+      , uint64_t size_image);
+    Expected<void> mount() override;
+};
 
-    Dwarfs(fs::path const& path_file_image, fs::path const& path_dir_mount, uint64_t offset, uint64_t size_image, pid_t pid_to_die_for)
-      : m_subprocess(nullptr)
-      , m_path_dir_mountpoint(path_dir_mount)
-    {
-      // Check if image exists and is a regular file
-      ethrow_if(not fs::is_regular_file(path_file_image)
-        , "'{}' does not exist or is not a regular file"_fmt(path_file_image)
-      );
+/**
+ * @brief Construct a new Dwarfs:: Dwarfs object
+ * 
+ * @param pid_to_die_for Pid the mount process should die with
+ * @param path_dir_mount Path to the mount directory
+ * @param path_file_image Path to the flatimage file
+ * @param offset Offset to the filesystem start
+ * @param size_image Image length
+ */
+inline Dwarfs::Dwarfs(pid_t pid_to_die_for, fs::path const& path_dir_mount, fs::path const& path_file_image, uint64_t offset, uint64_t size_image)
+  : ns_filesystem::Filesystem(pid_to_die_for, path_dir_mount)
+  , m_path_file_image(path_file_image)
+  , m_offset(offset)
+  , m_size_image(size_image)
+{
+  if(auto ret = this->mount(); not ret)
+  {
+    ns_log::error()("Could not mount filesystem '{}' to '{}': {}", path_file_image, path_dir_mount, ret.error());
+  }
+}
 
-      // Check if mountpoint exists and is directory
-      ethrow_if(not fs::is_directory(path_dir_mount)
-        , "'{}' does not exist or is not a directory"_fmt(path_dir_mount)
-      );
+/**
+ * @brief Mounts the filesystem
+ * 
+ * @return Expected<void> Nothing on success or the respective error
+ */
+inline Expected<void> Dwarfs::mount()
+{
+  std::error_code ec;
+  // Check if image exists and is a regular file
+  qreturn_if(not fs::is_regular_file(m_path_file_image, ec)
+    , std::unexpected("'{}' does not exist or is not a regular file"_fmt(m_path_file_image))
+  );
+  // Check if mountpoint exists and is directory
+  qreturn_if(not fs::is_directory(m_path_dir_mount, ec)
+    , std::unexpected("'{}' does not exist or is not a directory"_fmt(m_path_dir_mount))
+  );
+  // Find command in PATH
+  auto path_file_dwarfs = Expect(ns_subprocess::search_path("dwarfs"));
+  // Create command
+  m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_dwarfs);
+  // Spawn command
+  std::ignore = m_subprocess->with_piped_outputs()
+    .with_args(m_path_file_image, m_path_dir_mount)
+    .with_args("-f", "-o", "auto_unmount,offset={},imagesize={}"_fmt(m_offset, m_size_image))
+    .with_die_on_pid(m_pid_to_die_for)
+    .spawn();
+  // Wait for mount
+  ns_fuse::wait_fuse(m_path_dir_mount);
+  return {};  
+}
 
-      // Find command in PATH
-      auto opt_file_dwarfs = ns_subprocess::search_path("dwarfs");
-      ethrow_if(not opt_file_dwarfs.has_value(), "Could not find dwarfs");
-
-      // Create command
-      m_subprocess = std::make_unique<ns_subprocess::Subprocess>(*opt_file_dwarfs);
-
-      // Spawn command
-      std::ignore = m_subprocess->with_piped_outputs()
-        .with_args(path_file_image, path_dir_mount, "-f", "-o", "auto_unmount,offset={},imagesize={}"_fmt(offset, size_image))
-        .with_die_on_pid(pid_to_die_for)
-        .spawn();
-      // Wait for mount
-      ns_fuse::wait_fuse(path_dir_mount);
-    } // Dwarfs
-    
-    ~Dwarfs()
-    {
-      // Un-mount
-      ns_fuse::unmount(m_path_dir_mountpoint);
-      // Tell process to exit with SIGTERM
-      if ( auto opt_pid = m_subprocess->get_pid() )
-      {
-        kill(*opt_pid, SIGTERM);
-      } // if
-      // Wait for process to exit
-      auto ret = m_subprocess->wait();
-      dreturn_if(not ret, "Mount '{}' exited unexpectedly"_fmt(m_path_dir_mountpoint));
-      dreturn_if(ret and *ret != 0, "Mount '{}' exited with non-zero exit code '{}'"_fmt(m_path_dir_mountpoint, *ret));
-    } // Dwarfs
-}; // class Dwarfs }}}
-
-// is_dwarfs() {{{
+/**
+ * @brief Checks if the filesystem is a `Dwarfs` filesystem with a given offset
+ * 
+ * @param path_file_dwarfs Path to the file that contains a dwarfs filesystem
+ * @param offset Offset in the file at which the dwarfs filesystem starts
+ * @return The boolean result
+ */
 inline bool is_dwarfs(fs::path const& path_file_dwarfs, uint64_t offset = 0)
 {
   // Open file
@@ -95,9 +113,8 @@ inline bool is_dwarfs(fs::path const& path_file_dwarfs, uint64_t offset = 0)
   ereturn_if(file_dwarfs.gcount() != header.size(), "Short read for file '{}'"_fmt(path_file_dwarfs), false);
   // Check for match
   return std::ranges::equal(header, std::string_view("DWARFS"));
-} // is_dwarfs() }}}
+}
 
-
-} // namespace ns_dwarfs
+} // namespace ns_filesystems::ns_dwarfs
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

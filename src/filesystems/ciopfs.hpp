@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : ciopfs
-///
+/**
+ * @file ciopfs.hpp
+ * @author Ruan Formigoni
+ * @brief Manage ciopfs filesystems
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -9,9 +12,9 @@
 #include <unistd.h>
 
 #include "../lib/subprocess.hpp"
-#include "../lib/fuse.hpp"
+#include "filesystem.hpp"
 
-namespace ns_ciopfs
+namespace ns_filesystems::ns_ciopfs
 {
 
 
@@ -22,45 +25,54 @@ namespace fs = std::filesystem;
 
 } // namespace
 
-class Ciopfs
+class Ciopfs final : public ns_filesystem::Filesystem
 {
   private:
-    std::unique_ptr<ns_subprocess::Subprocess> m_subprocess;
     fs::path m_path_dir_upper;
+    fs::path m_path_dir_lower;
 
   public:
-    Ciopfs( fs::path const& path_dir_lower , fs::path const& path_dir_upper)
-      : m_subprocess(nullptr)
-      , m_path_dir_upper(path_dir_upper)
-    {
-      ethrow_if(not fs::exists(path_dir_lower), "Lowerdir does not exist for ciopfs");
+    Ciopfs(pid_t pid_to_die_for, fs::path const& path_dir_lower, fs::path const& path_dir_upper);
+    Expected<void> mount() override;
+};
 
-      std::error_code ec;
-      ethrow_if(not fs::exists(path_dir_upper) and not fs::create_directories(path_dir_upper, ec)
-        , "Upperdir does not exist for ciopfs: {}"_fmt(ec.message())
-      );
+inline Ciopfs::Ciopfs(pid_t pid_to_die_for, fs::path const& path_dir_lower, fs::path const& path_dir_upper)
+  : ns_filesystem::Filesystem(pid_to_die_for, path_dir_upper)
+  , m_path_dir_upper(path_dir_upper)
+  , m_path_dir_lower(path_dir_lower)
+{
+  if(auto ret = this->mount(); not ret)
+  {
+    ns_log::error()("Could u mount ciopfs filesystem from '{}' to '{}': {}", path_dir_lower, path_dir_upper, ret.error());
+  }
+}
 
-      // Find Ciopfs
-      auto opt_path_file_ciopfs = ns_subprocess::search_path("ciopfs");
-      ethrow_if (not opt_path_file_ciopfs, "Could not find 'ciopfs' in PATH");
+/**
+ * @brief Mounts the filesystem
+ * 
+ * @return Expected<void> Nothing on success or the respective error
+ */
+inline Expected<void> Ciopfs::mount()
+{
+  std::error_code ec;
+  // Check if paths exist
+  qreturn_if(not fs::exists(m_path_dir_lower, ec), std::unexpected("Lowerdir does not exist for ciopfs"));
+  qreturn_if(not fs::exists(m_path_dir_upper, ec) and not fs::create_directories(m_path_dir_upper, ec)
+    , std::unexpected("Upperdir does not exist for ciopfs: {}"_fmt(ec.message()))
+  );
+  // Find Ciopfs
+  auto path_file_ciopfs = Expect(ns_subprocess::search_path("ciopfs"));
+  // Create subprocess
+  m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_ciopfs);
+  // Include arguments and spawn process
+  std::ignore = m_subprocess->
+    with_args(m_path_dir_lower, m_path_dir_upper)
+    .with_die_on_pid(m_pid_to_die_for)
+    .spawn()
+    .wait();
+  return {};
+}
 
-      // Create subprocess
-      m_subprocess = std::make_unique<ns_subprocess::Subprocess>(*opt_path_file_ciopfs);
-
-
-      // Include arguments and spawn process
-      std::ignore = m_subprocess->
-         with_args(path_dir_lower, path_dir_upper)
-        .spawn()
-        .wait();
-    } // ciopfs
-
-    ~Ciopfs()
-    {
-      ns_fuse::unmount(m_path_dir_upper);
-    } // ~ciopfs
-}; // class: ciopfs
-
-} // namespace ns_ciopfs
+} // namespace ns_filesystems::ns_ciopfs
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

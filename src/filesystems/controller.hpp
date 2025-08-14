@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : filesystems
-///
+/**
+ * @file controller.hpp
+ * @author Ruan Formigoni
+ * @brief Manages filesystems used by flatimage
+ *
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -10,33 +13,30 @@
 
 #include "../std/filesystem.hpp"
 #include "../config.hpp"
+#include "filesystem.hpp"
 #include "overlayfs.hpp"
 #include "unionfs.hpp"
 #include "dwarfs.hpp"
 #include "ciopfs.hpp"
 
-namespace ns_filesystems
+namespace ns_filesystems::ns_controller
 {
 
 extern "C" uint32_t FIM_RESERVED_OFFSET;
 
-// class Filesystems {{{
-class Filesystems
+class Controller
 {
   private:
     fs::path m_path_dir_mount;
     std::vector<fs::path> m_vec_path_dir_mountpoints;
     std::vector<std::unique_ptr<ns_dwarfs::Dwarfs>> m_layers;
-    std::unique_ptr<ns_ciopfs::Ciopfs> m_ciopfs;
-    std::unique_ptr<ns_overlayfs::Overlayfs> m_overlayfs;
-    std::unique_ptr<ns_unionfs::UnionFs> m_unionfs;
+    std::vector<std::unique_ptr<ns_filesystem::Filesystem>> m_filesystems;
     std::optional<pid_t> m_opt_pid_janitor;
-    uint64_t mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_file_binary, uint64_t offset);
+    [[nodiscard]] uint64_t mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_file_binary, uint64_t offset);
     void mount_ciopfs(fs::path const& path_dir_lower, fs::path const& path_dir_upper);
     void mount_unionfs(std::vector<fs::path> const& vec_path_dir_layer
       , fs::path const& path_dir_data
       , fs::path const& path_dir_mount
-      , fs::path const& path_dir_workdir
     );
     void mount_overlayfs(std::vector<fs::path> const& vec_path_dir_layer
       , fs::path const& path_dir_data
@@ -44,25 +44,27 @@ class Filesystems
       , fs::path const& path_dir_workdir
     );
     // In case the parent process fails to clean the mountpoints, this child does it
-    void spawn_janitor();
+    [[nodiscard]] Expected<void> spawn_janitor();
 
   public:
-    Filesystems(ns_config::FlatimageConfig const& config);
-    ~Filesystems();
-    Filesystems(Filesystems const&) = delete;
-    Filesystems(Filesystems&&) = delete;
-    Filesystems& operator=(Filesystems const&) = delete;
-    Filesystems& operator=(Filesystems&&) = delete;
-}; // class Filesystems }}}
+    Controller(ns_config::FlatimageConfig const& config);
+    ~Controller();
+    Controller(Controller const&) = delete;
+    Controller(Controller&&) = delete;
+    Controller& operator=(Controller const&) = delete;
+    Controller& operator=(Controller&&) = delete;
+};
 
-// fn: Filesystems::Filesystems {{{
-inline Filesystems::Filesystems(ns_config::FlatimageConfig const& config)
+/**
+ * @brief Construct a new Controller:: Controller object
+ * 
+ * @param config FlatImage configuration object
+ */
+inline Controller::Controller(ns_config::FlatimageConfig const& config)
   : m_path_dir_mount(config.path_dir_mount)
   , m_vec_path_dir_mountpoints()
   , m_layers()
-  , m_ciopfs(nullptr)
-  , m_overlayfs(nullptr)
-  , m_unionfs(nullptr)
+  , m_filesystems()
   , m_opt_pid_janitor(std::nullopt)
 {
   // Mount compressed layers
@@ -70,38 +72,39 @@ inline Filesystems::Filesystems(ns_config::FlatimageConfig const& config)
   // Push config files to upper directories if they do not exist in it
   ns_config::push_config_files(config.path_dir_mount_layers, config.path_dir_upper_overlayfs);
   // Check if should mount ciopfs
-  if ( ns_env::exists("FIM_CASEFOLD", "1") )
+  if (config.is_casefold)
   {
     mount_ciopfs(config.path_dir_mount_layers / std::to_string(index_fs-1)
       , config.path_dir_mount_layers / std::to_string(index_fs)
     );
     ns_log::debug()("ciopfs is enabled");
-  } // if
+  }
   if ( config.overlay_type == ns_config::OverlayType::FUSE_UNIONFS )
   {
     // Mount overlayfs
     mount_unionfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
       , config.path_dir_upper_overlayfs
       , config.path_dir_mount_overlayfs
-      , config.path_dir_work_overlayfs
     );
   }
   // Use fuse-overlayfs
   else if ( config.overlay_type == ns_config::OverlayType::FUSE_OVERLAYFS )
   {
-    // Mount overlayfs
     mount_overlayfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
       , config.path_dir_upper_overlayfs
       , config.path_dir_mount_overlayfs
       , config.path_dir_work_overlayfs
     );
-  } // if
-  // Spawn janitor
-  spawn_janitor();
-} // fn Filesystems::Filesystems }}}
+  }
+  // Spawn janitor, make it permissive since flatimage works without it
+  elog_expected("Could not spawn janitor: {}", spawn_janitor());
+}
 
-// fn: Filesystems::Filesystems {{{
-inline Filesystems::~Filesystems()
+/**
+ * @brief Destroy the Controller:: Controller object and
+ * stops the janitor if it is running.
+ */
+inline Controller::~Controller()
 {
   if ( m_opt_pid_janitor and *m_opt_pid_janitor > 0)
   {
@@ -118,31 +121,34 @@ inline Filesystems::~Filesystems()
   {
     ns_log::error()("Janitor is not running");
   } // else
-} // fn Filesystems::Filesystems }}}
+}
 
-// fn: spawn_janitor {{{
-inline void Filesystems::spawn_janitor()
+/**
+ * @brief Spawns the janitor.
+ * In case the parent process fails to clean the mountpoints, this child does it
+ */
+[[nodiscard]] inline Expected<void> Controller::spawn_janitor()
 {
   // Find janitor binary
-  fs::path path_file_janitor = fs::path{ns_env::get_or_throw("FIM_DIR_APP_BIN")} / "fim_janitor";
+  fs::path path_file_janitor = fs::path{Expect(ns_env::get_expected("FIM_DIR_APP_BIN"))} / "fim_janitor";
 
   // Fork and execve into the janitor process
   pid_t pid_parent = getpid();
   m_opt_pid_janitor = fork();
-  ethrow_if(m_opt_pid_janitor < 0, "Failed to fork janitor");
+  qreturn_if(m_opt_pid_janitor < 0, std::unexpected("Failed to fork janitor"));
 
   // Is parent
-  dreturn_if(m_opt_pid_janitor > 0, "Spawned janitor with PID '{}'"_fmt(*m_opt_pid_janitor));
+  qreturn_if(m_opt_pid_janitor > 0, std::unexpected("Spawned janitor with PID '{}'"_fmt(*m_opt_pid_janitor)));
 
   // Redirect stdout/stderr to a log file
-  fs::path path_stdout = std::string{ns_env::get_or_throw("FIM_DIR_MOUNT")} + ".janitor.stdout.log";
-  fs::path path_stderr = std::string{ns_env::get_or_throw("FIM_DIR_MOUNT")} + ".janitor.stderr.log";
+  fs::path path_stdout = std::string{Expect(ns_env::get_expected("FIM_DIR_MOUNT"))} + ".janitor.stdout.log";
+  fs::path path_stderr = std::string{Expect(ns_env::get_expected("FIM_DIR_MOUNT"))} + ".janitor.stderr.log";
   int fd_stdout = open(path_stdout.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
   int fd_stderr = open(path_stderr.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
   e_exitif(fd_stdout < 0, "Failed to open stdout janitor file", 1);
   e_exitif(fd_stderr < 0, "Failed to open stderr janitor file", 1);
-  dup2(fd_stdout, STDOUT_FILENO);
-  dup2(fd_stderr, STDERR_FILENO);
+  e_exitif(dup2(fd_stdout, STDOUT_FILENO) < 0, "Failed to dup2 fd_stdout", 1);
+  e_exitif(dup2(fd_stderr, STDERR_FILENO) < 0, "Failed to dup2 fd_sterr", 1);
   close(fd_stdout);
   close(fd_stderr);
   close(STDIN_FILENO);
@@ -154,6 +160,7 @@ inline void Filesystems::spawn_janitor()
   std::vector<std::string> vec_argv_custom;
   vec_argv_custom.push_back(path_file_janitor);
   std::copy(m_vec_path_dir_mountpoints.rbegin(), m_vec_path_dir_mountpoints.rend(), std::back_inserter(vec_argv_custom));
+
   auto argv_custom = std::make_unique<const char*[]>(vec_argv_custom.size() + 1);
   argv_custom[vec_argv_custom.size()] = nullptr;
   std::ranges::transform(vec_argv_custom, argv_custom.get(), [](auto&& e) { return e.c_str(); });
@@ -162,11 +169,18 @@ inline void Filesystems::spawn_janitor()
   execve(path_file_janitor.c_str(), const_cast<char**>(argv_custom.get()), environ);
 
   // Exit process in case of an error
-  std::abort();
-} // fn: spawn_janitor }}}
+  _exit(1);
+}
 
-// fn: mount_dwarfs {{{
-inline uint64_t Filesystems::mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_file_binary, uint64_t offset)
+/**
+ * @brief Mounts a dwarfs filesystem
+ * 
+ * @param path_dir_mount Path to the directory to mount the filesystem
+ * @param path_file_binary Path to the file which contains the dwarfs filesystem
+ * @param offset Offset in the 'path_file_binary' in which the filesystem starts
+ * @return uint64_t The index of the last mounted dwarfs filesystem + 1
+ */
+inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_file_binary, uint64_t offset)
 {
   // Open the main binary
   std::ifstream file_binary(path_file_binary, std::ios::binary);
@@ -174,20 +188,17 @@ inline uint64_t Filesystems::mount_dwarfs(fs::path const& path_dir_mount, fs::pa
   // Filesystem index
   uint64_t index_fs{};
 
-  auto f_mount = [this](fs::path _path_file_binary, fs::path const& _path_dir_mount, uint64_t _index_fs, uint64_t _offset, uint64_t _size_fs)
+  auto f_mount = [this](fs::path const& _path_file_binary, fs::path const& _path_dir_mount, uint64_t _index_fs, uint64_t _offset, uint64_t _size_fs)
   {
+    std::error_code ec;
+    ns_log::debug()("Offset to filesystem is '{}'", _offset);
     // Create mountpoint
     fs::path path_dir_mount_index = _path_dir_mount / std::to_string(_index_fs);
-    lec(fs::create_directories,path_dir_mount_index);
-    // Mount filesystem
-    ns_log::debug()("Offset to filesystem is '{}'", _offset);
-    this->m_layers.emplace_back(std::make_unique<ns_dwarfs::Dwarfs>(_path_file_binary
-      , path_dir_mount_index
-      , _offset
-      , _size_fs
-      , getpid()
-    ));
-    // Include in mountpoints vector
+    fs::create_directories(path_dir_mount_index, ec);
+    // Configure and mount the filesystem
+    // Keep the object alive in the filesystems vector
+    this->m_layers.emplace_back(std::make_unique<ns_dwarfs::Dwarfs>(getpid(), path_dir_mount_index, _path_file_binary, _offset, _size_fs));
+    // Include current mountpoint in the mountpoints vector
     m_vec_path_dir_mountpoints.push_back(path_dir_mount_index);
   };
 
@@ -254,44 +265,61 @@ inline uint64_t Filesystems::mount_dwarfs(fs::path const& path_dir_mount, fs::pa
   } // for
 
   return index_fs;
-} // fn: mount_dwarfs }}}
+}
 
-// fn: mount_unionfs {{{
-inline void Filesystems::mount_unionfs(std::vector<fs::path> const& vec_path_dir_layer
+/**
+ * @brief Mounts an unionfs filesystem
+ * 
+ * @param vec_path_dir_layer Vector with the directories to be overlayed (bottom-up)
+ * @param path_dir_data Directory to store file changes
+ * @param path_dir_mount Path to the mountpoint of the unionfs filesystem
+ */
+inline void Controller::mount_unionfs(std::vector<fs::path> const& vec_path_dir_layer
   , fs::path const& path_dir_data
-  , fs::path const& path_dir_mount
-  , [[maybe_unused]] fs::path const& path_dir_workdir)
+  , fs::path const& path_dir_mount)
 {
-  m_unionfs = std::make_unique<ns_unionfs::UnionFs>(vec_path_dir_layer
-    , path_dir_data
+  m_filesystems.emplace_back(std::make_unique<ns_unionfs::UnionFs>(getpid()
     , path_dir_mount
-    , getpid()
-  );
+    , path_dir_data
+    , vec_path_dir_layer
+  ));
   m_vec_path_dir_mountpoints.push_back(path_dir_mount);
-} // fn: mount_unionfs }}}
+}
 
-// fn: mount_overlayfs {{{
-inline void Filesystems::mount_overlayfs(std::vector<fs::path> const& vec_path_dir_layer
+/**
+ * @brief Mounts a fuse-overlayfs filesystem
+ * 
+ * @param vec_path_dir_layer Vector with the directories to be overlayed (bottom-up)
+ * @param path_dir_data Directory to store file changes
+ * @param path_dir_mount Path to the mountpoint of the unionfs filesystem
+ * @param path_dir_workdir Work directory of fuse-overlayfs
+ */
+inline void Controller::mount_overlayfs(std::vector<fs::path> const& vec_path_dir_layer
   , fs::path const& path_dir_data
   , fs::path const& path_dir_mount
   , fs::path const& path_dir_workdir)
 {
-  m_overlayfs = std::make_unique<ns_overlayfs::Overlayfs>(vec_path_dir_layer
-    , path_dir_data
+  m_filesystems.emplace_back(std::make_unique<ns_overlayfs::Overlayfs>(getpid()
     , path_dir_mount
+    , path_dir_data
     , path_dir_workdir
-    , getpid()
-  );
+    , vec_path_dir_layer
+  ));
   m_vec_path_dir_mountpoints.push_back(path_dir_mount);
-} // fn: mount_overlayfs }}}
+}
 
-// fn: mount_ciopfs {{{
-inline void Filesystems::mount_ciopfs(fs::path const& path_dir_lower, fs::path const& path_dir_upper)
+/**
+ * @brief Mounts a fuse-ciopfs filesystem, which is used for case-insensitivity in file paths
+ * 
+ * @param path_dir_lower Directory where the files are stored in
+ * @param path_dir_upper Mount point of the fuse-ciopfs filesystem
+ */
+inline void Controller::mount_ciopfs(fs::path const& path_dir_lower, fs::path const& path_dir_upper)
 {
-  this->m_ciopfs = std::make_unique<ns_ciopfs::Ciopfs>(path_dir_lower, path_dir_upper);
+  m_filesystems.emplace_back(std::make_unique<ns_ciopfs::Ciopfs>(getpid(), path_dir_lower, path_dir_upper));
   m_vec_path_dir_mountpoints.push_back(path_dir_upper);
-} // fn: mount_ciopfs }}}
+}
 
-} // namespace ns_filesystems
+} // namespace ns_filesystems::ns_controller
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/
