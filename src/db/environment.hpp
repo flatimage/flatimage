@@ -1,7 +1,7 @@
 /**
  * @file environment.hpp
  * @author Ruan Formigoni
- * @brief Defines a class that manages FlatImage's desktop integration
+ * @brief Manages environment variables in flatimage
  * 
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */

@@ -1,7 +1,7 @@
 /**
  * @file db.hpp
  * @author Ruan Formigoni
- * @brief Used to manage the bindings from the host to the sandbox
+ * @brief A database that interfaces with nlohmann json
  * 
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
