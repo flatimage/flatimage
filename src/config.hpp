@@ -179,14 +179,14 @@ inline FlatimageConfig config()
   ns_env::set("BWRAP_LOG", config.path_dir_mount.string() + ".bwrap.log", ns_env::Replace::Y);
 
   // Environment
-  config.env_path = config.path_dir_app_bin.string() + ":" + ns_env::get_or_else("PATH", "");
+  config.env_path = config.path_dir_app_bin.string() + ":" + ns_env::get_expected("PATH").value_or("");
   config.env_path += ":/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin";
   config.env_path += ":{}"_fmt(config.path_dir_busybox.string());
   ns_env::set("PATH", config.env_path, ns_env::Replace::Y);
 
   // Compression level configuration (goes from 0 to 10, default is 7)
   config.layer_compression_level  = ({
-   std::string str_compression_level = ns_env::get_or_else("FIM_COMPRESSION_LEVEL", "7");
+   std::string str_compression_level = ns_env::get_expected("FIM_COMPRESSION_LEVEL").value_or("7");
    uint32_t compression_level = std::ranges::all_of(str_compression_level, ::isdigit) ? std::stoi(str_compression_level) : 7;
    std::clamp(compression_level, uint32_t{0}, uint32_t{10});
   });
@@ -216,9 +216,9 @@ inline FlatimageConfig config()
   f_touch_json(config.path_file_config_casefold);
 
   // LD_LIBRARY_PATH
-  if ( ns_env::exists("LD_LIBRARY_PATH") )
+  if ( auto ret = ns_env::get_expected("LD_LIBRARY_PATH") )
   {
-    ns_env::prepend("LD_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu:");
+    ns_env::set("LD_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu:{}"_fmt(ret.value()), ns_env::Replace::Y);
   }
   else
   {

@@ -242,7 +242,7 @@ inline void Bwrap::overlay(std::vector<fs::path> const& vec_path_dir_layer
  */
 inline void Bwrap::set_xdg_runtime_dir()
 {
-  m_path_dir_xdg_runtime = ns_env::get_or_else("XDG_RUNTIME_DIR", "/run/user/{}"_fmt(getuid()));
+  m_path_dir_xdg_runtime = ns_env::get_expected("XDG_RUNTIME_DIR").value_or("/run/user/{}"_fmt(getuid()));
   ns_log::info()("XDG_RUNTIME_DIR: {}", m_path_dir_xdg_runtime);
   m_program_env.push_back("XDG_RUNTIME_DIR={}"_fmt(m_path_dir_xdg_runtime));
   ns_vector::push_back(m_args, "--setenv", "XDG_RUNTIME_DIR", m_path_dir_xdg_runtime);
@@ -272,8 +272,8 @@ inline Expected<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_
     .wait();
   qreturn_if (ret and *ret == 0, path_file_bwrap_opt);
   // Error might be EACCES, try to integrate with apparmor
-  fs::path path_file_pkexec = Expect(ns_subprocess::search_path("pkexec"));
-  fs::path path_file_bwrap_apparmor = Expect(ns_subprocess::search_path("fim_bwrap_apparmor"));
+  fs::path path_file_pkexec = Expect(ns_env::search_path("pkexec"));
+  fs::path path_file_bwrap_apparmor = Expect(ns_env::search_path("fim_bwrap_apparmor"));
   fs::path path_dir_mount = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
   ret = ns_subprocess::Subprocess(path_file_pkexec)
     .with_args(path_file_bwrap_apparmor, path_dir_mount, path_file_bwrap_src)
@@ -412,11 +412,11 @@ inline Bwrap& Bwrap::bind_home()
 {
   if ( m_is_root ) { return *this; }
   ns_log::debug()("PERM(HOME)");
-  const char* str_dir_home = ns_env::get("HOME");
-  if(str_dir_home == nullptr)
-  {
-    ns_log::error()("HOME environment variable is unset");
-  }
+  std::string str_dir_home = ({
+    auto ret = ns_env::get_expected("HOME");
+    ereturn_if(not ret, "HOME environment variable is unset", *this);
+    ret.value();
+  });
   ns_vector::push_back(m_args, "--bind-try", str_dir_home, str_dir_home);
   return *this;
 }
@@ -478,8 +478,11 @@ inline Bwrap& Bwrap::bind_wayland()
 {
   ns_log::debug()("PERM(WAYLAND)");
   // Get WAYLAND_DISPLAY
-  const char* env_wayland_display = ns_env::get("WAYLAND_DISPLAY");
-  dreturn_if(not env_wayland_display, "WAYLAND_DISPLAY is undefined", *this);
+  std::string env_wayland_display = ({
+    auto ret = ns_env::get_expected("WAYLAND_DISPLAY");
+    ereturn_if(not ret, "WAYLAND_DISPLAY is undefined", *this);
+    ret.value();
+  });
 
   // Get wayland socket
   fs::path path_socket_wayland = m_path_dir_xdg_runtime / env_wayland_display;
@@ -503,18 +506,21 @@ inline Bwrap& Bwrap::bind_xorg()
 {
   ns_log::debug()("PERM(XORG)");
   // Get DISPLAY
-  const char* env_display = ns_env::get("DISPLAY");
-  dreturn_if(not env_display, "DISPLAY is undefined", *this);
-
+  std::string env_display = ({
+    auto ret = ns_env::get_expected("DISPLAY");
+    ereturn_if(not ret, "DISPLAY is undefined", *this);
+    ret.value();
+  });
   // Get XAUTHORITY
-  const char* env_xauthority = ns_env::get("XAUTHORITY");
-  dreturn_if(not env_xauthority, "XAUTHORITY is undefined", *this);
-
+  std::string env_xauthority = ({
+    auto ret = ns_env::get_expected("XAUTHORITY");
+    ereturn_if(not ret, "XAUTHORITY is undefined", *this);
+    ret.value();
+  });
   // Bind
   ns_vector::push_back(m_args, "--ro-bind-try", env_xauthority, env_xauthority);
   ns_vector::push_back(m_args, "--setenv", "XAUTHORITY", env_xauthority);
   ns_vector::push_back(m_args, "--setenv", "DISPLAY", env_display);
-
   return *this;
 }
 
@@ -529,8 +535,11 @@ inline Bwrap& Bwrap::bind_dbus_user()
 {
   ns_log::debug()("PERM(DBUS_USER)");
   // Get DBUS_SESSION_BUS_ADDRESS
-  const char* env_dbus_session_bus_address = ns_env::get("DBUS_SESSION_BUS_ADDRESS");
-  dreturn_if(not env_dbus_session_bus_address, "DBUS_SESSION_BUS_ADDRESS is undefined", *this);
+  std::string env_dbus_session_bus_address = ({
+    auto ret = ns_env::get_expected("DBUS_SESSION_BUS_ADDRESS");
+    ereturn_if(not ret, "DBUS_SESSION_BUS_ADDRESS is undefined", *this);
+    ret.value();
+  });
 
   // Path to current session bus
   std::string str_dbus_session_bus_path = env_dbus_session_bus_address;
@@ -674,10 +683,10 @@ inline Expected<bwrap_run_ret_t> Bwrap::run(ns_permissions::PermissionBits const
   if(permissions.network){ std::ignore = bind_network(); };
 
   // Search for bash
-  fs::path path_file_bash = Expect(ns_subprocess::search_path("bash"));
+  fs::path path_file_bash = Expect(ns_env::search_path("bash"));
 
   // Use builtin bwrap or native if exists
-  fs::path path_file_bwrap = Expect(ns_subprocess::search_path("bwrap"));
+  fs::path path_file_bwrap = Expect(ns_env::search_path("bwrap"));
 
   // Test bwrap and setup apparmor if it is required
   // Adjust the bwrap path to the one integrated with apparmor if needed

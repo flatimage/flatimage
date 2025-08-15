@@ -28,7 +28,7 @@ struct Portal
   Portal(pid_t const pid_reference, std::string const& mode)
   {
     // Path to flatimage binaries
-    const char* str_dir_app_bin = ns_env::get("FIM_DIR_APP_BIN");
+    const char* str_dir_app_bin = ns_env::get_or_throw("FIM_DIR_APP_BIN");
     ethrow_if(not str_dir_app_bin, "FIM_DIR_APP_BIN is undefined");
 
     // Create paths to daemon and portal

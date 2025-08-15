@@ -184,12 +184,15 @@ int main(int argc, char** argv)
   }
   else
   {
-    if(not ns_env::exists("FIM_DIR_INSTANCE"))
-    {
-      std::cerr << "FIM_DIR_INSTANCE is undefined\n";
-      return EXIT_FAILURE;
-    }
-    path_dir_instance = ns_env::get("FIM_DIR_INSTANCE");
+    path_dir_instance = ({
+      auto ret = ns_env::get_expected("FIM_DIR_INSTANCE");
+      if(not ret)
+      {
+        std::cerr << "FIM_DIR_INSTANCE is undefined\n";
+        return EXIT_FAILURE;
+      }
+      ret.value();
+    });
   }
   // Request process from daemon
   auto result = process_request(args, daemon_target, path_dir_instance);

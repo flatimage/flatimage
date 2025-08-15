@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : log
-///
+/**
+ * @file log.hpp
+ * @author Ruan Formigoni
+ * @brief A library for file logging
+ *
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -27,7 +30,6 @@ namespace
 
 namespace fs = std::filesystem;
 
-// class Logger {{{
 class Logger
 {
   private:
@@ -40,84 +42,122 @@ class Logger
     Logger& operator=(Logger const&) = delete;
     Logger& operator=(Logger&&) = delete;
     void set_level(Level level);
-    Level get_level() const;
-    void set_sink_file(fs::path path_file_sink);
+    [[nodiscard]] Level get_level() const;
+    [[nodiscard]] inline std::expected<void,std::string> set_sink_file(fs::path path_file_sink);
     void flush();
-    std::optional<std::ofstream>& get_sink_file();
-}; // class Logger }}}
+    [[nodiscard]] std::optional<std::ofstream>& get_sink_file();
+};
 
-// fn: Logger::Logger {{{
+/**
+ * @brief Construct a new Logger:: Logger object
+ * 
+ */
 inline Logger::Logger()
   : m_opt_os(std::nullopt)
   , m_level(Level::CRITICAL)
 {
-} // fn: Logger::Logger }}}
+}
 
-// fn: Logger::set_sink_file {{{
-inline void Logger::set_sink_file(fs::path path_file_sink)
+/**
+ * @brief Sets the sink file of the logger
+ * 
+ * @param path_file_sink The path to the logger sink file 
+ */
+[[nodiscard]] inline std::expected<void,std::string> Logger::set_sink_file(fs::path path_file_sink)
 {
   // File to save logs into
   if ( const char* var = std::getenv("FIM_DEBUG"); var && std::string_view{var} == "1" )
   {
     "Logger file: {}\n"_print(path_file_sink);
-  } // if
-
+  }
   // File output stream
-  m_opt_os = std::ofstream{path_file_sink};
+  m_opt_os = std::ofstream(path_file_sink, std::ios::out | std::ios::trunc);
+  // Check if file was opened successfully  
+  if(not m_opt_os->is_open())
+  {
+    return std::unexpected("Could not open file '{}'"_fmt(path_file_sink));
+  }
+  return {};
+}
 
-  if( not m_opt_os->is_open() ) { throw std::runtime_error("Could not open file '{}'"_fmt(path_file_sink)); };
-} // fn: Logger::set_sink_file }}}
-
-// fn: Logger::get_sink_file {{{
+/**
+ * @brief Gets the sink file of the logger
+ * 
+ * @return std::optional<std::ofstream>& The reference to the sink file if it is defined
+ */
 inline std::optional<std::ofstream>& Logger::get_sink_file()
 {
   return m_opt_os;
-} // fn: Logger::get_sink_file }}}
+}
 
-// fn: Logger::flush {{{
+/**
+ * @brief Flushes the buffer content to the log file if it is defined
+ */
 inline void Logger::flush()
 {
   if (auto& file = this->m_opt_os)
   {
     file->flush();
   }
-} // fn: Logger::flush }}}
+}
 
-// fn: Logger::set_level {{{
+/**
+ * @brief Sets the logging verbosity (CRITICAL,ERROR,INFO,DEBUG)
+ * 
+ * @param level Enumeration of the verbosity level
+ */
 inline void Logger::set_level(Level level)
 {
   m_level = level;
-} // fn: Logger::set_level }}}
+}
 
-// fn: Logger::get_level {{{
+/**
+ * @brief Get current verbosity level of the logger
+ * 
+ * @return Level 
+ */
 inline Level Logger::get_level() const
 {
   return m_level;
-} // fn: Logger::get_level }}}
+}
 
 thread_local Logger logger;
 
-} // namespace
+}
 
-// fn: set_level {{{
+/**
+ * @brief Sets the logging verbosity (CRITICAL,ERROR,INFO,DEBUG)
+ * 
+ * @param level Enumeration of the verbosity level
+ */
 inline void set_level(Level level)
 {
   logger.set_level(level);
-} // fn: set_level }}}
+}
 
-// fn: get_level {{{
+/**
+ * @brief Get current verbosity level of the logger
+ * 
+ * @return Level 
+ */
 inline Level get_level()
 {
   return logger.get_level();
-} // fn: get_level }}}
+}
 
-// fn: set_sink_file {{{
-inline void set_sink_file(fs::path path_file_sink)
+/**
+ * @brief Sets the sink file of the logger
+ * 
+ * @param path_file_sink The path to the logger sink file 
+ */
+inline std::expected<void,std::string> set_sink_file(fs::path path_file_sink)
 {
-  logger.set_sink_file(path_file_sink);
-} // fn: set_sink_file }}}
+  return logger.set_sink_file(path_file_sink);
+}
 
-// class: Location {{{
+/**
+ * @todo Class hierarchy
+ */
 class Location
 {
   private:
@@ -136,10 +176,9 @@ class Location
     auto get() const
     {
       return "{}::{}"_fmt(m_str_file, m_line);
-    } // get
-}; // class: Location }}}
+    }
+};
 
-// class debug {{{
 class debug
 {
   private:
@@ -155,11 +194,10 @@ class debug
       print_if(opt_ostream_sink, *opt_ostream_sink, "D::{}::{}\n"_fmt(m_loc.get(), format), args...);
       print_if((logger.get_level() >= Level::DEBUG), std::cerr, "D::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
       logger.flush();
-    } // debug
-}; // class debug }}}
+    }
+};
 
 
-// class info {{{
 class info
 {
   private:
@@ -175,10 +213,9 @@ class info
       print_if(opt_ostream_sink, *opt_ostream_sink, "I::{}::{}\n"_fmt(m_loc.get(), format), args...);
       print_if((logger.get_level() >= Level::INFO), std::cout, "I::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
       logger.flush();
-    } // info
-}; // class info }}}
+    }
+};
 
-// class error {{{
 class error
 {
   private:
@@ -194,10 +231,9 @@ class error
       print_if(opt_ostream_sink, *opt_ostream_sink, "E::{}::{}\n"_fmt(m_loc.get(), format), args...);
       print_if((logger.get_level() >= Level::ERROR), std::cerr, "E::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
       logger.flush();
-    } // error
-}; // class error }}}
+    }
+};
 
-// class critical {{{
 class critical
 {
   private:
@@ -213,10 +249,9 @@ class critical
       print_if(opt_ostream_sink, *opt_ostream_sink, "C::{}::{}\n"_fmt(m_loc.get(), format), args...);
       print_if((logger.get_level() >= Level::CRITICAL), std::cerr, "C::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
       logger.flush();
-    } // critical
-}; // class critical }}}
+    }
+};
 
-// fn: ec {{{
 template<typename F, typename... Args>
 inline auto ec(F&& fn, Args&&... args) -> std::invoke_result_t<F, Args...>
 {
@@ -232,8 +267,8 @@ inline auto ec(F&& fn, Args&&... args) -> std::invoke_result_t<F, Args...>
     auto ret = fn(std::forward<Args>(args)..., ec);
     if ( ec ) { ns_log::error()(ec.message()); } // if
     return ret;
-  } // else
-} // }}}
+  }
+}
 
 } // namespace ns_log
 

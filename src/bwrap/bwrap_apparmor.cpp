@@ -10,6 +10,7 @@
 
 #include "../lib/log.hpp"
 #include "../lib/subprocess.hpp"
+#include "../lib/env.hpp"
 #include "../macro.hpp"
 
 constexpr std::string_view const profile_bwrap =
@@ -28,9 +29,12 @@ int main(int argc, char const* argv[])
   ereturn_if(argc != 3, "Incorrect # of arguments for bwrap-apparmor", EXIT_FAILURE);
   // Set log file location
   fs::path path_file_log = std::string{argv[1]} + ".bwrap-apparmor.log";
-  ns_log::set_sink_file(path_file_log);
+  if(auto ret = ns_log::set_sink_file(path_file_log); not ret)
+  {
+    std::cerr << "Could not setup logger sink: " << ret.error() << '\n';
+  }
   // Find apparmor_parser
-  auto opt_path_file_apparmor_parser = ns_subprocess::search_path("apparmor_parser");
+  auto opt_path_file_apparmor_parser = ns_env::search_path("apparmor_parser");
   ereturn_if(not opt_path_file_apparmor_parser, "Could not find apparmor_parser", EXIT_FAILURE);
   // Define paths
   fs::path path_file_bwrap_src{argv[2]};

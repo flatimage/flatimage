@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : elf
-///
+/**
+ * @file elf.hpp
+ * @author Ruan Formigoni
+ * @brief A library for operations on ELF files
+ *
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -30,11 +33,17 @@ namespace fs = std::filesystem;
 #define ElfW(type) Elf32_ ## type
 #endif
 
-// copy_binary() {{{
-// Copies the binary data between [offset.first, offset.second] from path_file_input to path_file_output
-[[maybe_unused]] [[nodiscard]] inline Expected<void> copy_binary(fs::path const& path_file_input
+/**
+ * @brief Copies the binary data between [offset.first, offset.second] from path_file_input to path_file_output
+ * 
+ * @param path_file_input The source file where to read the bytes from
+ * @param path_file_output The target file where to write the bytes to
+ * @param section The section[start,end] The section to read from the input and write to the output
+ * @return Expected<void> Nothing on success or the respective error
+ */
+[[nodiscard]] inline Expected<void> copy_binary(fs::path const& path_file_input
   , fs::path const& path_file_output
-  , std::pair<uint64_t,uint64_t> offset)
+  , std::pair<uint64_t,uint64_t> section)
 {
   // Open source and output files
   std::ifstream f_in{path_file_input, std::ios::binary};
@@ -42,9 +51,9 @@ namespace fs = std::filesystem;
   std::ofstream f_out{path_file_output, std::ios::binary};
   qreturn_if(not f_out.is_open(), Unexpected("Failed to open out file {}\n"_fmt(path_file_output)));
   // Calculate the size of the data to read
-  uint64_t size = offset.second - offset.first;
+  uint64_t size = section.second - section.first;
   // Seek to the start offset in the input file
-  f_in.seekg(offset.first, std::ios::beg);
+  f_in.seekg(section.first, std::ios::beg);
   // Read in chunks
   const size_t size_buf = 4096;
   char buffer[size_buf];
@@ -56,13 +65,16 @@ namespace fs = std::filesystem;
     size -= read_size;
   } // while
   return {};
-} // function: copy_binary
+}
 
-// }}}
-
-// skip_elf_header() {{{
-// Skips the elf header starting from 'offset' and returns the offset to the first byte afterwards
-[[nodiscard]] [[maybe_unused]] inline Expected<uint64_t> skip_elf_header(fs::path const& path_file_elf
+/**
+ * @brief Skips the elf header starting from 'offset' and returns the offset to the first byte afterwards
+ * 
+ * @param path_file_elf Path to the respective elf file
+ * @param offset Offset where the elf section starts
+ * @return Expected<uint64_t> 
+ */
+[[nodiscard]] inline Expected<uint64_t> skip_elf_header(fs::path const& path_file_elf
   , uint64_t offset = 0)
 {
   struct File
@@ -90,7 +102,7 @@ namespace fs = std::filesystem;
   );
   offset = header.e_shoff + (header.e_ehsize * header.e_shnum);
   return offset;
-} // }}}
+}
 
 } // namespace ns_elf
 

@@ -11,6 +11,7 @@
 #include <filesystem>
 
 #include "../lib/subprocess.hpp"
+#include "../lib/env.hpp"
 #include "../macro.hpp"
 #include "filesystem.hpp"
 
@@ -77,7 +78,7 @@ inline Expected<void> Dwarfs::mount()
     , std::unexpected("'{}' does not exist or is not a directory"_fmt(m_path_dir_mount))
   );
   // Find command in PATH
-  auto path_file_dwarfs = Expect(ns_subprocess::search_path("dwarfs"));
+  auto path_file_dwarfs = Expect(ns_env::search_path("dwarfs"));
   // Create command
   m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_dwarfs);
   // Spawn command

@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "../lib/subprocess.hpp"
+#include "../lib/env.hpp"
 #include "filesystem.hpp"
 
 namespace ns_filesystems::ns_ciopfs
@@ -61,7 +62,7 @@ inline Expected<void> Ciopfs::mount()
     , std::unexpected("Upperdir does not exist for ciopfs: {}"_fmt(ec.message()))
   );
   // Find Ciopfs
-  auto path_file_ciopfs = Expect(ns_subprocess::search_path("ciopfs"));
+  auto path_file_ciopfs = Expect(ns_env::search_path("ciopfs"));
   // Create subprocess
   m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_ciopfs);
   // Include arguments and spawn process

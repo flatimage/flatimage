@@ -39,7 +39,10 @@ void cleanup(int)
   // Register signal handler
   signal(SIGTERM, cleanup);
   // Initialize logger
-  ns_log::set_sink_file(Expect(ns_env::get_expected("FIM_DIR_MOUNT")) + ".janitor.log");
+  if(auto ret = ns_log::set_sink_file(Expect(ns_env::get_expected("FIM_DIR_MOUNT")) + ".janitor.log"); not ret)
+  {
+    std::cerr << "Could not set logger sink file: " << ret.error() << '\n';
+  }
   // Check argc
   qreturn_if(argc < 2, std::unexpected("Incorrect usage"));
   // Get pid to wait for
@@ -58,7 +61,10 @@ void cleanup(int)
   for (auto&& path_dir_mountpoint : std::vector<std::filesystem::path>(argv+1, argv+argc))
   {
     ns_log::info()("Un-mount '{}'", path_dir_mountpoint);
-    ns_fuse::unmount(path_dir_mountpoint);
+    if(auto ret = ns_fuse::unmount(path_dir_mountpoint); not ret)
+    {
+      ns_log::error()("Could not un-mount '{}': '{}'", path_dir_mountpoint, ret.error());
+    }
   }
   return {};
 }

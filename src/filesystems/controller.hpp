@@ -106,13 +106,13 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
  */
 inline Controller::~Controller()
 {
-  if ( m_opt_pid_janitor and *m_opt_pid_janitor > 0)
+  if ( m_opt_pid_janitor and m_opt_pid_janitor.value() > 0)
   {
     // Stop janitor loop & wait for cleanup
-    kill(*m_opt_pid_janitor, SIGTERM);
+    kill(m_opt_pid_janitor.value(), SIGTERM);
     // Wait for janitor to finish execution
     int status;
-    waitpid(*m_opt_pid_janitor, &status, 0);
+    waitpid(m_opt_pid_janitor.value(), &status, 0);
     dreturn_if(not WIFEXITED(status), "Janitor exited abnormally");
     int code = WEXITSTATUS(status);
     dreturn_if(code != 0, "Janitor exited with code '{}'"_fmt(code));
@@ -226,7 +226,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
   file_binary.close();
 
   // Get layers from layer directories
-  std::vector<fs::path> vec_path_file_layer = ns_env::get_optional("FIM_DIRS_LAYER")
+  std::vector<fs::path> vec_path_file_layer = ns_env::get_expected("FIM_DIRS_LAYER")
     // Expand variable, allow expansion to fail to be non-fatal
     .transform([](auto&& e){ return ns_env::expand(e).value_or(std::string{e}); })
     // Split directories by the char ':'
@@ -246,7 +246,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
         | std::ranges::to<std::vector<fs::path>>();
     }).value_or(std::vector<fs::path>{});
   // Get layers from file paths
-  ns_vector::append_range(vec_path_file_layer, ns_env::get_optional("FIM_FILES_LAYER")
+  ns_vector::append_range(vec_path_file_layer, ns_env::get_expected("FIM_FILES_LAYER")
     // Expand variable, allow expansion to fail to be non-fatal
     .transform([](auto&& e){ return ns_env::expand(e).value_or(std::string{e}); })
     // Split files by the char ':'

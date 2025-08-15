@@ -42,8 +42,11 @@ extern char** environ;
 [[nodiscard]] Expected<int> boot(int argc, char** argv)
 {
   ns_config::FlatimageConfig config = ns_config::config();
-  // Set log file
-  ns_log::set_sink_file(config.path_dir_mount.string() + ".boot.log");
+  // Set log file, permissive
+  if(auto ret = ns_log::set_sink_file(config.path_dir_mount.string() + ".boot.log"); not ret)
+  {
+    std::cerr << "Could not setup logger sink: " << ret.error() << '\n';
+  }
   // Start host portal
   ns_portal::Portal portal = ns_portal::Portal(getpid(), "host");
   // Parse flatimage command if exists

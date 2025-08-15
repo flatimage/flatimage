@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : fuse
-///
+/**
+ * @file fuse.hpp
+ * @author Ruan Formigoni
+ * @brief A library for operations on fuse filesystems
+ *
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -13,6 +16,7 @@
 #include <thread>
 
 #include "subprocess.hpp"
+#include "env.hpp"
 
 // Other codes available here:
 // https://man7.org/linux/man-pages/man2/statfs.2.html
@@ -28,7 +32,12 @@ namespace fs = std::filesystem;
 
 } // namespace 
 
-// Check if a directory is mounted with fuse
+/**
+ * @brief Checks if a directory is a fuse filesystem mount point
+ * 
+ * @param path_dir_mount Path to the directory to check
+ * @return Expected<bool> A boolean with the result, or the respective internal error
+ */
 inline Expected<bool> is_fuse(fs::path const& path_dir_mount)
 {
   struct statfs buf;
@@ -36,11 +45,16 @@ inline Expected<bool> is_fuse(fs::path const& path_dir_mount)
   if ( statfs(path_dir_mount.c_str(), &buf) < 0 )
   {
     return Unexpected(strerror(errno));
-  } // if
+  }
 
   return buf.f_type == FUSE_SUPER_MAGIC;
-} // function: mountpoint
+}
 
+/**
+ * @brief Waits for the given directory to not be fuse
+ * 
+ * @param path_dir_filesystem Path to the directory to wait for
+ */
 inline void wait_fuse(fs::path const& path_dir_filesystem)
 {
   using namespace std::chrono_literals;
@@ -57,37 +71,41 @@ inline void wait_fuse(fs::path const& path_dir_filesystem)
 } // function: wait_fuse
 
 
-inline void unmount(fs::path const& path_dir_mountpoint)
+/**
+ * @brief Un-mounts the given fuse mount point
+ * 
+ * @param path_dir_mount Path to the mount point to un-mount
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+inline Expected<void> unmount(fs::path const& path_dir_mount)
 {
   using namespace std::chrono_literals;
 
   // Find fusermount
-  auto opt_path_file_fusermount = ns_subprocess::search_path("fusermount");
-  ereturn_if (not opt_path_file_fusermount, "Could not find 'fusermount' in PATH");
+  auto path_file_fusermount = Expect(ns_env::search_path("fusermount"));
 
   // Un-mount filesystem
-  auto ret = ns_subprocess::Subprocess(*opt_path_file_fusermount)
+  auto ret = ns_subprocess::Subprocess(path_file_fusermount)
     .with_piped_outputs()
-    .with_args("-zu", path_dir_mountpoint)
+    .with_args("-zu", path_dir_mount)
     .spawn()
     .wait();
 
   // Check for successful un-mount
   if(ret and *ret == 0)
   {
-    ns_log::debug()("Un-mounted filesystem '{}'"_fmt(path_dir_mountpoint));
+    ns_log::debug()("Un-mounted filesystem '{}'"_fmt(path_dir_mount));
   } // if
 
   // Filesystem could be busy for a bit after un-mount
-  Expected<bool> expected_is_fuse = ns_fuse::is_fuse(*opt_path_file_fusermount);
-  while( expected_is_fuse and *expected_is_fuse )
+  bool is_fuse = Expect(ns_fuse::is_fuse(path_file_fusermount));
+  while( is_fuse )
   {
     std::this_thread::sleep_for(100ms);
-    expected_is_fuse = ns_fuse::is_fuse(*opt_path_file_fusermount);
+    is_fuse = Expect(ns_fuse::is_fuse(path_file_fusermount));
   } // while
 
-  // Check for query errors
-  ereturn_if(not expected_is_fuse, expected_is_fuse.error());
+  return {};
 } // function: unmount
 
 } // namespace ns_fuse

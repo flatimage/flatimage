@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "../lib/linux.hpp"
+#include "../lib/env.hpp"
 #include "../db/db.hpp"
 #include "config.hpp"
 
@@ -130,7 +131,7 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   // Get command
   auto vec_argv = Expect(db("command").template value<std::vector<std::string>>());
   // Search for command in PATH and replace vec_argv[0] with the full path to the binary
-  vec_argv[0] = Expect(ns_linux::search_path(vec_argv[0]));
+  vec_argv[0] = Expect(ns_env::search_path(vec_argv[0]));
   // Ignore on empty command
   if ( vec_argv.empty() ) { return Unexpected("Empty command"); }
   // Create child

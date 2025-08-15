@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "../lib/subprocess.hpp"
+#include "../lib/env.hpp"
 #include "../lib/fuse.hpp"
 #include "filesystem.hpp"
 
@@ -85,7 +86,7 @@ inline Expected<void> Overlayfs::mount()
     , std::unexpected("Could not create mountpoint for overlayfs")
   );
   // Find overlayfs
-  auto path_file_overlayfs = Expect(ns_subprocess::search_path("overlayfs"));
+  auto path_file_overlayfs = Expect(ns_env::search_path("overlayfs"));
   // Create subprocess
   m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_overlayfs);
   // Get user and group ids

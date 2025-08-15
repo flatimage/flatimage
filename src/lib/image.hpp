@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : image
-///
+/**
+ * @file image.hpp
+ * @author Ruan Formigoni
+ * @brief A library for operations on image files
+ *
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -11,10 +14,10 @@
 #include <boost/gil/extension/io/png.hpp>
 #include <boost/gil/extension/numeric/sampler.hpp>
 #include <boost/gil/extension/numeric/resample.hpp>
+#include <format>
 
 #include "log.hpp"
 #include "match.hpp"
-#include "../std/exception.hpp"
 
 namespace ns_image
 {
@@ -24,28 +27,27 @@ namespace
 
 namespace fs = std::filesystem;
 
-// resize_impl() {{{
-inline void resize_impl(fs::path const& path_file_src
+inline Expected<void> resize_impl(fs::path const& path_file_src
   , fs::path const& path_file_dst
   , uint32_t width
   , uint32_t height
-  , bool should_preserve_aspect_ratio)
+  , bool is_preserve_aspect_ratio)
 {
   namespace gil = boost::gil;
 
   // Create icon directory and set file name
   ns_log::info()("Reading image {}", path_file_src);
-  ethrow_if(not fs::is_regular_file(path_file_src), "File '{}' does not exist or is not a regular file"_fmt(path_file_src));
-
+  qreturn_if(not fs::is_regular_file(path_file_src), std::unexpected("File '{}' does not exist or is not a regular file"_fmt(path_file_src)));
+  // Read image into memory
   gil::rgba8_image_t img;
-  std::ignore = ns_match::match(path_file_src.extension()
-    , ns_match::equal(".jpg", ".jpeg") >>= [&]{ gil::read_and_convert_image(path_file_src, img, gil::jpeg_tag()); }
-    , ns_match::equal(".png") >>= [&]{ gil::read_and_convert_image(path_file_src, img, gil::png_tag()); }
+  Expect(ns_match::match(path_file_src.extension()
+      , ns_match::equal(".jpg", ".jpeg") >>= [&]{ gil::read_and_convert_image(path_file_src, img, gil::jpeg_tag()); }
+      , ns_match::equal(".png") >>= [&]{ gil::read_and_convert_image(path_file_src, img, gil::png_tag()); }
+    ).transform_error([](auto&& e){ return std::vformat("Input image of invalid format '{}': '{}'", std::make_format_args(e)); })
   );
-
   ns_log::info()("Image size is {}x{}", std::to_string(img.width()), std::to_string(img.height()));
-
-  if ( should_preserve_aspect_ratio )
+  // Wether or not to preserve the aspect ratio
+  if ( is_preserve_aspect_ratio )
   {
     // Calculate desired and current aspected ratios
     double src_aspect = static_cast<double>(img.width()) / img.height();
@@ -65,7 +67,7 @@ inline void resize_impl(fs::path const& path_file_src
     // Write to disk
     ns_log::info()("Saving image to {}", path_file_dst);
     gil::write_view(path_file_dst, gil::const_view(img_resized), gil::png_tag());
-  } // if
+  }
   else
   {
     // Resize
@@ -76,20 +78,33 @@ inline void resize_impl(fs::path const& path_file_src
     ns_log::info()("Saving image to {}", path_file_dst);
     gil::write_view(path_file_dst, gil::const_view(img_resized), gil::png_tag());
 
-  } // else
-} // resize_impl() }}}
+  }
+  return {};
+}
 
 } // namespace
 
-// resize() {{{
-inline decltype(auto) resize(fs::path const& path_file_src
+
+
+
+/**
+ * @brief Resizes an input image to the specified width and height
+ * 
+ * @param path_file_src Path to the input image file
+ * @param path_file_dst Path to the output image file
+ * @param width Target width of the output image
+ * @param height Target height of the output image
+ * @param is_preserve_aspect_ratio Whether to preserve the aspect ratio or not in the output
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+inline Expected<void> resize(fs::path const& path_file_src
   , fs::path const& path_file_dst
   , uint32_t width
   , uint32_t height
-  , bool should_preserve_aspect_ratio = false)
+  , bool is_preserve_aspect_ratio = false)
 {
-  return ns_exception::to_expected([&]{ resize_impl(path_file_src, path_file_dst, width, height, should_preserve_aspect_ratio); });
-} // resize() }}}
+  return resize_impl(path_file_src, path_file_dst, width, height, is_preserve_aspect_ratio);
+}
 
 } // namespace ns_image
 

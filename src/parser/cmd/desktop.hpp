@@ -13,9 +13,11 @@
 #include "../../reserved/notify.hpp"
 #include "../../reserved/icon.hpp"
 #include "../../reserved/desktop.hpp"
+#include "../../std/exception.hpp"
 #include "../../lib/subprocess.hpp"
 #include "../../lib/image.hpp"
 #include "../../lib/env.hpp"
+#include "../../lib/linux.hpp"
 #include "../../macro.hpp"
 #include "../../config.hpp"
 #include "icon.hpp"
@@ -193,7 +195,7 @@ inline void integrate_mime_database(ns_db::ns_desktop::Desktop const& desktop, f
   file_flatimage_mimetype.close();
 
   // Update mime database
-  auto opt_mime_database = ns_subprocess::search_path("update-mime-database");
+  auto opt_mime_database = ns_env::search_path("update-mime-database");
   ereturn_if(not opt_mime_database.has_value(), "Could not find 'update-mime-database'");
   ns_subprocess::log(ns_subprocess::wait(*opt_mime_database, *xdg_data_home / "mime"), "update-mime-database");
 } // integrate_mime_database() }}}
@@ -317,15 +319,15 @@ void integrate_bash(fs::path const& path_dir_home)
   fs::path path_dir_data = path_dir_home / ".local" / "share";
 
   // Check if XDG_DATA_HOME contain ~/.local/share
-  if (const char * str_xdg_data_home = ns_env::get("XDG_DATA_HOME"); str_xdg_data_home != nullptr)
+  if (auto str_xdg_data_home = ns_env::get_expected("XDG_DATA_HOME"); str_xdg_data_home)
   {
-    dreturn_if(fs::path(str_xdg_data_home) == path_dir_data, "Found '{}' in XDG_DATA_HOME"_fmt(path_dir_data));
+    dreturn_if(fs::path(str_xdg_data_home.value()) == path_dir_data, "Found '{}' in XDG_DATA_HOME"_fmt(path_dir_data));
   } // if
 
   // Check if XDG_DATA_DIRS contain ~/.local/share
-  if (const char * str_xdg_data_dirs = ns_env::get("XDG_DATA_DIRS"); str_xdg_data_dirs != nullptr)
+  if (auto str_xdg_data_dirs = ns_env::get_expected("XDG_DATA_DIRS"); str_xdg_data_dirs)
   {
-    auto vec_path_dirs = ns_vector::from_string<std::vector<fs::path>>(str_xdg_data_dirs, ':');
+    auto vec_path_dirs = ns_vector::from_string<std::vector<fs::path>>(str_xdg_data_dirs.value(), ':');
     auto search = std::ranges::find(vec_path_dirs, path_dir_data, [](fs::path const& e)
     {
       return ns_exception::or_else([&]{ return fs::canonical(e); }, fs::path{});
@@ -362,7 +364,7 @@ inline Expected<void> integrate(ns_config::FlatimageConfig const& config)
   ns_log::debug()("Json desktop data: {}", str_raw_json);
 
   // Get HOME directory
-  std::string_view cstr_home = Expect(ns_env::get_expected("HOME"));
+  fs::path path_dir_home = Expect(ns_env::get_expected("HOME"));
 
   // Check if XDG_DATA_DIRS contains ~/.local/bin
   if (auto cstr_shell = ns_env::get_expected("SHELL"))
@@ -370,7 +372,7 @@ inline Expected<void> integrate(ns_config::FlatimageConfig const& config)
     std::string str_shell{cstr_shell.value()};
     if ( cstr_shell and str_shell.ends_with("bash") )
     {
-      integrate_bash(cstr_home);
+      integrate_bash(path_dir_home);
     } // if
     else
     {
@@ -410,7 +412,7 @@ inline Expected<void> integrate(ns_config::FlatimageConfig const& config)
   if (Expect(ns_reserved::ns_notify::read(config.path_file_binary)))
   {
     // Get bash binary
-    auto path_file_binary_bash = ns_subprocess::search_path("bash");
+    auto path_file_binary_bash = ns_env::search_path("bash");
     qreturn_if(not path_file_binary_bash, Unexpected("Could not find bash in PATH"));
     // Get possible icon paths
     auto path_file_icon = get_path_file_icon_png(desktop.get_name(), template_dir_apps, 64)

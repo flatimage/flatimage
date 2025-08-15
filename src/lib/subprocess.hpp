@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : subprocess
-///
+/**
+ * @file subprocess.hpp
+ * @author Ruan Formigoni
+ * @brief A library to spawn sub-processes in linux
+ *
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -16,7 +19,6 @@
 #include <sys/prctl.h>
 #include <ranges>
 
-#include "env.hpp"
 #include "log.hpp"
 #include "../macro.hpp"
 #include "../std/vector.hpp"
@@ -24,41 +26,13 @@
 namespace ns_subprocess
 {
 
-namespace
-{
-
-namespace fs = std::filesystem;
-
-} // namespace
-
-// search_path() {{{
-inline Expected<std::string> search_path(std::string const& s)
-{
-  std::error_code ec;
-  // Get PATH split view
-  auto view = Expect(ns_env::get_expected("PATH")) | std::views::split(':');
-  // Search for binary
-  auto it = std::find_if(view.begin(), view.end(), [&](auto&& e)
-  {
-    ns_log::debug()("PATH: Check for {}", fs::path(e.begin(), e.end()) / s);
-    return fs::exists(fs::path(e.begin(), e.end()) / s, ec);
-  });
-  // Check for no matches
-  if (it == view.end())
-  {
-    return Unexpected("PATH: Could not find '{}'", s);
-  }
-  return fs::path((*it).begin(), (*it).end()) / s;
-} // search_path()}}}
-
-// class Subprocess {{{
 class Subprocess
 {
   private:
     std::string m_program;
     std::vector<std::string> m_args;
     std::vector<std::string> m_env;
-    std::optional<pid_t> m_opt_pid;
+    pid_t m_pid;
     std::vector<pid_t> m_vec_pids_pipe;
     std::optional<std::function<void(std::string)>> m_fstdout;
     std::optional<std::function<void(std::string)>> m_fstderr;
@@ -118,16 +92,20 @@ class Subprocess
 
     [[maybe_unused]] [[nodiscard]] Subprocess& spawn();
 
-    [[maybe_unused]] [[nodiscard]] std::optional<int> wait();
-}; // Subprocess }}}
+    [[maybe_unused]] [[nodiscard]] Expected<int> wait();
+};
 
-// Subprocess::Subprocess {{{
+/**
+ * @brief Construct a new Subprocess:: Subprocess object
+ * 
+ * @param t A string representable object
+ */
 template<ns_concept::StringRepresentable T>
 Subprocess::Subprocess(T&& t)
   : m_program(ns_string::to_string(t))
   , m_args()
   , m_env()
-  , m_opt_pid(std::nullopt)
+  , m_pid(-1)
   , m_vec_pids_pipe()
   , m_fstdout(std::nullopt)
   , m_fstderr(std::nullopt)
@@ -141,31 +119,48 @@ Subprocess::Subprocess(T&& t)
   {
     m_env.push_back(*i);
   } // for
-} // Subprocess }}}
+}
 
-// Subprocess::~Subprocess {{{
+/**
+ * @brief Destroy the Subprocess:: Subprocess object
+ */
 inline Subprocess::~Subprocess()
 {
   std::ignore = this->wait();
-} // Subprocess::~Subprocess }}}
+}
 
-// env_clear() {{{
+/**
+ * @brief Clears the environment before starting the process
+ * 
+ * @return Subprocess& A reference to *this
+ */
 inline Subprocess& Subprocess::env_clear()
 {
   m_env.clear();
   return *this;
-} // env_clear() }}}
+}
 
-// with_var() {{{
+/**
+ * @brief Adds an environment variable in the process
+ * 
+ * @param k The name of the environment variable
+ * @param v The value of the environment variable
+ * @return Subprocess& A reference to *this
+ */
 template<ns_concept::StringRepresentable K, ns_concept::StringRepresentable V>
 Subprocess& Subprocess::with_var(K&& k, V&& v)
 {
   rm_var(k);
   m_env.push_back("{}={}"_fmt(k,v));
   return *this;
-} // with_var() }}}
+}
 
-// rm_var() {{{
+/**
+ * @brief Removes an environment variable from the process environment
+ * 
+ * @param k The name of the variable to remove
+ * @return Subprocess& A reference to *this
+ */
 template<ns_concept::StringRepresentable K>
 Subprocess& Subprocess::rm_var(K&& k)
 {
@@ -185,66 +180,93 @@ Subprocess& Subprocess::rm_var(K&& k)
   } // if
 
   return *this;
-} // rm_var() }}}
+}
 
-// get_pid() {{{
+/**
+ * @brief Gets the PID of the current running process
+ * 
+ * @return std::optional<pid_t> The pid if the process is running
+ */
 inline std::optional<pid_t> Subprocess::get_pid()
 {
-  return this->m_opt_pid;
-} // get_pid() }}}
+  return this->m_pid;
+}
 
-// kill() {{{
+/**
+ * @brief Sends the signal to the process
+ * 
+ * @param signal The signal to send
+ */
 inline void Subprocess::kill(int signal)
 {
   if ( auto opt_pid = this->get_pid(); opt_pid )
   {
     ::kill(*opt_pid, signal);
   } // if
-} // kill() }}}
+}
 
-// with_args() {{{
+/**
+ * @brief Arguments forwarded as the process' arguments
+ * 
+ * @param arg The argument to forward
+ * @param args More arguments to forward (optional)
+ * @return Subprocess& A reference to *this
+ */
 template<typename Arg, typename... Args>
 requires (sizeof...(Args) > 0)
 Subprocess& Subprocess::with_args(Arg&& arg, Args&&... args)
 {
   return with_args(std::forward<Arg>(arg)).with_args(std::forward<Args>(args)...);
-} // with_args }}}
+}
 
-// with_args() {{{
+/**
+ * @brief Arguments forwarded as the process' arguments
+ * 
+ * @param arg The argument to forward
+ */
 template<typename T>
-Subprocess& Subprocess::with_args(T&& t)
+Subprocess& Subprocess::with_args(T&& arg)
 {
   if constexpr ( ns_concept::SameAs<T, std::string> )
   {
-    this->m_args.push_back(std::forward<T>(t));
-  } // if
+    this->m_args.push_back(std::forward<T>(arg));
+  }
   else if constexpr ( ns_concept::IterableConst<T> )
   {
-    std::copy(t.begin(), t.end(), std::back_inserter(m_args));
-  } // else if
+    std::copy(arg.begin(), arg.end(), std::back_inserter(m_args));
+  }
   else if constexpr ( ns_concept::StringRepresentable<T> )
   {
-    this->m_args.push_back(ns_string::to_string(std::forward<T>(t)));
-  } // else if
+    this->m_args.push_back(ns_string::to_string(std::forward<T>(arg)));
+  }
   else
   {
     static_assert(false, "Could not determine argument type");
-  } // else
+  }
 
   return *this;
-} // with_args }}}
+}
 
-// with_env() {{{
+/**
+ * @brief Includes environment variables with the format 'NAME=VALUE' in the environment
+ * 
+ * @param arg Variable to include
+ * @param args Additional variables to include (optional)
+ */
 template<typename Arg, typename... Args>
 requires (sizeof...(Args) > 0)
 Subprocess& Subprocess::with_env(Arg&& arg, Args&&... args)
 {
   return with_env(std::forward<Arg>(arg)).with_env(std::forward<Args>(args)...);
-} // with_env }}}
+}
 
-// with_env() {{{
+/**
+ * @brief Includes an environment variable with the format 'NAME=VALUE' in the environment
+ * 
+ * @param arg Variable to include
+ */
 template<typename T>
-Subprocess& Subprocess::with_env(T&& t)
+Subprocess& Subprocess::with_env(T&& arg)
 {
   auto f_erase_existing = [this](auto&& entries)
   {
@@ -259,43 +281,58 @@ Subprocess& Subprocess::with_env(T&& t)
 
   if constexpr ( ns_concept::SameAs<T, std::string> )
   {
-    f_erase_existing(std::vector<std::string>{t});
-    this->m_env.push_back(std::forward<T>(t));
-  } // if
+    f_erase_existing(std::vector<std::string>{arg});
+    this->m_env.push_back(std::forward<T>(arg));
+  }
   else if constexpr ( ns_concept::IterableConst<T> )
   {
-    f_erase_existing(t);
-    std::ranges::copy(t, std::back_inserter(m_env));
-  } // else if
+    f_erase_existing(arg);
+    std::ranges::copy(arg, std::back_inserter(m_env));
+  }
   else if constexpr ( ns_concept::StringRepresentable<T> )
   {
-    auto entry = ns_string::to_string(std::forward<T>(t));
+    auto entry = ns_string::to_string(std::forward<T>(arg));
     f_erase_existing(std::vector<std::string>{entry});
     this->m_env.push_back(entry);
-  } // else if
+  }
   else
   {
     static_assert(false, "Could not determine argument type");
-  } // else
+  }
 
   return *this;
-} // with_env }}}
+}
 
-// with_die_on_pid() {{{
+/**
+ * @brief Sets the process to die when 'pid' dies
+ * 
+ * @param pid The pid which causes the child to die
+ * @return Subprocess& A reference to *this
+ */
 inline Subprocess& Subprocess::with_die_on_pid(pid_t pid)
 {
   m_die_on_pid = pid;
   return *this;
-} // with_die_on_pid }}}
+}
 
-// with_piped_outputs() {{{
+/**
+ * @brief Pipe the outputs of the spawned process
+ * 
+ * @return Subprocess& A reference to *this
+ */
 inline Subprocess& Subprocess::with_piped_outputs()
 {
   m_with_piped_outputs = true;
   return *this;
-} // with_piped_outputs() }}}
+}
 
-// with_pipes_parent() {{{
+/**
+ * @brief Setup pipes for the parent process
+ * 
+ * @param pipestdout Stdout pipe
+ * @param pipestderr Stderr pipe
+ * @return Subprocess& A reference to *this
+ */
 inline Subprocess& Subprocess::with_pipes_parent(int pipestdout[2], int pipestderr[2])
 {
   // Close write end
@@ -342,9 +379,14 @@ inline Subprocess& Subprocess::with_pipes_parent(int pipestdout[2], int pipestde
   f_read_pipe(pipestderr[0], "stderr", this->m_fstderr);
 
   return *this;
-} // with_pipes_parent() }}}
+}
 
-// with_pipes_child() {{{
+/**
+ * @brief Setup pipes for the child process
+ * 
+ * @param pipestdout Stdout pipe
+ * @param pipestderr Stderr pipe
+ */
 inline void Subprocess::with_pipes_child(int pipestdout[2], int pipestderr[2])
 {
   // Close read end
@@ -358,9 +400,14 @@ inline void Subprocess::with_pipes_child(int pipestdout[2], int pipestderr[2])
   // Close original write end after duplication
   ereturn_if(close(pipestdout[1]) == -1, "pipestdout[1]: {}"_fmt(strerror(errno)));
   ereturn_if(close(pipestderr[1]) == -1, "pipestderr[1]: {}"_fmt(strerror(errno)));
-} // with_pipes_child() }}}
+}
 
-// die_on_pid() {{{
+/**
+ * @brief Sets the process to die when 'pid' dies
+ * 
+ * @param pid The pid which causes the child to die
+ * @return Subprocess& A reference to *this
+ */
 inline void Subprocess::die_on_pid(pid_t pid)
 {
   // Set death signal when pid dies
@@ -373,33 +420,47 @@ inline void Subprocess::die_on_pid(pid_t pid)
   } // if
   // Log pid and current pid
   ns_log::debug()("{} dies with {}", getpid(), pid);
-} // die_on_pid() }}}
+}
 
-// with_stdout_handle() {{{
+/**
+ * @brief Pipes the process STDOUT to f
+ * 
+ * @param f A lambda std::function<void(std::string)>
+ * @return Subprocess& A reference to *this
+ */
 template<typename F>
 Subprocess& Subprocess::with_stdout_handle(F&& f)
 {
   this->m_fstdout = f;
   return *this;
-} // with_stdout_handle() }}}
+}
 
-// with_stderr_handle() {{{
+/**
+ * @brief Pipes the process STDERR to f
+ * 
+ * @param f A lambda std::function<void(std::string)>
+ * @return Subprocess& A reference to *this
+ */
 template<typename F>
 Subprocess& Subprocess::with_stderr_handle(F&& f)
 {
   this->m_fstderr = f;
   return *this;
-} // with_stderr_handle }}}
+}
 
-// wait() {{{
-inline std::optional<int> Subprocess::wait()
+/**
+ * @brief Waits for the spawned process to finish
+ * 
+ * @return Expected<int> The process return code or the respective error
+ */
+inline Expected<int> Subprocess::wait()
 {
   // Check if pid is valid
-  ereturn_if( not m_opt_pid or *m_opt_pid <= 0, "Invalid pid to wait for", std::nullopt);
+  qreturn_if(m_pid <= 0, std::unexpected("Invalid pid to wait for"));
 
   // Wait for current process
   int status;
-  waitpid(*m_opt_pid, &status, 0);
+  waitpid(m_pid, &status, 0);
 
   // Send SIGTERM for reader forks
   std::ranges::for_each(m_vec_pids_pipe, [](pid_t pid){ ::kill(pid, SIGTERM); });
@@ -407,10 +468,16 @@ inline std::optional<int> Subprocess::wait()
   // Wait for forks
   std::ranges::for_each(m_vec_pids_pipe, [](pid_t pid){ waitpid(pid, nullptr, 0); });
 
-  return (WIFEXITED(status))? std::make_optional(WEXITSTATUS(status)) : std::nullopt;
-} // wait() }}}
+  return (WIFEXITED(status))?
+      Expected<int>(WEXITSTATUS(status))
+    : std::unexpected("The process exited abnormally");
+}
 
-// spawn() {{{
+/**
+ * @brief Spawns (forks) the child process
+ * 
+ * @return Subprocess& A reference to *this
+ */
 inline Subprocess& Subprocess::spawn()
 {
   // Log
@@ -431,27 +498,20 @@ inline Subprocess& Subprocess::spawn()
   } // if
 
   // Create child
-  m_opt_pid = fork();
+  m_pid = fork();
 
   // Failed to fork
-  ereturn_if(*m_opt_pid == -1, "Failed to fork", *this);
+  ereturn_if(m_pid < 0, "Failed to fork", *this);
 
   // Setup pipe on child and parent
   // On parent, return exit code of child
-  if ( *m_opt_pid > 0 )
+  if ( m_pid > 0 )
   {
-    if ( m_with_piped_outputs )
-    {
-      return with_pipes_parent(pipestdout, pipestderr);
-    } // if
-    else
-    {
-      return *this;
-    } // else
+    return m_with_piped_outputs ? with_pipes_parent(pipestdout, pipestderr) : *this;
   } // if
 
   // On child, just setup the pipe
-  if ( m_with_piped_outputs && *m_opt_pid == 0)
+  if ( m_with_piped_outputs && m_pid == 0)
   {
     // this is non-blocking, setup pipes and perform execve afterwards
     with_pipes_child(pipestdout, pipestderr);
@@ -500,25 +560,38 @@ inline Subprocess& Subprocess::spawn()
 
   // Child should stop here
   _exit(1);
-} // spawn() }}}
+}
 
-// wait() {{{
+/**
+ * @brief Sapwns the process and waits for it to finish
+ * 
+ * @param proc The process to start
+ * @param args The arguments forwarded to the process
+ * @return std::optional<int> 
+ */
 template<typename T, typename... Args>
-[[nodiscard]] inline std::optional<int> wait(T&& t, Args&&... args)
+[[nodiscard]] inline Expected<int> wait(T&& proc, Args&&... args)
 {
-  return Subprocess(std::forward<T>(t))
+  return Subprocess(std::forward<T>(proc))
     .with_piped_outputs()
     .with_args(std::forward<Args>(args)...)
     .spawn()
     .wait();
-} // wait() }}}
+}
 
-// log() {{{
-inline void log(std::optional<int> const& ret, std::string_view msg)
+/**
+ * @brief Logs the subprocess execution with the current logger
+ * 
+ * @param ret The Subprocess::wait() return value
+ * @param msg The message to display on errors
+ * @return Expected<int> The ret argument
+ */
+[[maybe_unused]] inline Expected<int> log(Expected<int> const& ret, std::string_view msg)
 {
   if ( not ret ) { ns_log::error()("{} was signalled"_fmt(msg)); }
-  if ( *ret != 0 ) { ns_log::error()("{} exited with non-zero exit code '{}'"_fmt(msg), *ret); }
-} // log() }}}
+  if ( ret.value() != 0 ) { ns_log::error()("{} exited with non-zero exit code '{}'"_fmt(msg), ret.value()); }
+  return ret;
+}
 
 } // namespace ns_subprocess
 

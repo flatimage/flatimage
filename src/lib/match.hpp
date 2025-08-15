@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : match
-///
+/**
+ * @file match.hpp
+ * @author Ruan Formigoni
+ * @brief A library for object matching in C++
+ *
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -14,7 +17,6 @@
 namespace ns_match
 {
 
-// class lhs_comparator {{{
 template<typename Comp, typename... Args>
 requires std::is_default_constructible_v<Comp>
 class lhs_comparator
@@ -33,27 +35,24 @@ class lhs_comparator
     {
       return std::apply([&](auto&&... e){ return (Comp{}(e, u) or ...); }, m_tuple);
     } // operator()
-}; // }}}
+};
 
-// fn: equal() {{{
 template<typename... Args>
 requires ns_concept::Uniform<std::remove_cvref_t<Args>...>
   and (not ns_concept::SameAs<char const*, std::decay_t<Args>...>)
 [[nodiscard]] decltype(auto) equal(Args&&... args) noexcept
 {
   return lhs_comparator<std::equal_to<>,Args...>(std::forward<Args>(args)...);
-}; // fn: equal() }}}
+};
 
-// fn: equal() {{{
 template<typename... Args>
 requires ns_concept::SameAs<char const*, std::decay_t<Args>...>
 [[nodiscard]] decltype(auto) equal(Args&&... args) noexcept
 {
   auto to_string = [](auto&& e){ return std::string(e); };
   return lhs_comparator<std::equal_to<>, std::invoke_result_t<decltype(to_string), Args>...>(std::string(args)...);
-}; // fn: equal() }}}
+};
 
-// operator>>= {{{
 template<typename... T, typename U>
 [[nodiscard]] decltype(auto) operator>>=(lhs_comparator<T...> const& partial_comp, U const& rhs) noexcept
 {
@@ -75,9 +74,14 @@ template<typename... T, typename U>
       return (partial_comp(e))? Expected<U>(rhs) : std::unexpected("No match type");
     } // else if
   };
-} // }}}
+}
 
-// match() {{{
+/**
+ * @brief Matches the input object with one of the instances of args
+ * 
+ * @param t The object to match
+ * @param Args The possible matches for the object
+ */
 template<typename T, typename... Args>
 requires ( sizeof...(Args) > 0 )
 and ( std::is_invocable_v<Args,T> and ... )
@@ -115,7 +119,7 @@ and ( ns_concept::IsInstanceOf<std::invoke_result_t<Args,T>, std::expected> and 
     }
     return Unexpected(msg_error);
   }
-} // match() }}}
+}
 
 } // namespace ns_match
 

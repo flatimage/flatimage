@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "../../lib/subprocess.hpp"
+#include "../../lib/env.hpp"
 
 namespace
 {
@@ -27,7 +28,7 @@ inline void create(fs::path const& path_dir_src
   , uint64_t compression_level)
 {
   // Find mkdwarfs binary
-  auto opt_path_file_mkdwarfs = ns_subprocess::search_path("mkdwarfs");
+  auto opt_path_file_mkdwarfs = ns_env::search_path("mkdwarfs");
   ethrow_if(not opt_path_file_mkdwarfs, "Could not find 'mkdwarfs' binary");
 
   // Compression level must be at least 1 and less or equal to 10
