@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <concepts>
 #include <cstdlib>
 #include <wordexp.h>
 #include <ranges>
@@ -62,14 +63,17 @@ inline T get_or_throw(const char* name)
 /**
  * @brief Get the value of an environment variable
  * 
+ * @tparam T The output type of the function
  * @param name The name of the variable
  * @return Expected<std::string> The value of the variable or the respective error
  */
-inline Expected<std::string> get_expected(std::string_view name)
+template<typename T = std::string>
+requires std::convertible_to<std::string, T>
+inline Expected<T> get_expected(std::string_view name)
 {
   const char * var = std::getenv(name.data());
   return (var != nullptr)?
-      Expected<std::string>(var)
+      Expected<T>(std::string{var})
     : Unexpected("Could not read variable '{}'"_fmt(name));
 }
 
