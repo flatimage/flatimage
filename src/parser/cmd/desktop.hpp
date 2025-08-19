@@ -501,7 +501,7 @@ inline void integrate_bash(fs::path const& path_dir_home)
   qreturn_if(not db.erase("icon"), Unexpected("Could not erase icon field"));
   Expect(ns_reserved::ns_desktop::write(config.path_file_binary, db.dump()));
   // Print written json
-  println(db.dump());
+  std::println("{}", db.dump());
   return {};
 }
 

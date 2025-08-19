@@ -10,6 +10,7 @@
 #include <string>
 #include <system_error>
 #include <filesystem>
+#include <print>
 
 #include "../macro.hpp"
 #include "../lib/env.hpp"
@@ -210,7 +211,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   ns_log::debug()("FIM_OFFSET: {}", offset_end);
 
   // Option to show offset and exit (to manually mount the fs with fuse2fs)
-  if( getenv("FIM_MAIN_OFFSET") ){ println(offset_end); exit(0); }
+  if( getenv("FIM_MAIN_OFFSET") ){ std::println("{}", offset_end); exit(0); }
 
   // Print copy duration
   if ( getenv("FIM_DEBUG") != nullptr )
