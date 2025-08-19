@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : icon
-///
+/**
+ * @file icon.hpp
+ * @author Ruan Formigoni
+ * @brief Contains the SVG data of the FlatImage icon
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 

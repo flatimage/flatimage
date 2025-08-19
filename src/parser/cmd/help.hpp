@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : help
-///
+/**
+ * @file help.hpp
+ * @author Ruan Formigoni
+ * @brief Help strings for FlatImage commands
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 

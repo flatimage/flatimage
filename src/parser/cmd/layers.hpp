@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : layers
-///
+/**
+ * @file layers.hpp
+ * @author Ruan Formigoni
+ * @brief Manages filesystem layers in FlatImage
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -21,23 +24,31 @@ namespace fs = std::filesystem;
 namespace ns_layers
 {
 
-// fn: create() {{{
-inline void create(fs::path const& path_dir_src
+/**
+ * @brief Creates a layer (filesystem) from a source directory
+ * 
+ * @param path_dir_src Path to the source directory
+ * @param path_file_dst Path to the output filesystem file
+ * @param path_file_list Path to a temporary file to store the list of files to compress
+ * @param compression_level The compression level to create the filesystem
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+[[nodiscard]] inline Expected<void> create(fs::path const& path_dir_src
   , fs::path const& path_file_dst
-  , fs::path const& path_file_list_tmp
+  , fs::path const& path_file_list
   , uint64_t compression_level)
 {
   // Find mkdwarfs binary
-  auto opt_path_file_mkdwarfs = ns_env::search_path("mkdwarfs");
-  ethrow_if(not opt_path_file_mkdwarfs, "Could not find 'mkdwarfs' binary");
-
+  auto path_file_mkdwarfs = Expect(ns_env::search_path("mkdwarfs"));
   // Compression level must be at least 1 and less or equal to 10
   compression_level = std::clamp(compression_level, uint64_t{0}, uint64_t{9});
-  
   // Search for all viable files to compress
   ns_log::info()("Gathering files to compress...");
-  std::ofstream file_list(path_file_list_tmp, std::ios::out | std::ios::trunc);
-  ethrow_if(not file_list.is_open(), "Could not open list of files to compress");
+  std::ofstream file_list(path_file_list, std::ios::out | std::ios::trunc);
+  qreturn_if(not file_list.is_open()
+    , Unexpected("Could not open list of files '{}' to compress"_fmt(path_file_list))
+  );
+  // Gather files to compress
   for(auto&& entry = fs::recursive_directory_iterator(path_dir_src)
     ; entry != fs::recursive_directory_iterator()
     ; ++entry)
@@ -80,25 +91,32 @@ inline void create(fs::path const& path_dir_src
   // Compress filesystem
   ns_log::info()("Compression level: '{}'", compression_level);
   ns_log::info()("Compress filesystem to '{}'", path_file_dst);
-  auto ret = ns_subprocess::Subprocess(*opt_path_file_mkdwarfs)
+  auto ret = ns_subprocess::Subprocess(path_file_mkdwarfs)
     .with_args("-f")
     .with_args("-i", path_dir_src, "-o", path_file_dst)
     .with_args("-l", compression_level)
-    .with_args("--input-list", path_file_list_tmp)
+    .with_args("--input-list", path_file_list)
     .spawn()
     .wait();
-  ethrow_if(not ret, "mkdwarfs process exited abnormally");
-  ethrow_if(*ret != 0, "mkdwarfs process exited with error code '{}'"_fmt(*ret));
-} // fn: create() }}}
+  qreturn_if(not ret, Unexpected("mkdwarfs process exited abnormally"));
+  qreturn_if(ret.value() != 0, Unexpected("mkdwarfs process exited with error code '{}'", ret.value()));
+  return {};
+}
 
-// fn: add() {{{
-inline void add(fs::path const& path_file_binary, fs::path const& path_file_layer)
+/**
+ * @brief Includes a filesystem in the target FlatImage
+ * 
+ * @param path_file_binary Path to the target FlatImage in which to include the filesystem
+ * @param path_file_layer Path to the filesystem to include in the FlatImage
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+[[nodiscard]] inline Expected<void> add(fs::path const& path_file_binary, fs::path const& path_file_layer)
 {
   // Open binary file for writing
   std::ofstream file_binary(path_file_binary, std::ios::app | std::ios::binary);
+  qreturn_if(not file_binary.is_open(), Unexpected("Failed to open output file '{}'"_fmt(path_file_binary)));
   std::ifstream file_layer(path_file_layer, std::ios::in | std::ios::binary);
-  ereturn_if(not file_binary.is_open(), "Failed to open output file '{}'"_fmt(path_file_binary))
-  ereturn_if(not file_layer.is_open(), "Failed to open input file '{}'"_fmt(path_file_layer))
+  qreturn_if(not file_layer.is_open(), Unexpected("Failed to open input file '{}'"_fmt(path_file_layer)));
   // Get byte size
   uint64_t file_size = fs::file_size(path_file_layer);
   // Write byte size
@@ -107,10 +125,11 @@ inline void add(fs::path const& path_file_binary, fs::path const& path_file_laye
   while( file_layer.read(buff, sizeof(buff)) or file_layer.gcount() > 0 )
   {
     file_binary.write(buff, file_layer.gcount());
-    ereturn_if(not file_binary, "Error writing data to file");
-  } // while
+    qreturn_if(not file_binary, Unexpected("Error writing data to file"));
+  }
   ns_log::info()("Included novel layer from file '{}'", path_file_layer);
-} // fn: add() }}}
+  return {};
+}
 
 } // namespace ns_layers
 
