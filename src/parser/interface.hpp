@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : interface
-///
+/**
+ * @file interface.hpp
+ * @author Ruan Formigoni
+ * @brief Interfaces of FlatImage commands
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -33,7 +36,6 @@ enum class EnumCmd
   UNDEFINED,
 };
 
-// Cmds {{{
 struct CmdRoot
 {
   constexpr static EnumCmd cmd = EnumCmd::ROOT;

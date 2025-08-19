@@ -1,8 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : parser
-// @created     : Saturday Jan 20, 2024 23:29:45 -03
-///
+/**
+ * @file parser.hpp
+ * @author Ruan Formigoni
+ * @brief Parses FlatImage commands
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -16,7 +18,7 @@
 #include <print>
 
 
-#include "../filesystems/filesystems.hpp"
+#include "../filesystems/controller.hpp"
 #include "../db/environment.hpp"
 #include "../std/vector.hpp"
 #include "../lib/match.hpp"
@@ -43,8 +45,14 @@ namespace fs = std::filesystem;
 using namespace ns_parser::ns_interface;
 
 
-// parse() {{{
-inline Expected<CmdType> parse(int argc , char** argv) noexcept
+/**
+ * @brief Parses FlatImage commands
+ * 
+ * @param argc Argument counter
+ * @param argv Argument vector
+ * @return Expected<CmdType> The parsed command or the respective error
+ */
+[[nodiscard]] inline Expected<CmdType> parse(int argc , char** argv) noexcept
 {
   if ( argc < 2 or not std::string_view{argv[1]}.starts_with("fim-"))
   {
@@ -210,7 +218,7 @@ inline Expected<CmdType> parse(int argc , char** argv) noexcept
           return CmdBind::cmd_bind_data_t(CmdBind::cmd_bind_index_t(std::stoi(str_index)));
         }
         , ns_match::equal(CmdBindOp::LIST) >>= RetType(CmdBind::cmd_bind_data_t(std::false_type{}))
-        , ns_match::equal(CmdBindOp::NONE) >>= RetType(Unexpected("Invalid operation for bind"))
+        , ns_match::equal(CmdBindOp::NONE) >>= RetType(std::unexpected("Invalid operation for bind"))
       )));
       return CmdType(cmd);
     },
@@ -295,26 +303,32 @@ inline Expected<CmdType> parse(int argc , char** argv) noexcept
       return CmdType(CmdExit{});
     }
   ));
-} // parse() }}}
+}
 
-// parse_cmds() {{{
-inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, char** argv) noexcept
+/**
+ * @brief Parses and executes a command
+ * 
+ * @param config FlatImage configuration object
+ * @param argc Argument counter
+ * @param argv Argument vector
+ * @return Expected<int> The exit code on success or the respective error
+ */
+[[nodiscard]] inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, char** argv) noexcept
 {
   // Parse args
   CmdType variant_cmd = Expect(ns_parser::parse(argc, argv));
 
   // Initialize permissions
-  ns_bwrap::ns_permissions::Permissions permissions(config.path_file_binary);
+  ns_reserved::ns_permissions::Permissions permissions(config.path_file_binary);
 
-  auto f_bwrap_impl = [&](auto&& program, auto&& args)
+  auto f_bwrap_impl = [&](auto&& program, auto&& args) -> Expected<ns_bwrap::bwrap_run_ret_t>
   {
     // Mount filesystems
-    auto mount = ns_filesystems::Filesystems(config);
+    [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config);
     // Execute specified command
-    auto environment = ns_exception::or_default([&]{ return ns_config::ns_environment::get(config.path_file_config_environment); });
+    auto environment = ExpectedOrDefault(ns_db::ns_environment::get(config.path_file_config_environment));
     // Read permissions
-    auto bits_permissions = permissions.get();
-    elog_if(not bits_permissions, bits_permissions.error());
+    auto bits_permissions = ExpectedOrDefault(permissions.get());
     // Check if should use bwrap native overlayfs
     std::optional<ns_bwrap::Overlay> bwrap_overlay = ( config.overlay_type == ns_config::OverlayType::BWRAP )?
         std::make_optional(ns_bwrap::Overlay
@@ -329,26 +343,26 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
       , bwrap_overlay
       , config.path_dir_mount_overlayfs
       , config.path_file_bashrc
-      , program()
-      , args()
+      , program
+      , args
       , environment);
     // Include root binding and custom user-defined bindings
     std::ignore = bwrap
       .with_bind_ro("/", config.path_dir_runtime_host)
       .with_binds_from_file(config.path_file_config_bindings);
     // Check if should enable GPU
-    if ( bits_permissions->gpu )
+    if ( bits_permissions.gpu )
     {
       std::ignore = bwrap.with_bind_gpu(config.path_dir_upper_overlayfs, config.path_dir_runtime_host);
     }
     // Run bwrap
-    return bwrap.run(*bits_permissions, config.path_dir_app_bin);
+    return bwrap.run(bits_permissions, config.path_dir_app_bin);
   };
 
-  auto f_bwrap = [&]<typename T, typename U>(T&& program, U&& args)
+  auto f_bwrap = [&]<typename T, typename U>(T&& program, U&& args) -> Expected<int>
   {
     // Run bwrap
-    ns_bwrap::bwrap_run_ret_t bwrap_run_ret = f_bwrap_impl(program, args);
+    ns_bwrap::bwrap_run_ret_t bwrap_run_ret = Expect(f_bwrap_impl(program, args));
     // Log bwrap errors
     elog_if(bwrap_run_ret.errno_nr > 0
       , "Bwrap failed syscall '{}' with errno '{}'"_fmt(bwrap_run_ret.syscall_nr, bwrap_run_ret.errno_nr)
@@ -358,7 +372,7 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
     {
       ns_log::error()("Bwrap failed SYS_mount, retrying with fuse-unionfs...");
       config.overlay_type = ns_config::OverlayType::FUSE_UNIONFS;
-      bwrap_run_ret = f_bwrap_impl(program, args);
+      bwrap_run_ret = Expect(f_bwrap_impl(program, args));
     } // if
     return bwrap_run_ret.code;
   };
@@ -371,13 +385,13 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
   // Execute a command as a regular user
   if ( auto cmd = std::get_if<ns_parser::CmdExec>(&variant_cmd) )
   {
-    return f_bwrap([&]{ return cmd->program; }, [&]{ return cmd->args; });
+    return f_bwrap(cmd->program, cmd->args);
   } // if
   // Execute a command as root
   else if ( auto cmd = std::get_if<ns_parser::CmdRoot>(&variant_cmd) )
   {
     config.is_root = true;
-    return f_bwrap([&]{ return cmd->program; }, [&]{ return cmd->args; });
+    return f_bwrap(cmd->program, cmd->args);
   } // if
   // Configure permissions
   else if ( auto cmd = std::get_if<ns_parser::CmdPerms>(&variant_cmd) )
@@ -402,11 +416,11 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
     // Determine open mode
     switch( cmd->op )
     {
-      case ns_parser::CmdEnvOp::ADD: ns_config::ns_environment::add(config.path_file_config_environment, cmd->environment); break;
-      case ns_parser::CmdEnvOp::SET: ns_config::ns_environment::set(config.path_file_config_environment, cmd->environment); break;
-      case ns_parser::CmdEnvOp::DEL: ns_config::ns_environment::del(config.path_file_config_environment, cmd->environment); break;
+      case ns_parser::CmdEnvOp::ADD: Expect(ns_db::ns_environment::add(config.path_file_config_environment, cmd->environment)); break;
+      case ns_parser::CmdEnvOp::SET: Expect(ns_db::ns_environment::set(config.path_file_config_environment, cmd->environment)); break;
+      case ns_parser::CmdEnvOp::DEL: Expect(ns_db::ns_environment::del(config.path_file_config_environment, cmd->environment)); break;
       case ns_parser::CmdEnvOp::LIST:
-        std::ranges::copy(ns_config::ns_environment::get(config.path_file_config_environment)
+        std::ranges::copy(Expect(ns_db::ns_environment::get(config.path_file_config_environment))
           , std::ostream_iterator<std::string>(std::cout, "\n")
         );
         break;
@@ -442,14 +456,14 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
     switch(cmd->op)
     {
       case CmdLayerOp::ADD:
-        ns_layers::add(config.path_file_binary, cmd->args.front());
+        Expect(ns_layers::add(config.path_file_binary, cmd->args.front()));
         break;
       case CmdLayerOp::CREATE:
-        ns_layers::create(cmd->args.at(0)
+        Expect(ns_layers::create(cmd->args.at(0)
           , cmd->args.at(1)
           , config.path_dir_host_config_tmp / "compression.list"
           , config.layer_compression_level
-        );
+        ));
         break;
       case CmdLayerOp::NONE:
         return Unexpected("Invalid desktop operation");
@@ -458,13 +472,28 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
   // Bind a device or file to the flatimage
   else if ( auto cmd = std::get_if<ns_cmd::ns_bind::CmdBind>(&variant_cmd) )
   {
+    ns_cmd::ns_bind::CmdBind::cmd_bind_index_t cmd_bind_index;
+    ns_cmd::ns_bind::CmdBind::cmd_bind_t cmd_bind_data;
     // Perform selected op
     switch(cmd->op)
     {
-      case CmdBindOp::ADD: Expect(ns_cmd::ns_bind::add(config.path_file_config_bindings, *cmd)); break;
-      case CmdBindOp::DEL: Expect(ns_cmd::ns_bind::del(config.path_file_config_bindings, *cmd)); break;
-      case CmdBindOp::LIST: ns_cmd::ns_bind::list(config.path_file_config_bindings); break;
-      case CmdBindOp::NONE: return Unexpected("Invalid bind operation");
+      case CmdBindOp::ADD:
+        cmd_bind_data = std::get<ns_cmd::ns_bind::CmdBind::cmd_bind_t>(cmd->data);
+        Expect(ns_cmd::ns_bind::add(config.path_file_config_bindings
+          , cmd_bind_data.type
+          , cmd_bind_data.src
+          , cmd_bind_data.dst)
+        );
+        break;
+      case CmdBindOp::DEL:
+        cmd_bind_index = std::get<ns_cmd::ns_bind::CmdBind::cmd_bind_index_t>(cmd->data);
+        Expect(ns_cmd::ns_bind::del(config.path_file_config_bindings, cmd_bind_index));
+        break;
+      case CmdBindOp::LIST:
+        Expect(ns_cmd::ns_bind::list(config.path_file_config_bindings));
+        break;
+      case CmdBindOp::NONE:
+        return Unexpected("Invalid bind operation");
     } // switch
   } // else if
   // Commit changes as a novel layer into the flatimage
@@ -474,13 +503,13 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
     fs::path path_file_layer_tmp = config.path_dir_host_config_tmp / "layer.tmp";
     fs::path path_file_list_tmp = config.path_dir_host_config_tmp / "compression.list";
     // Create filesystem based on the contents of src
-    ns_layers::create(config.path_dir_upper_overlayfs
+    Expect(ns_layers::create(config.path_dir_upper_overlayfs
       , path_file_layer_tmp
       , path_file_list_tmp
       , config.layer_compression_level
-    );
+    ));
     // Include filesystem in the image
-    ns_layers::add(config.path_file_binary, path_file_layer_tmp);
+    Expect(ns_layers::add(config.path_file_binary, path_file_layer_tmp));
     // Remove layer file
     std::error_code ec;
     if(not fs::remove(path_file_layer_tmp))
@@ -519,22 +548,20 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
     // Update fields
     db("enable") = cmd->op;
     // Write fields
-    auto result_write = ns_db::write_file(config.path_file_config_casefold, db);
-    qreturn_if(not result_write, Unexpected(result_write.error()));
+    Expect(ns_db::write_file(config.path_file_config_casefold, db));
   } // else if
   // Update default command on database
   else if ( auto cmd = std::get_if<ns_parser::CmdBoot>(&variant_cmd) )
   {
     // Mount filesystem as RW
-    [[maybe_unused]] auto mount = ns_filesystems::Filesystems(config);
+    [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config);
     // Open database
     auto db = ns_db::read_file(config.path_file_config_boot).value_or(ns_db::Db());
     // Update fields
     db("program") = cmd->program;
     db("args") = cmd->args;
     // Write fields
-    auto result_write = ns_db::write_file(config.path_file_config_boot, db);
-    qreturn_if(not result_write, Unexpected(result_write.error()));
+    Expect(ns_db::write_file(config.path_file_config_boot, db));
   } // else if
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )
   {
@@ -578,37 +605,32 @@ inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, ch
   // Update default command on database
   else if ( std::get_if<ns_parser::CmdNone>(&variant_cmd) )
   {
-    // Execute default command
-    return f_bwrap([&]
-      {
-        // Read boot configuration file
-        auto db = ns_db::read_file(config.path_file_config_boot);
-        dreturn_if(not db, db.error(), std::string{"bash"});
-        // Read startup program
-        auto program = (*db)("program").template value<std::string>();
-        dreturn_if(not program, program.error(), std::string{"bash"});
-        // Expand program if it is an environment variable or shell expression
-        return ns_env::expand(program.value()).value_or(program.value());
-      }
-      ,
-      [&]
-      {
-        using Args = std::vector<std::string>;
-        // Read boot configuration file
-        auto db = ns_db::read_file(config.path_file_config_boot);
-        dreturn_if(not db, db.error(), Args{});
-        // Read arguments
-        auto args = (*db)("args").template value<Args>();
-        dreturn_if(not args, args.error(), Args{});
-        // Append arguments from argv
-        std::copy(argv+1, argv+argc, std::back_inserter(args.value()));
-        return args.value();
-      }
-    );
+    // Fetch default command
+    fs::path program = [&] -> Expected<fs::path> {
+      // Read boot configuration file
+      auto db = Expect(ns_db::read_file(config.path_file_config_boot));
+      // Read startup program
+      auto program = Expect(db("program").template value<std::string>());
+      // Expand program if it is an environment variable or shell expression
+      return ns_env::expand(program).value_or(program);
+    }().value_or("bash");
+    // Fetch default arguments
+    std::vector<std::string> args = [&] -> Expected<std::vector<std::string>> {
+      using Args = std::vector<std::string>;
+      // Read boot configuration file
+      ns_db::Db db = Expect(ns_db::read_file(config.path_file_config_boot));
+      // Read arguments
+      Args args = Expect(db("args").template value<Args>());
+      // Append arguments from argv
+      std::copy(argv+1, argv+argc, std::back_inserter(args));
+      return Expected<Args>(args);
+    }().value_or(std::vector<std::string>{});
+    // Run Bwrap
+    return f_bwrap(program, args);
   } // else if
 
   return EXIT_SUCCESS;
-} // parse_cmds() }}}
+}
 
 } // namespace ns_parser
 
