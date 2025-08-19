@@ -19,9 +19,24 @@ namespace ns_filesystem
 
 namespace fs = std::filesystem;
 
-// namespace ns_path {{{
 namespace ns_path
 {
+  
+/**
+ * @brief Check if 'path' exists, if not, tries to create all components of it
+ * 
+ * @param path The path to check if exists or create
+ * @return Expected<fs::path> The input 'path' if it exists or was created
+ */
+[[nodiscard]] inline Expected<fs::path> create_if_not_exists(fs::path const& path) noexcept
+{
+  std::error_code ec;
+  if(not fs::exists(path, ec) and not fs::create_directories(path))
+  {
+    return Unexpected("Could not create directory '{}'"_fmt(path));
+  }
+  return path;
+}
 
 // canonical() {{{
 // Try to make path canonical
@@ -84,7 +99,7 @@ inline Expected<std::vector<fs::path>> list_files(fs::path const& path_dir_src)
   return files;
 } // list_files() }}}
 
-} // namespace ns_path }}}
+} // namespace ns_path
 
 } // namespace ns_filesystem
 
