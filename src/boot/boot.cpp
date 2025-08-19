@@ -41,13 +41,14 @@ extern char** environ;
  */
 [[nodiscard]] Expected<int> boot(int argc, char** argv)
 {
-  ns_config::FlatimageConfig config = ns_config::config();
+  // Create configuration object
+  ns_config::FlatimageConfig config = Expect(ns_config::config());
   // Set log file, permissive
   if(auto ret = ns_log::set_sink_file(config.path_dir_mount.string() + ".boot.log"); not ret)
   {
     std::cerr << "Could not setup logger sink: " << ret.error() << '\n';
   }
-  // Start host portal
+  // Start host portal, permissive
   [[maybe_unused]] auto portal = ns_portal::create(getpid(), "host");
   if(not portal)
   {

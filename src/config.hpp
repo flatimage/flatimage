@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : config
-///
+/**
+ * @file config.hpp
+ * @author Ruan Formigoni
+ * @brief FlatImage configuration object
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -11,6 +14,7 @@
 #include <ranges>
 
 #include "lib/env.hpp"
+#include "std/filesystem.hpp"
 
 // Version
 #ifndef FIM_VERSION
@@ -47,8 +51,14 @@ namespace
 
 namespace fs = std::filesystem;
 
-// impl_update_get_config_files() {{{
-inline decltype(auto) impl_update_get_config_files(std::vector<fs::path> const& vec_path_dir_layer
+/**
+ * @brief Searches a configuration file from the highest directory of overlay filesystems
+ * 
+ * @param vec_path_dir_layer Path to the layer directory stack
+ * @param path_dir_upper Path to the upper directory of the overlay filesystem
+ * @param path_file_config Path to the configuration file to query
+ */
+inline void search_stack(std::vector<fs::path> const& vec_path_dir_layer
   , fs::path const& path_dir_upper
   , fs::path const& path_file_config)
 {
@@ -59,19 +69,17 @@ inline decltype(auto) impl_update_get_config_files(std::vector<fs::path> const& 
   dreturn_if(it == std::ranges::end(vec_path_dir_layer),  "Could not find '{}' in layer stack"_fmt(path_file_config));
   // Copy to upperdir
   fs::copy_file(*it / path_file_config, path_dir_upper / path_file_config, fs::copy_options::skip_existing);
-} // impl_update_get_config_files() }}}
+}
 
 } // namespace
 
-// enum class OverlayType {{{
 enum class OverlayType
 {
   BWRAP,
   FUSE_OVERLAYFS,
   FUSE_UNIONFS,
-}; // }}}
+};
 
-// struct FlatimageConfig {{{
 struct FlatimageConfig
 {
   std::string str_dist;
@@ -112,11 +120,16 @@ struct FlatimageConfig
   uint32_t layer_compression_level;
 
   std::string env_path;
-}; // }}}
+};
 
-// config() {{{
-inline FlatimageConfig config()
+/**
+ * @brief Creates a FlatImage configuration object
+ * 
+ * @return Expected<FlatimageConfig> A FlatImage configuration object or the respective error
+ */
+inline Expected<FlatimageConfig> config()
 {
+  std::error_code ec;
   FlatimageConfig config;
 
   ns_env::set("FIM_PID", getpid(), ns_env::Replace::Y);
@@ -134,69 +147,57 @@ inline FlatimageConfig config()
     : ns_env::exists("FIM_FUSE_OVERLAYFS", "1")? OverlayType::FUSE_OVERLAYFS
     : OverlayType::BWRAP;
   // Paths in /tmp
-  config.path_dir_global          = ns_env::get_or_throw("FIM_DIR_GLOBAL");
-  config.path_file_binary         = ns_env::get_or_throw("FIM_FILE_BINARY");
+  config.path_dir_global          = Expect(ns_env::get_expected("FIM_DIR_GLOBAL"));
+  config.path_file_binary         = Expect(ns_env::get_expected("FIM_FILE_BINARY"));
   config.path_dir_binary          = config.path_file_binary.parent_path();
-  config.path_dir_app             = ns_env::get_or_throw("FIM_DIR_APP");
-  config.path_dir_app_bin         = ns_env::get_or_throw("FIM_DIR_APP_BIN");
-  config.path_dir_busybox         = ns_env::get_or_throw("FIM_DIR_BUSYBOX");
-  config.path_dir_instance        = ns_env::get_or_throw("FIM_DIR_INSTANCE");
-  config.path_dir_mount           = ns_env::get_or_throw("FIM_DIR_MOUNT");
+  config.path_dir_app             = Expect(ns_env::get_expected("FIM_DIR_APP"));
+  config.path_dir_app_bin         = Expect(ns_env::get_expected("FIM_DIR_APP_BIN"));
+  config.path_dir_busybox         = Expect(ns_env::get_expected("FIM_DIR_BUSYBOX"));
+  config.path_dir_instance        = Expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
+  config.path_dir_mount           = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
   config.path_file_bashrc         = config.path_dir_app / ".bashrc";
   config.path_file_bash           = config.path_dir_app_bin / "bash";
   config.path_dir_mount_layers    = config.path_dir_mount / "layers";
   config.path_dir_mount_overlayfs = config.path_dir_mount / "overlayfs";
-
   // Paths only available inside the container (runtime)
   config.path_dir_runtime = "/tmp/fim/run";
   config.path_dir_runtime_host = config.path_dir_runtime / "host";
   ns_env::set("FIM_DIR_RUNTIME", config.path_dir_runtime, ns_env::Replace::Y);
   ns_env::set("FIM_DIR_RUNTIME_HOST", config.path_dir_runtime_host, ns_env::Replace::Y);
-
   // Home directory
-  config.path_dir_host_home = fs::path{ns_env::get_or_throw("HOME")}.relative_path();
-
+  config.path_dir_host_home = Expect(ns_env::get_expected<fs::path>("HOME")).relative_path();
   // Create host config directory
   config.path_dir_host_config = config.path_file_binary.parent_path() / ".{}.config"_fmt(config.path_file_binary.filename());
   config.path_dir_host_config_tmp = config.path_dir_host_config / "tmp";
-  ethrow_if(not fs::exists(config.path_dir_host_config_tmp) and not fs::create_directories(config.path_dir_host_config_tmp)
-    , "Could not create configuration directory in '{}'"_fmt(config.path_dir_host_config)
-  );
+  Expect(ns_filesystem::ns_path::create_if_not_exists(config.path_dir_host_config_tmp));
   ns_env::set("FIM_DIR_CONFIG", config.path_dir_host_config, ns_env::Replace::Y);
-
   // Overlayfs write data to remain on the host
   config.path_dir_data_overlayfs = config.path_dir_host_config / "overlays";
   config.path_dir_upper_overlayfs = config.path_dir_data_overlayfs / "upperdir";
   config.path_dir_work_overlayfs = config.path_dir_instance / "workdir";
-  fs::create_directories(config.path_dir_upper_overlayfs);
-  fs::create_directories(config.path_dir_work_overlayfs);
-
+  Expect(ns_filesystem::ns_path::create_if_not_exists(config.path_dir_upper_overlayfs));
+  Expect(ns_filesystem::ns_path::create_if_not_exists(config.path_dir_work_overlayfs));
   // Configuration files directory
   config.path_dir_config = config.path_dir_upper_overlayfs / "fim/config";
-  fs::create_directories(config.path_dir_config);
-
+  Expect(ns_filesystem::ns_path::create_if_not_exists(config.path_dir_config));
   // Bwrap
   ns_env::set("BWRAP_LOG", config.path_dir_mount.string() + ".bwrap.log", ns_env::Replace::Y);
-
   // Environment
   config.env_path = config.path_dir_app_bin.string() + ":" + ns_env::get_expected("PATH").value_or("");
   config.env_path += ":/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin";
   config.env_path += ":{}"_fmt(config.path_dir_busybox.string());
   ns_env::set("PATH", config.env_path, ns_env::Replace::Y);
-
   // Compression level configuration (goes from 0 to 10, default is 7)
   config.layer_compression_level  = ({
    std::string str_compression_level = ns_env::get_expected("FIM_COMPRESSION_LEVEL").value_or("7");
    uint32_t compression_level = std::ranges::all_of(str_compression_level, ::isdigit) ? std::stoi(str_compression_level) : 7;
    std::clamp(compression_level, uint32_t{0}, uint32_t{10});
   });
-
   // Paths to the configuration files
   config.path_file_config_boot        = config.path_dir_config / "boot.json";
   config.path_file_config_environment = config.path_dir_config / "environment.json";
   config.path_file_config_bindings    = config.path_dir_config / "bindings.json";
   config.path_file_config_casefold    = config.path_dir_config / "casefold.json";
-  
   // Create files if they do not exist
   auto f_touch_json = [](fs::path const& path_file)
   {
@@ -226,10 +227,15 @@ inline FlatimageConfig config()
   } // else
 
   return config;
-} // config() }}}
+}
 
-// get_mounted_layers() {{{
-inline decltype(auto) get_mounted_layers(fs::path const& path_dir_layers)
+/**
+ * @brief Get the mounted layers object
+ * 
+ * @param path_dir_layers Path to the layer directory
+ * @return std::vector<fs::path> The list of layer directory paths
+ */
+inline std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers)
 {
   std::vector<fs::path> vec_path_dir_layer = fs::directory_iterator(path_dir_layers)
     | std::views::filter([](auto&& e){ return fs::is_directory(e.path()); })
@@ -237,18 +243,23 @@ inline decltype(auto) get_mounted_layers(fs::path const& path_dir_layers)
     | std::ranges::to<std::vector<fs::path>>();
   std::ranges::sort(vec_path_dir_layer);
   return vec_path_dir_layer;
-} // get_mounted_layers() }}}
+}
 
-// push_config_files() {{{
-inline decltype(auto) push_config_files(fs::path const& path_dir_layers, fs::path const& path_dir_upper)
+/**
+ * @brief Push configuration files up the filesystem stack
+ * 
+ * @param path_dir_layers Path to the layers directory
+ * @param path_dir_upper Path to the upper directory
+ */
+inline void push_config_files(fs::path const& path_dir_layers, fs::path const& path_dir_upper)
 {
   auto vec_path_dir_layer = get_mounted_layers(path_dir_layers);
   // Write configuration files to upper directory
-  impl_update_get_config_files(vec_path_dir_layer, path_dir_upper, "fim/config/boot.json");
-  impl_update_get_config_files(vec_path_dir_layer, path_dir_upper, "fim/config/environment.json");
-  impl_update_get_config_files(vec_path_dir_layer, path_dir_upper, "fim/config/bindings.json");
-  impl_update_get_config_files(vec_path_dir_layer, path_dir_upper, "fim/config/casefold.json");
-} // push_config_files() }}}
+  search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/boot.json");
+  search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/environment.json");
+  search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/bindings.json");
+  search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/casefold.json");
+}
 
 } // namespace ns_config
 
