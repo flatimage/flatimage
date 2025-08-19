@@ -10,7 +10,7 @@ RUN apk update && apk upgrade
 RUN apk add --no-cache build-base git libbsd-dev cmake clang clang-dev \
   make e2fsprogs-dev e2fsprogs-libs e2fsprogs-static libcom_err musl musl-dev \
   bash pcre-tools boost-dev libjpeg-turbo-dev libjpeg-turbo-static libpng-dev \
-  libpng-static zlib-static upx nlohmann-json
+  libpng-static zlib-static upx nlohmann-json doxygen graphviz
 
 # Copy boot directory
 ARG FIM_DIR

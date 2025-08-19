@@ -10,6 +10,7 @@ project(FlatImage DESCRIPTION "FlatImage" LANGUAGES CXX)
 # Include cmake files
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 include(Variables)
+include(Doxygen)
 
 # Compiler defaults for all targets
 set(CMAKE_CXX_STANDARD 23)
