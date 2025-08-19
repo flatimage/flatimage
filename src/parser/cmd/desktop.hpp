@@ -16,7 +16,6 @@
 #include "../../reserved/notify.hpp"
 #include "../../reserved/icon.hpp"
 #include "../../reserved/desktop.hpp"
-#include "../../std/exception.hpp"
 #include "../../lib/subprocess.hpp"
 #include "../../lib/image.hpp"
 #include "../../lib/env.hpp"
@@ -350,7 +349,8 @@ inline void integrate_bash(fs::path const& path_dir_home)
     auto vec_path_dirs = ns_vector::from_string<std::vector<fs::path>>(str_xdg_data_dirs.value(), ':');
     auto search = std::ranges::find(vec_path_dirs, path_dir_data, [](fs::path const& e)
     {
-      return ns_exception::or_else([&]{ return fs::canonical(e); }, fs::path{});
+      std::error_code ec;
+      return fs::canonical(e,ec);
     });
     dreturn_if(search != std::ranges::end(vec_path_dirs), "Found '{}' in XDG_DATA_DIRS"_fmt(path_dir_data));
   } // if
