@@ -77,7 +77,7 @@ namespace fs = std::filesystem;
  * @param length The length of the data to write into the file
  * @return The number of bytes read
  */
-[[nodiscard]] inline Expected<uint64_t> read(fs::path const& path_file_binary
+[[nodiscard]] inline Expected<std::streamsize> read(fs::path const& path_file_binary
   , uint64_t offset
   , char* data
   , uint64_t length) noexcept
