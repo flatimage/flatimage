@@ -13,6 +13,7 @@
 
 #include "../common.hpp"
 #include "../std/concept.hpp"
+#include "../std/string.hpp"
 
 namespace ns_log
 {
@@ -21,6 +22,7 @@ enum class Level : int
 {
   CRITICAL,
   ERROR,
+  WARN,
   INFO,
   DEBUG,
 };
@@ -155,9 +157,6 @@ inline std::expected<void,std::string> set_sink_file(fs::path path_file_sink)
   return logger.set_sink_file(path_file_sink);
 }
 
-/**
- * @todo Class hierarchy
- */
 class Location
 {
   private:
@@ -179,96 +178,93 @@ class Location
     }
 };
 
-class debug
+// Writer
+class Writer
 {
   private:
     Location m_loc;
+    Level m_level;
+    char m_prefix;
 
   public:
-    debug(Location location = {}) : m_loc(location) {}
+    Writer(Location const& location, Level const& level, char prefix)
+      : m_loc(location)
+      , m_level(level)
+      , m_prefix(prefix)
+    {}
     template<ns_concept::StringRepresentable T, typename... Args>
     requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
     void operator()(T&& format, Args&&... args)
     {
       auto& opt_ostream_sink = logger.get_sink_file();
-      print_if(opt_ostream_sink, *opt_ostream_sink, "D::{}::{}\n"_fmt(m_loc.get(), format), args...);
-      print_if((logger.get_level() >= Level::DEBUG), std::cerr, "D::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
+      if(opt_ostream_sink)
+      {
+        opt_ostream_sink.value() << "{}::{}::{}\n"_fmt(m_prefix, m_loc.get(), format);
+        ((opt_ostream_sink.value() << ns_string::to_string(args)), ...);
+      }
+      if(logger.get_level() >= m_level)
+      {
+        std::cerr << "{}::{}::{}\n"_fmt(m_prefix, m_loc.get(), format);
+        ((std::cerr << ns_string::to_string(std::forward<Args>(args))), ...);
+      }
       logger.flush();
     }
 };
 
-
-class info
+class debug final : public Writer
 {
   private:
     Location m_loc;
-
   public:
-    info(Location location = {}) : m_loc(location) {}
-    template<ns_concept::StringRepresentable T, typename... Args >
-    requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
-    void operator()(T&& format, Args&&... args)
-    {
-      auto& opt_ostream_sink = logger.get_sink_file();
-      print_if(opt_ostream_sink, *opt_ostream_sink, "I::{}::{}\n"_fmt(m_loc.get(), format), args...);
-      print_if((logger.get_level() >= Level::INFO), std::cout, "I::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
-      logger.flush();
-    }
+    debug(Location location = {})
+      : Writer(location, Level::DEBUG, 'D')
+      , m_loc(location)
+    {}
 };
 
-class error
+class info : public Writer
 {
   private:
     Location m_loc;
-
   public:
-    error(Location location = {}) : m_loc(location) {}
-    template<ns_concept::StringRepresentable T, typename... Args>
-    requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
-    void operator()(T&& format, Args&&... args)
-    {
-      auto& opt_ostream_sink = logger.get_sink_file();
-      print_if(opt_ostream_sink, *opt_ostream_sink, "E::{}::{}\n"_fmt(m_loc.get(), format), args...);
-      print_if((logger.get_level() >= Level::ERROR), std::cerr, "E::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
-      logger.flush();
-    }
+    info(Location location = {})
+      : Writer(location, Level::INFO, 'I')
+      , m_loc(location)
+    {}
 };
 
-class critical
+class warn : public Writer
 {
   private:
     Location m_loc;
-
   public:
-    critical(Location location = {}) : m_loc(location) {}
-    template<ns_concept::StringRepresentable T, typename... Args>
-    requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
-    void operator()(T&& format, Args&&... args)
-    {
-      auto& opt_ostream_sink = logger.get_sink_file();
-      print_if(opt_ostream_sink, *opt_ostream_sink, "C::{}::{}\n"_fmt(m_loc.get(), format), args...);
-      print_if((logger.get_level() >= Level::CRITICAL), std::cerr, "C::{}::{}\n"_fmt(m_loc.get(), format), std::forward<Args>(args)...);
-      logger.flush();
-    }
+    warn(Location location = {})
+      : Writer(location, Level::WARN, 'W')
+      , m_loc(location)
+    {}
 };
 
-template<typename F, typename... Args>
-inline auto ec(F&& fn, Args&&... args) -> std::invoke_result_t<F, Args...>
+class error : public Writer
 {
-  std::error_code ec;
-  if constexpr ( std::same_as<void,std::invoke_result_t<F, Args...>> )
-  {
-    fn(std::forward<Args>(args)..., ec);
-    if ( ec ) { ns_log::error()(ec.message()); } // if
-    return;
-  }
-  else
-  {
-    auto ret = fn(std::forward<Args>(args)..., ec);
-    if ( ec ) { ns_log::error()(ec.message()); } // if
-    return ret;
-  }
-}
+  private:
+    Location m_loc;
+  public:
+    error(Location location = {})
+      : Writer(location, Level::ERROR, 'E')
+      , m_loc(location)
+    {}
+};
+
+class critical : public Writer
+{
+  private:
+    Location m_loc;
+  public:
+    critical(Location location = {})
+      : Writer(location, Level::CRITICAL, 'C')
+      , m_loc(location)
+    {}
+};
 
 } // namespace ns_log
 
