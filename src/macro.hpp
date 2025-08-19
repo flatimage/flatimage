@@ -1,15 +1,14 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : macro
-///
+/**
+ * @file macro.hpp
+ * @author Ruan Formigoni
+ * @brief Macros to simplify common patterns
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
 #include "lib/log.hpp"
-
-// Ec wrapper
-#define lec(fun, ...) \
-  ns_log::ec([]<typename... Args>(Args&&... args){ return fun(std::forward<Args>(args)...); }, __VA_ARGS__)
 
 // Pop rust-style for std::expected
 #define Expect(expr,...)                             \

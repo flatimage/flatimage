@@ -206,15 +206,18 @@ inline Bwrap::Bwrap(
  */
 inline Bwrap::~Bwrap()
 {
+  std::error_code ec;
   if ( m_opt_path_dir_work )
   {
     // 755, non-fatal on error
-    lec(fs::permissions, *m_opt_path_dir_work / "work"
-      , fs::perms::owner_read  | fs::perms::owner_write | fs::perms::owner_exec
-      | fs::perms::group_read  | fs::perms::group_exec
-      | fs::perms::others_read | fs::perms::others_exec
+    fs::permissions(*m_opt_path_dir_work / "work"
+      ,   fs::perms::owner_read  | fs::perms::owner_write | fs::perms::owner_exec
+        | fs::perms::group_read  | fs::perms::group_exec
+        | fs::perms::others_read | fs::perms::others_exec
+      , ec
     );
-  } // if
+    elog_if(ec, "Error to set permissions on '{}': '{}'"_fmt(m_opt_path_dir_work.value(), ec.message()));
+  }
 }
 
 /**
