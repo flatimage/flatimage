@@ -25,6 +25,7 @@ namespace fs = std::filesystem;
 
 int main(int argc, char const* argv[])
 {
+  std::error_code ec;
   // Check arguments
   ereturn_if(argc != 3, "Incorrect # of arguments for bwrap-apparmor", EXIT_FAILURE);
   // Set log file location
@@ -42,17 +43,18 @@ int main(int argc, char const* argv[])
   fs::path path_file_bwrap_dst{path_dir_bwrap / "bwrap"};
   fs::path path_file_profile{"/etc/apparmor.d/flatimage"};
   // Try to create /opt/bwrap directory
-  qreturn_if(not lec(fs::exists, path_dir_bwrap) and not lec(fs::create_directories, path_dir_bwrap), EXIT_FAILURE);
+  qreturn_if(not fs::exists(path_dir_bwrap, ec) and not fs::create_directories(path_dir_bwrap, ec), EXIT_FAILURE);
   // Try copy bwrap to /opt/bwrap
-  qreturn_if(not lec(fs::copy_file, path_file_bwrap_src, path_file_bwrap_dst, fs::copy_options::overwrite_existing), EXIT_FAILURE);
+  qreturn_if(not fs::copy_file(path_file_bwrap_src, path_file_bwrap_dst, fs::copy_options::overwrite_existing, ec), EXIT_FAILURE);
   // Try to set permissions for bwrap binary ( chmod 755 )
-  lec(fs::permissions
-    , path_file_bwrap_dst
+  fs::permissions(path_file_bwrap_dst
     , fs::perms::owner_all
       | fs::perms::group_read | fs::perms::group_exec
       | fs::perms::others_read | fs::perms::others_exec
     , fs::perm_options::replace
+    , ec
   );
+  elog_if(ec, "Failed to set permissions to '{}'"_fmt(path_file_bwrap_dst));
   // Try to create profile
   std::ofstream file_profile(path_file_profile);
   ereturn_if(not file_profile.is_open(), "Could not open profile file", EXIT_FAILURE);
