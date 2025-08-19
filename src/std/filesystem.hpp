@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : path
-///
+/**
+ * @file filesystem.hpp
+ * @author Ruan Formigoni
+ * @brief Filesystem helpers
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -38,9 +41,13 @@ namespace ns_path
   return path;
 }
 
-// canonical() {{{
-// Try to make path canonical
-inline Expected<fs::path> canonical(fs::path const& path)
+/**
+ * @brief Try to make the input path canonical
+ * 
+ * @param path The input path to process
+ * @return Expected<fs::path> The canonical path or the respective error
+ */
+[[nodiscard]] inline Expected<fs::path> canonical(fs::path const& path)
 {
   fs::path ret{path};
 
@@ -48,7 +55,7 @@ inline Expected<fs::path> canonical(fs::path const& path)
   if (not ret.string().starts_with("/"))
   {
     ret = fs::path{"./"} / ret;
-  } // if
+  }
 
   // Make path cannonical
   std::error_code ec;
@@ -56,13 +63,15 @@ inline Expected<fs::path> canonical(fs::path const& path)
   if ( ec )
   {
     return Unexpected("Could not make cannonical path for parent of '{}'"_fmt(path));
-  } // if
+  }
 
   return ret;
-} // function: canonical }}}
+}
 
-// file_self() {{{
-inline Expected<fs::path> file_self()
+/**
+ * @brief Gets the path to the current binary from /proc/self/exe
+ */
+[[nodiscard]] inline Expected<fs::path> file_self()
 {
   std::error_code ec;
 
@@ -71,23 +80,33 @@ inline Expected<fs::path> file_self()
   if ( ec )
   {
     return Unexpected("Failed to fetch location of self");
-  } // if
+  }
 
   return path_file_self;
-} // file_self() }}}
+}
 
-// realpath() {{{
+/**
+ * @brief Resolves an input path
+ * 
+ * @param path_file_src Path to resolve
+ * @return Expected<fs::path> The resolve path or the respective error
+ */
 inline Expected<fs::path> realpath(fs::path const& path_file_src)
 {
   char str_path_file_resolved[PATH_MAX];
   if ( ::realpath(path_file_src.c_str(), str_path_file_resolved) == nullptr )
   {
     return Unexpected(strerror(errno));
-  } // if
+  }
   return str_path_file_resolved;
-} // realpath() }}}
+}
 
-// list_files() {{{
+/**
+ * @brief List the files in a directory
+ * 
+ * @param path_dir_src Path to the directory to query for files
+ * @return Expected<std::vector<fs::path>> The list of files or the respective error
+ */
 inline Expected<std::vector<fs::path>> list_files(fs::path const& path_dir_src)
 {
   std::error_code ec;
@@ -97,7 +116,7 @@ inline Expected<std::vector<fs::path>> list_files(fs::path const& path_dir_src)
     | std::ranges::to<std::vector<fs::path>>();
   qreturn_if(ec, Unexpected(ec.message()));
   return files;
-} // list_files() }}}
+}
 
 } // namespace ns_path
 

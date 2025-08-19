@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : string
-///
+/**
+ * @file string.hpp
+ * @author Ruan Formigoni
+ * @brief String helpers
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -15,7 +18,13 @@
 namespace ns_string
 {
 
-// to_string() {{{
+/**
+ * @brief Converts a type to a string
+ * 
+ * @tparam T A string representable type
+ * @param t The value to convert to a string
+ * @return std::string The type string representation
+ */
 template<typename T>
 [[nodiscard]] inline std::string to_string(T&& t) noexcept
 {
@@ -49,9 +58,16 @@ template<typename T>
   {
     static_assert(false, "Cannot convert type to string");
   }
-} // to_string() }}}
+}
 
-// from_container() {{{
+/**
+ * @brief Converts a container into a string if it has string convertible elements
+ * 
+ * @tparam T A container type
+ * @param t The container to convert to a string
+ * @param sep The separator to use between elements of the container
+ * @return std::string The result of the conversion operation
+ */
 template<typename T>
 [[nodiscard]] std::string from_container(T&& t, std::optional<char> sep = std::nullopt) noexcept
 {
@@ -62,14 +78,22 @@ template<typename T>
     if ( std::next(it) != t.end() and sep ) { ret << *sep; }
   } // if
   return ret.str();
-} // from_container() }}}
+}
 
-// from_container() {{{
+/**
+ * @brief Converts a container into a string if it has string convertible elements
+ * 
+ * @tparam T A container type
+ * @param begin The begin iterator of the container to convert
+ * @param end The end iterator of the container to convert
+ * @param sep The separator to use between elements of the container
+ * @return std::string The result of the conversion operation
+ */
 template<std::input_iterator It>
 [[nodiscard]] std::string from_container(It&& begin, It&& end, std::optional<char> sep = std::nullopt) noexcept
 {
   return from_container(std::ranges::subrange(begin, end), sep);
-} // from_container() }}}
+}
 
 } // namespace ns_string
 

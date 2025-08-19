@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : concepts
-///
+/**
+ * @file concept.hpp
+ * @author Ruan Formigoni
+ * @brief Custom C++ concepts
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 

@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : enum
-///
+/**
+ * @file enum.hpp
+ * @author Ruan Formigoni
+ * @brief Custom enumeration class
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 #include <cstdlib>
