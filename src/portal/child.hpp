@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : child
-///
+/**
+ * @file child.hpp
+ * @author Ruan Formigoni
+ * @brief Spawns a child process and connects its I/O to pipes
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -22,6 +25,13 @@ namespace fs = std::filesystem;
 namespace child
 {
 
+/**
+ * @brief Write a PID to a fifo
+ * 
+ * @param pid The pid to write
+ * @param db The database that writes the value of the "pid" key
+ * @return Expected<void> Nothing on success or the respective error
+ */
 [[nodiscard]] inline Expected<void> write_fifo_pid(pid_t const pid, ns_db::Db& db)
 {
   // Get pid fifo
@@ -36,6 +46,13 @@ namespace child
   return {};
 }
 
+/**
+ * @brief Writes an exit code to a fifo
+ * 
+ * @param code The exit code to write
+ * @param db The database that writes the value of the "exit" key
+ * @return Expected<void> Nothing on success or the respective error
+ */
 [[nodiscard]] inline Expected<void> write_fifo_exit(int const code, ns_db::Db& db)
 {
   // Get exit code fifo
@@ -50,6 +67,12 @@ namespace child
   return {};
 }
 
+/**
+ * @brief Waits for a child pid to exit
+ * 
+ * @param pid The pid to wait for
+ * @param db The database to write the pid into
+ */
 inline void parent_wait(pid_t const pid, ns_db::Db& db)
 {
   // Write pid to fifo
@@ -66,6 +89,12 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   elog_expected("Failed to write exit code to fifo: {}", write_fifo_exit(code, db));
 }
 
+/**
+ * @brief Reads a file with environment variables
+ * 
+ * @param db The database that writes the value of the file pointed by the "environment" key
+ * @return Expected<std::vector<std::string>> The read variables or the respective error
+ */
 [[nodiscard]] inline Expected<std::vector<std::string>> read_file_environment(ns_db::Db& db)
 {
   // Fetch environment file path from db
@@ -82,6 +111,13 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   return out;
 }
 
+/**
+ * @brief Forks a child
+ * 
+ * @param vec_argv Arguments to the child process
+ * @param db Database with the process details, e.g. (stdin/stdout/stderr) pipes
+ * @return Expected<void> 
+ */
 [[nodiscard]] inline Expected<void> child_execve(std::vector<std::string> const& vec_argv, ns_db::Db& db)
 {
   // Create arguments for execve
@@ -121,11 +157,19 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   _exit(1);
 }
 
-// spawn() {{{
-// Fork & execve child
+/**
+ * @brief Forks and execve a new child
+ * 
+ * @param path_dir_portal Path to the portal directory of the child process
+ * @param msg Database received as a message to be parsed
+ * @return Expected<void> Nothing on success, or the respective error
+ */
 [[nodiscard]] inline Expected<void> spawn(fs::path const& path_dir_portal, std::string_view msg)
 {
-  ns_log::set_sink_file(path_dir_portal / "spawned_parent_{}.log"_fmt(getpid()));
+  if(auto ret = ns_log::set_sink_file(path_dir_portal / "spawned_parent_{}.log"_fmt(getpid())); not ret)
+  {
+    std::cerr << "Failed to set logger sink file: " << ret.error() << '\n';
+  }
   ns_log::set_level(ns_log::Level::CRITICAL);
   auto db = Expect(ns_db::from_string(msg));
   // Get command
@@ -150,7 +194,10 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   }
   // Is child
   // Configure child logger
-  ns_log::set_sink_file(path_dir_portal / "spawned_child_{}.log"_fmt(getpid()));
+  if(auto ret = ns_log::set_sink_file(path_dir_portal / "spawned_child_{}.log"_fmt(getpid())); not ret)
+  {
+    std::cerr << "Failed to set logger sink file: " << ret.error() << '\n';
+  }
   ns_log::set_level(ns_log::Level::CRITICAL);
   // Die with parent
   qreturn_if(::prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, Unexpected("Could not set child to die with parent"));
@@ -159,6 +206,6 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   // Perform execve
   Expect(child_execve(vec_argv, db));
   _exit(1);
-} // spawn() }}}
+}
 
 } // namespace child

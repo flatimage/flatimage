@@ -1,8 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : portal_guest
-///
-
+/**
+ * @file portal_dispatcher.cpp
+ * @author Ruan Formigoni
+ * @brief Dispatches child process requests to the portal daemon
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #include <chrono>
 #include <csignal>
@@ -31,27 +33,49 @@ namespace fs = std::filesystem;
 
 std::optional<pid_t> opt_child = std::nullopt;
 
-// signal_handler() {{{
+/**
+ * @brief Forwards received signal to requested child process
+ * 
+ * @param sig The signal to forward
+ */
 void signal_handler(int sig)
 {
   if(opt_child)
   {
     kill(opt_child.value(), sig);
   }
-} // signal_handler() }}}
+}
 
+/**
+ * @brief Populates the input file with the current environment
+ * 
+ * @param path_file_env Path to the environment file to create, discards existing contents
+ * @return Expected<void> Nothing on success or the respective error
+ */
 [[nodiscard]] Expected<void> set_environment(fs::path const& path_file_env)
 {
-  qreturn_if(std::error_code ec; (fs::create_directories(path_file_env.parent_path(), ec), ec)
-    , Unexpected(std::format("Could not open file '{}': '{}'", path_file_env.string(), ec.message()))
+  std::error_code ec;
+  fs::path path_dir_env = path_file_env.parent_path();
+  qreturn_if(not fs::exists(path_dir_env, ec) and not fs::create_directories(path_dir_env, ec)
+    , Unexpected(std::format("Could not create upper directories of file '{}': '{}'", path_file_env.string(), ec.message()))
   );
   std::ofstream ofile_env(path_file_env, std::ios::out | std::ios::trunc);
   qreturn_if(not ofile_env.is_open(), Unexpected("Could not open file '{}'"_fmt(path_file_env)));
-  for(char **env = environ; *env != NULL; ++env) { ofile_env << *env << '\n'; } // for
+  for(char **env = environ; *env != NULL; ++env) { ofile_env << *env << '\n'; }
   ofile_env.close();
   return {};
 }
 
+/**
+ * @brief Sends a message to the portal daemon
+ * 
+ * @param path_daemon_fifo Path to the fifo which the daemon receives commands from
+ * @param command Command to send with arguments
+ * @param hash_name_fifo The hash with process pipes to write/read to/from
+ * @param path_file_log Path to the log file of the requested child process
+ * @param path_file_env Path to the environment to use in the child process
+ * @return Expected<void> Nothing on success or the respective error
+ */
 [[nodiscard]] Expected<void> send_message(fs::path const& path_daemon_fifo
   , std::vector<std::string> command
   , std::unordered_map<std::string, fs::path> const& hash_name_fifo
@@ -83,6 +107,14 @@ void signal_handler(int sig)
     : Expected<void>{};
 }
 
+/**
+ * @brief Waits for the requested process to finish
+ * 
+ * Forwards the child's stdin/stdout/stderr to itself
+ * 
+ * @param hash_name_fifo The hash with process pipes to write/read to/from
+ * @return Expected<int> Nothing on success or the respective error
+ */
 [[nodiscard]] Expected<int> process_wait(std::unordered_map<std::string, fs::path> const& hash_name_fifo)
 {
   pid_t pid_child;
@@ -112,7 +144,15 @@ void signal_handler(int sig)
   return code_exit;
 }
 
-[[nodiscard]] Expected<int> process_request(std::vector<std::string> const& args
+/**
+ * @brief Sends a request to the daemon to create a new process
+ * 
+ * @param cmd Command to request, with it's respective arguments
+ * @param daemon_target "host" sends a command to the 'host' daemon and "guest" sends a command to the 'guest' daemon
+ * @param path_dir_instance Path to the instance directory to use
+ * @return Expected<int> The process return code or the respective error
+ */
+[[nodiscard]] Expected<int> process_request(std::vector<std::string> const& cmd
   , std::string const& daemon_target
   , fs::path const& path_dir_instance)
 {
@@ -156,7 +196,7 @@ void signal_handler(int sig)
   Expect(set_environment(path_file_env));
   // Send message to daemon
   Expect(send_message(path_dir_portal / "daemon.{}.fifo"_fmt(daemon_target)
-    , args
+    , cmd
     , hash_name_fifo
     , path_file_log
     , path_file_env
@@ -165,7 +205,6 @@ void signal_handler(int sig)
   return Expect(process_wait(hash_name_fifo));
 }
 
-// main() {{{
 int main(int argc, char** argv)
 {
   std::vector<std::string> args(argv+1, argv+argc);
@@ -201,6 +240,6 @@ int main(int argc, char** argv)
   // Error on process request
   ns_log::error()(result.error());
   return EXIT_FAILURE;
-} // main() }}}
+}
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

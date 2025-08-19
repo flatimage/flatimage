@@ -1,9 +1,13 @@
-///
-/// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-/// @file        : portal
-///
+/**
+ * @file portal.hpp
+ * @author Ruan Formigoni
+ * @brief Spawns a portal daemon process
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #include <filesystem>
+#include <memory>
 
 #include "../lib/env.hpp"
 #include "../lib/subprocess.hpp"
@@ -18,40 +22,53 @@ namespace fs = std::filesystem;
 
 } // anonymous namespace
 
-// struct Portal {{{
-struct Portal
+class Portal
 {
-  std::unique_ptr<ns_subprocess::Subprocess> m_process;
-  fs::path m_path_file_daemon;
-  fs::path m_path_file_guest;
+  private:
+    std::unique_ptr<ns_subprocess::Subprocess> m_process;
+    fs::path m_path_file_daemon;
+    fs::path m_path_file_guest;
+    Portal();
 
-  Portal(pid_t const pid_reference, std::string const& mode)
-  {
-    // Path to flatimage binaries
-    const char* str_dir_app_bin = ns_env::get_or_throw("FIM_DIR_APP_BIN");
-    ethrow_if(not str_dir_app_bin, "FIM_DIR_APP_BIN is undefined");
+  public:
+    ~Portal();
+    friend Expected<std::unique_ptr<Portal>> create(pid_t const pid_reference, std::string const& mode);
+    friend constexpr std::unique_ptr<Portal> std::make_unique<Portal>();
+};
 
-    // Create paths to daemon and portal
-    m_path_file_daemon = fs::path{str_dir_app_bin} / "fim_portal_daemon";
-    m_path_file_guest = fs::path{str_dir_app_bin} / "fim_portal";
-    ethrow_if(not fs::exists(m_path_file_daemon), "Daemon not found in {}"_fmt(m_path_file_daemon));
-    ethrow_if(not fs::exists(m_path_file_guest), "Guest not found in {}"_fmt(m_path_file_guest));
+inline Portal::Portal()
+  : m_process(nullptr)
+  , m_path_file_daemon()
+  , m_path_file_guest()
+{
+}
 
-    // Create a portal that uses the reference file to create an unique communication key
-    m_process = std::make_unique<ns_subprocess::Subprocess>(m_path_file_daemon);
+inline Portal::~Portal()
+{
+  m_process->kill(SIGTERM);
+  std::ignore = m_process->wait();
+}
 
-    // Spawn process to background
-    std::ignore = m_process->with_piped_outputs()
-      .with_args(pid_reference, mode)
-      .spawn();
-  } // Portal
-
-  ~Portal()
-  {
-    m_process->kill(SIGTERM);
-    std::ignore = m_process->wait();
-  } // ~Portal()
-}; // struct Portal }}}
+[[nodiscard]] inline Expected<std::unique_ptr<Portal>> create(pid_t const pid_reference, std::string const& mode)
+{
+  auto portal = std::make_unique<Portal>();
+  qreturn_if(portal == nullptr, Unexpected("Could not create portal object"));
+  // Path to flatimage binaries
+  std::string str_dir_app_bin = Expect(ns_env::get_expected("FIM_DIR_APP_BIN"));
+  // Create path to daemon
+  portal->m_path_file_daemon = fs::path{str_dir_app_bin} / "fim_portal_daemon";
+  qreturn_if(not fs::exists(portal->m_path_file_daemon), Unexpected("Daemon not found in {}"_fmt(portal->m_path_file_daemon)));
+  // Create path to portal
+  portal->m_path_file_guest = fs::path{str_dir_app_bin} / "fim_portal";
+  qreturn_if(not fs::exists(portal->m_path_file_guest), Unexpected("Guest not found in {}"_fmt(portal->m_path_file_guest)));
+  // Create a portal that uses the reference file to create an unique communication key
+  portal->m_process = std::make_unique<ns_subprocess::Subprocess>(portal->m_path_file_daemon);
+  // Spawn process to background
+  std::ignore = portal->m_process->with_piped_outputs()
+    .with_args(pid_reference, mode)
+    .spawn();
+  return portal;
+}
 
 } // namespace ns_portal
 

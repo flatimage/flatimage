@@ -1,3 +1,11 @@
+/**
+ * @file config.hpp
+ * @author Ruan Formigoni
+ * @brief Constants for portal configuration
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
+
 #pragma once
 
 #include <cstdint>

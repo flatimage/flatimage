@@ -48,7 +48,11 @@ extern char** environ;
     std::cerr << "Could not setup logger sink: " << ret.error() << '\n';
   }
   // Start host portal
-  ns_portal::Portal portal = ns_portal::Portal(getpid(), "host");
+  [[maybe_unused]] auto portal = ns_portal::create(getpid(), "host");
+  if(not portal)
+  {
+    std::cerr << "Could not execute portal daemon: " << portal.error() << '\n';
+  }
   // Parse flatimage command if exists
   return Expect(ns_parser::parse_cmds(config, argc, argv));
 }
@@ -95,7 +99,7 @@ int main(int argc, char** argv)
     {
       std::println(FIM_VERSION);
       return EXIT_SUCCESS;
-    } // if
+    }
     
     // Print version-full and exit
     if ( arg == "fim-version-full" )
@@ -107,7 +111,7 @@ int main(int argc, char** argv)
       db("TIMESTAMP") = FIM_TIMESTAMP;
       std::println("{}", db.dump());
       return EXIT_SUCCESS;
-    } // if
+    }
   }
   
   // Make variables available in environment
@@ -120,24 +124,24 @@ int main(int argc, char** argv)
   if(auto ret = ns_linux::module_check("fuse"); not ret)
   {
     ns_log::error()("'fuse' module might not be loaded: {}", ret.error());
-  } // if
+  }
 
   // If it is outside /tmp, move the binary
   if (auto result = ns_relocate::relocate(argv, FIM_RESERVED_OFFSET); not result)
   {
     ns_log::critical()("Failure to relocate binary: {}", result.error());
     return 125;
-  } // if
+  }
 
   // Launch flatimage
   if (auto code = boot(argc, argv))
   {
     return code.value();
-  } // if
+  }
   else
   {
     ns_log::critical()("Program exited with error: {}", code.error());
-  } // else
+  }
 
   return 125;
 }

@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : fifo
-///
+/**
+ * @file fifo.hpp
+ * @author Ruan Formigoni
+ * @brief Operations on fifos (named pipes)
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
@@ -21,27 +24,39 @@
 
 namespace fs = std::filesystem;
 
-// create_fifo() {{{
+/**
+ * @brief Create a fifo object
+ * 
+ * @param path_file_fifo Where to saved the fifo to
+ * @return Expected<fs::path> The path to the created fifo, or the respective error
+ */
 [[nodiscard]] inline Expected<fs::path> create_fifo(fs::path const& path_file_fifo)
 {
+  std::error_code ec;
   fs::path path_dir_parent = path_file_fifo.parent_path();
   // Create parent directory(ies)
-  qreturn_if(not fs::exists(path_dir_parent) and not fs::create_directories(path_dir_parent)
+  qreturn_if(not fs::exists(path_dir_parent, ec) and not fs::create_directories(path_dir_parent, ec)
     , Unexpected("Failed to create upper directories for fifo")
   );
   // Replace old fifo if exists
-  if ( fs::exists(path_file_fifo) )
+  if (fs::exists(path_file_fifo, ec))
   {
-    fs::remove(path_file_fifo);
+    fs::remove(path_file_fifo, ec);
   }
   // Create fifo
   qreturn_if(mkfifo(path_file_fifo.c_str(), 0666) < 0
     , Unexpected(strerror(errno))
   );
   return path_file_fifo;
-} // create_fifo() }}}
+}
 
-// redirect_fd_to_fd() {{{
+/**
+ * @brief Redirects the output of one file descriptor as input of another
+ * 
+ * @param ppid Keep trying to read and write while this pid is alive
+ * @param fd_src File descriptor to read from
+ * @param fd_dst File descriptor to write to
+ */
 inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
 {
   auto f_read = [](int fd_src, int fd_dst) -> bool
@@ -76,9 +91,16 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
   }
   // After the process exited, check for any leftover output
   std::ignore = f_read(fd_src, fd_dst);
-} // redirect_fd_to_fd() }}}
+}
 
-// redirect_fifo_to_fd() {{{
+/**
+ * @brief Redirects the output of a fifo to a file descriptor
+ * 
+ * @param ppid Keep trying to read and write while this pid is alive
+ * @param path_file_fifo Path to the fifo to read from
+ * @param fd_dst Path to the file descriptor to write to
+ * @return pid_t The value of fork() on parent and calls _exit(code) on child
+ */
 [[nodiscard]] inline pid_t redirect_fifo_to_fd(pid_t ppid, fs::path const& path_file_fifo, int fd_dst)
 {
   // Fork
@@ -98,9 +120,17 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
   close(fd_src);
   // Exit without cleanup
   _exit(0);
-} // redirect_fifo_to_fd() }}}
+}
 
-// redirect_fd_to_fifo() {{{
+
+/**
+ * @brief Redirects the output of a file descriptor to a fifo
+ * 
+ * @param ppid Keep trying to read and write while this pid is alive
+ * @param fd_src Path to the file descriptor to read from
+ * @param path_file_fifo Path to the fifo to write to
+ * @return pid_t The value of fork() on parent and calls _exit(code) on child
+ */
 [[nodiscard]] inline pid_t redirect_fd_to_fifo(pid_t ppid, int fd_src, fs::path const& path_file_fifo)
 {
   // Fork
@@ -120,4 +150,4 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
   close(fd_dst);
   // Exit without cleanup
   _exit(0);
-} // redirect_fd_to_fifo() }}}
+}

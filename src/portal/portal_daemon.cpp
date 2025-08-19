@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : portal_host
-///
+/**
+ * @file portal_daemon.cpp
+ * @author Ruan Formigoni
+ * @brief Spawns a daemon that receives child process requests
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #include <cerrno>
 #include <chrono>
@@ -29,7 +32,12 @@ namespace fs = std::filesystem;
 
 extern char** environ;
 
-// validate() {{{
+/**
+ * @brief Validates the received message to contain the expected fields with proper types
+ * 
+ * @param msg The message to validate
+ * @return Expected<bool> The boolean result or the respective error
+ */
 [[nodiscard]] Expected<bool> validate(std::string_view msg) noexcept
 {
   // Open database
@@ -52,9 +60,8 @@ extern char** environ;
     ereturn_if(not (db(key).type() == type), std::format("Key {} is missing", key), false);
   }
   return true;
-} // validate() }}}
+}
 
-// main() {{{
 int main(int argc, char** argv)
 {
   // Create directory for the portal data
@@ -79,7 +86,10 @@ int main(int argc, char** argv)
 
   // Configure logger file
   fs::path path_file_log = fs::path{path_dir_portal} / "daemon.{}.log"_fmt(mode);
-  ns_log::set_sink_file(path_file_log);
+  if(auto ret = ns_log::set_sink_file(path_file_log); not ret)
+  {
+    std::cerr << "Could not set logger file: " << path_file_log << '\n';
+  }
   ns_log::set_level((ns_env::exists("FIM_DEBUG", "1"))? ns_log::Level::DEBUG : ns_log::Level::CRITICAL);
 
   // Create a fifo to receive commands from
@@ -130,6 +140,6 @@ int main(int argc, char** argv)
   close(fd_fifo);
 
   return EXIT_SUCCESS;
-} // main() }}}
+}
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/
