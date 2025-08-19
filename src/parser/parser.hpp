@@ -377,11 +377,6 @@ using namespace ns_parser::ns_interface;
     return bwrap_run_ret.code;
   };
   
-  // Get command
-  EnumCmd enum_cmd = EnumCmd::UNDEFINED;
-  std::visit([&](auto&& e) { enum_cmd = e.cmd; }, variant_cmd);
-  qreturn_if(enum_cmd == EnumCmd::UNDEFINED, Unexpected("Undefined command"));
-
   // Execute a command as a regular user
   if ( auto cmd = std::get_if<ns_parser::CmdExec>(&variant_cmd) )
   {
