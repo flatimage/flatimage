@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : reserved
-///
+/**
+ * @file reserved.hpp
+ * @author Ruan Formigoni
+ * @brief Manages reserved space
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 

@@ -1,7 +1,10 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : desktop
-///
+/**
+ * @file desktop.hpp
+ * @author Ruan Formigoni
+ * @brief Manages the desktop reserved space
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 

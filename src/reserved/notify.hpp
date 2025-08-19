@@ -1,12 +1,14 @@
-///
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : notify
-///
+/**
+ * @file notify.hpp
+ * @author Ruan Formigoni
+ * @brief Manages the notify reserved space
+ * 
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #pragma once
 
 #include <cstdint>
-#include <string>
 #include <filesystem>
 
 #include "../macro.hpp"
