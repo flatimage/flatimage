@@ -184,10 +184,10 @@ class Writer
   private:
     Location m_loc;
     Level m_level;
-    char m_prefix;
+    std::string m_prefix;
 
   public:
-    Writer(Location const& location, Level const& level, char prefix)
+    Writer(Location const& location, Level const& level, std::string prefix)
       : m_loc(location)
       , m_level(level)
       , m_prefix(prefix)
@@ -217,7 +217,7 @@ class debug final : public Writer
     Location m_loc;
   public:
     debug(Location location = {})
-      : Writer(location, Level::DEBUG, 'D')
+      : Writer(location, Level::DEBUG, "D")
       , m_loc(location)
     {}
 };
@@ -228,7 +228,7 @@ class info : public Writer
     Location m_loc;
   public:
     info(Location location = {})
-      : Writer(location, Level::INFO, 'I')
+      : Writer(location, Level::INFO, "I")
       , m_loc(location)
     {}
 };
@@ -239,7 +239,7 @@ class warn : public Writer
     Location m_loc;
   public:
     warn(Location location = {})
-      : Writer(location, Level::WARN, 'W')
+      : Writer(location, Level::WARN, "W")
       , m_loc(location)
     {}
 };
@@ -250,7 +250,7 @@ class error : public Writer
     Location m_loc;
   public:
     error(Location location = {})
-      : Writer(location, Level::ERROR, 'E')
+      : Writer(location, Level::ERROR, "E")
       , m_loc(location)
     {}
 };
@@ -261,7 +261,7 @@ class critical : public Writer
     Location m_loc;
   public:
     critical(Location location = {})
-      : Writer(location, Level::CRITICAL, 'C')
+      : Writer(location, Level::CRITICAL, "C")
       , m_loc(location)
     {}
 };
