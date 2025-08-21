@@ -32,7 +32,7 @@ uint64_t const FIM_RESERVED_OFFSET_DESKTOP_BEGIN = FIM_RESERVED_OFFSET_NOTIFY_EN
 uint64_t const FIM_RESERVED_OFFSET_DESKTOP_END = FIM_RESERVED_OFFSET_DESKTOP_BEGIN + (4*(1<<10)); 
 // Icon
 uint64_t const FIM_RESERVED_OFFSET_ICON_BEGIN = FIM_RESERVED_OFFSET_DESKTOP_END;
-uint64_t const FIM_RESERVED_OFFSET_ICON_END = FIM_RESERVED_OFFSET_DESKTOP_BEGIN + (1<<20);
+uint64_t const FIM_RESERVED_OFFSET_ICON_END = FIM_RESERVED_OFFSET_ICON_BEGIN + (1<<20);
 
 namespace
 {
@@ -69,7 +69,7 @@ namespace fs = std::filesystem;
   qreturn_if(not file_binary.seekp(offset_begin), Unexpected("Failed to seek offset to write data"));
   qreturn_if(not file_binary.write(data, length), Unexpected("Failed to write data"));
   return {};
-} // write() }}}
+}
 
 /**
  * @brief Reads data from a file in binary format
@@ -94,7 +94,7 @@ namespace fs = std::filesystem;
   qreturn_if(not file_binary.read(data, length), Unexpected("Failed to read data from binary file"));
   // Return number of read bytes
   return file_binary.gcount();
-} // read() }}}
+}
 
 } // namespace ns_reserved
 

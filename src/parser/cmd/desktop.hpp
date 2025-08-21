@@ -478,7 +478,7 @@ inline void integrate_bash(fs::path const& path_dir_home)
   // Read icon into memory
   auto image_data = ({
     std::streamsize size_file_icon = fs::file_size(path_file_icon);
-    qreturn_if(static_cast<uint64_t>(size_file_icon) >= ns_reserved::FIM_RESERVED_OFFSET_ICON_END - ns_reserved::FIM_RESERVED_OFFSET_ICON_END
+    qreturn_if(static_cast<uint64_t>(size_file_icon) >= ns_reserved::FIM_RESERVED_OFFSET_ICON_END - ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN
       , Unexpected("File is too large, '{}' bytes"_fmt(size_file_icon))
     );
     std::unique_ptr<char[]> ptr_data = std::make_unique<char[]>(size_file_icon);
