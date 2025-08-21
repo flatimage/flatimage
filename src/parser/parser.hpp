@@ -57,7 +57,7 @@ using namespace ns_parser::ns_interface;
   if ( argc < 2 or not std::string_view{argv[1]}.starts_with("fim-"))
   {
     return CmdNone{};
-  } // if
+  }
 
   class VecArgs
   {
@@ -359,8 +359,14 @@ using namespace ns_parser::ns_interface;
     return bwrap.run(bits_permissions, config.path_dir_app_bin);
   };
 
+
   auto f_bwrap = [&]<typename T, typename U>(T&& program, U&& args) -> Expected<int>
   {
+    // Setup desktop integration, permissive
+    if(auto ret = ns_desktop::integrate(config); not ret)
+    {
+      ns_log::error()("Could not perform desktop integration: {}", ret.error());
+    }
     // Run bwrap
     ns_bwrap::bwrap_run_ret_t bwrap_run_ret = Expect(f_bwrap_impl(program, args));
     // Log bwrap errors
