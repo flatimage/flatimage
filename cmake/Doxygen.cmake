@@ -18,7 +18,7 @@ set(DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in)
 set(DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
 configure_file(${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
 
-doxygen_add_docs(flatimage
+doxygen_add_docs(doxygen
   src
   ALL
   COMMENT "Generating project documentation with custom Doxyfile"
