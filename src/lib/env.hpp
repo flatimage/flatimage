@@ -74,7 +74,7 @@ inline Expected<T> get_expected(std::string_view name)
   const char * var = std::getenv(name.data());
   return (var != nullptr)?
       Expected<T>(std::string{var})
-    : Unexpected("Could not read variable '{}'"_fmt(name));
+    : std::unexpected("Could not read variable '{}'"_fmt(name));
 }
 
 /**
