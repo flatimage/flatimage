@@ -66,10 +66,10 @@ inline Desktop::Desktop()
   // Parse icon path (optional)
   desktop.m_path_file_icon = db("icon").template value<std::string>();
   // Parse enabled integrations (optional)
-  if (auto integrations = db("integrations").template value<std::vector<std::string>>())
+  for(auto&& item : db.template value_or_default<std::vector<std::string>>("integrations"))
   {
-    std::ranges::for_each(Expect(integrations), [&](auto&& e){ desktop.m_set_integrations.insert(e); });
-  } // if
+    desktop.m_set_integrations.insert(Expect(IntegrationItem::from_string(item)));
+  }
   // Parse categories (required)
   auto db_categories = Expect(db("categories").template value<std::vector<std::string>>());
   std::ranges::for_each(db_categories, [&](auto&& e){ desktop.m_set_categories.insert(e); });

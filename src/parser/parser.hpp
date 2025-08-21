@@ -111,7 +111,9 @@ using namespace ns_parser::ns_interface;
     ns_match::equal("fim-perms") >>= [&] -> Expected<CmdType>
     {
       // Get op
-      CmdPermsOp op = CmdPermsOp(Expect(args.pop_front("Missing op for fim-perms (add,del,list,set)")));
+      CmdPermsOp op = Expect(
+        CmdPermsOp::from_string(Expect(args.pop_front("Missing op for fim-perms (add,del,list,set)")))
+      );
       qreturn_if(op == CmdPermsOp::NONE, Unexpected("Invalid operation on permissions"));
       // Check if is list
       qreturn_if(op == CmdPermsOp::LIST,  CmdType(CmdPerms{ .op = op, .permissions = {} }));
@@ -127,7 +129,9 @@ using namespace ns_parser::ns_interface;
     ns_match::equal("fim-env") >>= [&] -> Expected<CmdType>
     {
       // Get op
-      CmdEnvOp op = CmdEnvOp(Expect(args.pop_front("Missing op for 'fim-env' (add,del,list,set)")));
+      CmdEnvOp op = Expect(
+        CmdEnvOp::from_string(Expect(args.pop_front("Missing op for 'fim-env' (add,del,list,set)")))
+      );
       qreturn_if(op == CmdEnvOp::NONE, Unexpected("Invalid operation on environment"));
       // Check if is list
       qreturn_if(op == CmdEnvOp::LIST,  CmdType(CmdEnv{ .op = op, .environment = {} }));
@@ -144,7 +148,9 @@ using namespace ns_parser::ns_interface;
       // Check if is other command with valid args
       CmdDesktop cmd;
       // Get operation
-      cmd.op = CmdDesktopOp(Expect(args.pop_front("Missing op for 'fim-desktop' (enable,setup)")));
+      cmd.op = Expect(CmdDesktopOp::from_string(
+        Expect(args.pop_front("Missing op for 'fim-desktop' (enable,setup)"))
+      ));
       qreturn_if( cmd.op == CmdDesktopOp::NONE, Unexpected("Invalid desktop operation"));
       // Get operation specific arguments
       if ( cmd.op == CmdDesktopOp::SETUP )
@@ -154,10 +160,15 @@ using namespace ns_parser::ns_interface;
       else
       {
         // Get comma separated argument list
-        std::vector<std::string> vec_items = args.data();
-        qreturn_if(vec_items.empty(), Unexpected("Missing arguments for 'enable' (desktop,entry,mimetype)"))
+        std::vector<std::string> vec_items =
+            Expect(args.pop_front("Missing arguments for 'enable' (desktop,entry,mimetype)"))
+          | std::views::split(',')
+          | std::ranges::to<std::vector<std::string>>();
         std::set<ns_desktop::IntegrationItem> set_enum;
-        std::ranges::transform(vec_items, std::inserter(set_enum, set_enum.end()), [](auto&& e){ return ns_desktop::IntegrationItem(e); });
+        for(auto&& item : vec_items)
+        {
+          set_enum.insert(Expect(ns_desktop::IntegrationItem::from_string(item)));
+        }
         cmd.arg = set_enum;
       } // else
       return CmdType(cmd);
@@ -168,7 +179,9 @@ using namespace ns_parser::ns_interface;
       // Create cmd
       CmdLayer cmd;
       // Get op
-      cmd.op = CmdLayerOp(Expect(args.pop_front("Missing op for 'fim-layer' (create,add)")));
+      cmd.op = Expect(
+        CmdLayerOp::from_string(Expect(args.pop_front("Missing op for 'fim-layer' (create,add)")))
+      );
       qreturn_if(cmd.op == CmdLayerOp::NONE, Unexpected("Invalid layer operation"));
       // Gather operation specific arguments
       if ( cmd.op == CmdLayerOp::ADD )
@@ -194,7 +207,9 @@ using namespace ns_parser::ns_interface;
       // Create command
       CmdBind cmd;
       // Check op
-      cmd.op = CmdBindOp(Expect(args.pop_front("Missing op for 'fim-bind' command (add,del,list)")));
+      cmd.op = Expect(
+        CmdBindOp::from_string(Expect(args.pop_front("Missing op for 'fim-bind' command (add,del,list)")))
+      );
       qreturn_if( cmd.op == CmdBindOp::NONE, Unexpected("Invalid bind operation"));
       // Gather operation specific arguments
       using RetType = Expected<CmdBind::cmd_bind_data_t>;
@@ -203,7 +218,10 @@ using namespace ns_parser::ns_interface;
         {
           std::string msg = "Incorrect number of arguments for 'add' (<ro,rw,dev> <src> <dst>)";
           CmdBind::cmd_bind_data_t data = CmdBind::cmd_bind_data_t(
-            CmdBind::cmd_bind_t(Expect(args.pop_front(msg)),Expect(args.pop_front(msg)),Expect(args.pop_front(msg)))
+            CmdBind::cmd_bind_t(
+                Expect(CmdBindType::from_string(Expect(args.pop_front(msg))))
+              , Expect(args.pop_front(msg))
+              , Expect(args.pop_front(msg)))
           );
           qreturn_if(not args.empty(), Unexpected(msg));
           return data;
@@ -233,7 +251,7 @@ using namespace ns_parser::ns_interface;
     {
       std::string msg = "Incorrect number of arguments for 'fim-notify' (<on|off>)";
       auto cmd_notify = CmdType(CmdNotify{
-        CmdNotifyOp(Expect(args.pop_front(msg)))
+        Expect(CmdNotifyOp::from_string(Expect(args.pop_front(msg))))
       });
       qreturn_if(not args.empty(), Unexpected(msg));
       return cmd_notify;
@@ -243,7 +261,7 @@ using namespace ns_parser::ns_interface;
     {
       std::string msg = "Incorrect number of arguments for 'fim-casefold' (<on|off>)";
       auto cmd_casefold = CmdType(CmdCaseFold{
-        CmdCaseFoldOp(Expect(args.pop_front(msg)))
+        Expect(CmdCaseFoldOp::from_string(Expect(args.pop_front(msg))))
       });
       qreturn_if(args.empty(), Unexpected(msg));
       return cmd_casefold;
@@ -260,7 +278,7 @@ using namespace ns_parser::ns_interface;
     {
       std::string msg = "Missing op for 'fim-instance' (<exec|list>)";
       std::string str_op = Expect(args.pop_front(msg));
-      CmdInstanceOp op(str_op);
+      CmdInstanceOp op = Expect(CmdInstanceOp::from_string(str_op));
       // List
       if(op == CmdInstanceOp::LIST)
       {

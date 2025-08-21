@@ -61,7 +61,7 @@
 #define ENUM_CASE_TO_STRING(i,NAME,...) ENUM_CASE_TO_STRING_IMPL(i,NAME,__VA_ARGS__)
 
 // Create a case statement for string to enum
-#define ENUM_FROM_STRING_EXPR(NAME,value) if ( str_enum == #value ) { m_current = value; return; }
+#define ENUM_FROM_STRING_EXPR(NAME,value) if ( str_enum == #value ) { return NAME(value); }
 #define ENUM_CASE_FROM_STRING_0(NAME,x)     ENUM_FROM_STRING_EXPR(NAME,x)
 #define ENUM_CASE_FROM_STRING_1(NAME,x,...) ENUM_FROM_STRING_EXPR(NAME,x) ENUM_CASE_FROM_STRING_0(NAME,__VA_ARGS__)
 #define ENUM_CASE_FROM_STRING_2(NAME,x,...) ENUM_FROM_STRING_EXPR(NAME,x) ENUM_CASE_FROM_STRING_1(NAME,__VA_ARGS__)
@@ -152,13 +152,11 @@ struct NAME \
     NAME(NAME const&) = default;\
     NAME(NAME&&) = default;\
     NAME(enum_t entry) : m_current(entry) {}\
-    NAME(std::string str_enum) : m_current(enum_t::NONE) \
-    { \
-      std::ranges::transform(str_enum, str_enum.begin(), [](char c){ return std::toupper(c); }); \
-      ENUM_CASE_FROM_STRING(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__) \
-      m_current = NAME::NONE; \
-      std::cerr << "Could not determine enum entry from '" << str_enum << "'\n"; \
-    } \
+    /* from_string callable (declaration) */ \
+    struct from_string_t {                                                       \
+      std::expected<NAME, std::string> operator()(std::string) const;            \
+    };                                                                           \
+    static inline constexpr from_string_t from_string{};                         \
     operator enum_t() const \
     { \
       return m_current; \
@@ -182,7 +180,13 @@ struct NAME \
     NAME& operator=(NAME const& other) { m_current = other.m_current; return *this; }\
     NAME& operator=(NAME&& other) { m_current = other.m_current; return *this; }\
 }; \
-ENUM_STATIC_INIT(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__)
+ENUM_STATIC_INIT(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__) \
+/* Define the callable after the class is complete */                          \
+inline std::expected<NAME, std::string> NAME::from_string_t::operator()(std::string str_enum) const { \
+  std::ranges::transform(str_enum, str_enum.begin(), [](unsigned char c){ return static_cast<char>(std::toupper(c)); }); \
+  ENUM_CASE_FROM_STRING(VA_SIZE(VA_DROP(__VA_ARGS__)), NAME, __VA_ARGS__)      \
+  return std::unexpected(std::string("Could not determine enum entry from '") + str_enum + "'"); \
+}
 
 #define ENUM(NAME, ...) ENUM_IMPL(NAME, __VA_ARGS__, NONE)
 
