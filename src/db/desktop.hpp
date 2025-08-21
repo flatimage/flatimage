@@ -73,7 +73,7 @@ inline Desktop::Desktop()
   // Parse categories (required)
   auto db_categories = Expect(db("categories").template value<std::vector<std::string>>());
   std::ranges::for_each(db_categories, [&](auto&& e){ desktop.m_set_categories.insert(e); });
-  return {};
+  return desktop;
 }
 
 /**
