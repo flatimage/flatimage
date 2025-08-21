@@ -178,6 +178,19 @@ class Location
     }
 };
 
+/**
+ * @brief Workaround make_format_args only taking references
+ * 
+ * @param fmt Format of the string
+ * @param ts Arguments to the input format
+ * @return std::string The formatted string
+ */
+template<typename... Ts>
+std::string vformat(std::string fmt, Ts&&... ts)
+{
+  return std::vformat(fmt, std::make_format_args(ts...));
+}
+
 // Writer
 class Writer
 {
@@ -199,13 +212,17 @@ class Writer
       auto& opt_ostream_sink = logger.get_sink_file();
       if(opt_ostream_sink)
       {
-        opt_ostream_sink.value() << "{}::{}::{}\n"_fmt(m_prefix, m_loc.get(), format);
-        ((opt_ostream_sink.value() << ns_string::to_string(args)), ...);
+        opt_ostream_sink.value()
+          << "{}::{}::"_fmt(m_prefix, m_loc.get())
+          << vformat(ns_string::to_string(format), ns_string::to_string(args)...)
+          << '\n';
       }
       if(logger.get_level() >= m_level)
       {
-        std::cerr << "{}::{}::{}\n"_fmt(m_prefix, m_loc.get(), format);
-        ((std::cerr << ns_string::to_string(std::forward<Args>(args))), ...);
+        std::cerr
+          << "{}::{}::"_fmt(m_prefix, m_loc.get())
+          << vformat(ns_string::to_string(format), ns_string::to_string(args)...)
+          << '\n';
       }
       logger.flush();
     }
