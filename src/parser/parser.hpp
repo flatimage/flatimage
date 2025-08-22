@@ -156,6 +156,7 @@ using namespace ns_parser::ns_interface;
       if ( cmd.op == CmdDesktopOp::SETUP )
       {
         cmd.arg = fs::path{Expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))};
+        qreturn_if(not args.empty(), Unexpected("Extra unused arguments passed to setup: {}"_fmt(args.data())));
       } // if
       else
       {
@@ -170,6 +171,7 @@ using namespace ns_parser::ns_interface;
           set_enum.insert(Expect(ns_desktop::IntegrationItem::from_string(item)));
         }
         cmd.arg = set_enum;
+        qreturn_if(not args.empty(), Unexpected("Extra unused arguments passed to enable: {}"_fmt(args.data())));
       } // else
       return CmdType(cmd);
     },
@@ -235,7 +237,11 @@ using namespace ns_parser::ns_interface;
           );
           return CmdBind::cmd_bind_data_t(CmdBind::cmd_bind_index_t(std::stoi(str_index)));
         }
-        , ns_match::equal(CmdBindOp::LIST) >>= RetType(CmdBind::cmd_bind_data_t(std::false_type{}))
+        , ns_match::equal(CmdBindOp::LIST) >>= [&] -> RetType
+        {
+          return args.empty()? RetType(CmdBind::cmd_bind_data_t(std::false_type{}))
+            : Unexpected("'list' command takes no arguments");
+        }
         , ns_match::equal(CmdBindOp::NONE) >>= RetType(std::unexpected("Invalid operation for bind"))
       )));
       return CmdType(cmd);
