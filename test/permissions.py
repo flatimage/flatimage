@@ -67,3 +67,45 @@ class TestFimPerms(unittest.TestCase):
     self.assertIn("input", output)
     self.assertIn("gpu", output)
     self.assertGreaterEqual(len(lines), 2)
+
+  def test_add_cli(self):
+    # Missing permission
+    output = self.run_cmd("fim-perms", "add")
+    self.assertIn("No arguments for 'ADD' command", output)
+    # Invalid permission
+    output = self.run_cmd("fim-perms", "add", "hello")
+    self.assertIn("No match for 'hello'", output)
+    # Invalid permission mixed with valid permission
+    output = self.run_cmd("fim-perms", "add", "home,hello")
+    self.assertIn("No match for 'hello'", output)
+    # Extra arguments
+    output = self.run_cmd("fim-perms", "add", "home", "world")
+    self.assertIn("Trailing arguments for fim-perms: ['world',]", output)
+
+  def test_del_cli(self):
+    # Missing permission
+    output = self.run_cmd("fim-perms", "del")
+    self.assertIn("No arguments for 'DEL' command", output)
+    # Invalid permission
+    output = self.run_cmd("fim-perms", "del", "hello")
+    self.assertIn("No match for 'hello'", output)
+    # Invalid permission mixed with valid permission
+    output = self.run_cmd("fim-perms", "del", "home,hello")
+    self.assertIn("No match for 'hello'", output)
+    # Extra arguments
+    output = self.run_cmd("fim-perms", "del", "home", "world")
+    self.assertIn("Trailing arguments for fim-perms: ['world',]", output)
+
+  def test_set_cli(self):
+    # Missing permission
+    output = self.run_cmd("fim-perms", "set")
+    self.assertIn("No arguments for 'SET' command", output)
+    # Invalid permission
+    output = self.run_cmd("fim-perms", "set", "hello")
+    self.assertIn("No match for 'hello'", output)
+    # Invalid permission mixed with valid permission
+    output = self.run_cmd("fim-perms", "set", "home,hello")
+    self.assertIn("No match for 'hello'", output)
+    # Extra arguments
+    output = self.run_cmd("fim-perms", "set", "home", "world")
+    self.assertIn("Trailing arguments for fim-perms: ['world',]", output)
