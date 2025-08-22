@@ -27,5 +27,13 @@ class TestFimExec(unittest.TestCase):
     return result.stdout.strip()
 
   def test_exec(self):
+    # Simple command
     output = self.run_cmd("fim-exec", "echo", "test")
     self.assertEqual(output, "test")
+    # Check UID
+    output = self.run_cmd("fim-exec", "id", "-u")
+    self.assertEqual(output, str(os.getuid()))
+
+  def test_exec_no_arguments(self):
+    output = self.run_cmd("fim-exec")
+    self.assertIn("Incorrect number of arguments for fim-exec", output)

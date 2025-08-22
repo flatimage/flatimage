@@ -27,8 +27,13 @@ class TestFimRoot(unittest.TestCase):
     return result.stdout.strip()
 
   def test_root(self):
+    # Simple command
     output = self.run_cmd("fim-root", "echo", "test")
     self.assertEqual(output, "test")
+    # Check UID
+    output = self.run_cmd("fim-root", "id", "-u")
+    self.assertEqual(output, "0")
+    # Check package installation
     output = self.run_cmd("fim-version-full")
     self.run_cmd("fim-perms", "set", "network")
     if "ALPINE" in output:
