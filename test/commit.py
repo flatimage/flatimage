@@ -53,13 +53,19 @@ class TestFimCommit(unittest.TestCase):
     del os.environ["FIM_DEBUG"]
     return (output, debug.splitlines())
 
-
   def test_commit(self):
     count_layers=1
     for i in ["hello world", "second layer", "third layer"]:
+      # Check if top-most layer is the one committed
       (output, debug) = self.commit(i)
       self.assertIn(i, output)
+      # Count number of overlay layers in debug output
       count = sum(1 for line in debug if "Overlay layer" in line)
       self.assertEqual(count, count_layers+1)
       shutil.rmtree(self.dir_image, ignore_errors=True)
       count_layers += 1
+
+  def test_commit_cli(self):
+    # Extra arguments
+    output = self.run_cmd("fim-commit", "hello")
+    self.assertIn("'fim-commit' does not take arguments", output)
