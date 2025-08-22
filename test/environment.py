@@ -30,6 +30,10 @@ class TestFimEnv(unittest.TestCase):
     return result.stdout.strip()
 
   def test_variable_add(self):
+    # No variables
+    output = self.run_cmd("fim-env", "add")
+    self.assertIn("Missing arguments for 'ADD'", output)
+    # Multiple variables
     self.run_cmd("fim-env", "add", "HELLO=WORLD", "TEST=ME")
     hello = self.run_cmd("fim-exec", "sh", "-c", "echo $HELLO")
     test = self.run_cmd("fim-exec", "sh", "-c", "echo $TEST")
@@ -37,6 +41,10 @@ class TestFimEnv(unittest.TestCase):
     self.assertEqual(test, "ME")
 
   def test_variable_list(self):
+    # No variables
+    output = self.run_cmd("fim-env", "list")
+    self.assertIn("", output)
+    # Multiple variables
     self.run_cmd("fim-env", "add", "HELLO=WORLD", "TEST=ME")
     output = self.run_cmd("fim-env", "list")
     lines = output.splitlines()
@@ -45,6 +53,10 @@ class TestFimEnv(unittest.TestCase):
     self.assertEqual(lines[1], "TEST=ME")
 
   def test_variable_set(self):
+    # No variables
+    output = self.run_cmd("fim-env", "set")
+    self.assertIn("Missing arguments for 'SET'", output)
+    # Multiple variables
     self.run_cmd("fim-env", "add", "HELLO=WORLD", "TEST=ME")
     self.run_cmd("fim-env", "set", "IMADE=THIS", "NO=IDID")
     output = self.run_cmd("fim-env", "list")
@@ -54,15 +66,21 @@ class TestFimEnv(unittest.TestCase):
     self.assertEqual(lines[1], "NO=IDID")
 
   def test_variable_deletion(self):
+    # No variables
+    output = self.run_cmd("fim-env", "del")
+    self.assertIn("Missing arguments for 'DEL'", output)
+    # Multiple variables
     self.run_cmd("fim-env", "set", "IMADE=THIS", "NO=IDID", "TEST=ME")
     output = self.run_cmd("fim-env", "list")
     lines = output.splitlines()
     self.assertEqual(len(lines), 3)
+    # Deleted 2 variables
     self.run_cmd("fim-env", "del", "IMADE", "NO")
     output = self.run_cmd("fim-env", "list")
     lines = output.splitlines()
     self.assertEqual(len(lines), 1)
     self.assertEqual(lines[0], "TEST=ME")
+    # Deleted all variables
     self.run_cmd("fim-env", "del", "TEST")
     output = self.run_cmd("fim-env", "list")
     lines = output.splitlines()
@@ -77,3 +95,21 @@ class TestFimEnv(unittest.TestCase):
     lines = output.splitlines()
     self.assertEqual(lines[0], "NAME=WORLD")
     self.assertEqual(lines[1], "TEST=ELSE")
+
+  def test_variable_invalid(self):
+    # Invalid variable
+    output = self.run_cmd("fim-env", "set", "IMADETHIS")
+    self.assertIn("Variable assignment 'IMADETHIS' is invalid", output)
+    # Multiple invalid variables
+    output = self.run_cmd("fim-env", "set", "IMADETHIS", "HELLOWORLD")
+    self.assertIn("Variable assignment 'IMADETHIS' is invalid", output)
+
+  def test_option_empty(self):
+    # Invalid variable
+    output = self.run_cmd("fim-env")
+    self.assertIn("Missing op for 'fim-env' (add,del,list,set)", output)
+
+  def test_option_invalid(self):
+    # Invalid variable
+    output = self.run_cmd("fim-env", "addd")
+    self.assertIn("Could not determine enum entry from 'ADDD'", output)
