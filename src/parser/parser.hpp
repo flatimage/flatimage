@@ -20,7 +20,6 @@
 
 #include "../filesystems/controller.hpp"
 #include "../db/environment.hpp"
-#include "../std/vector.hpp"
 #include "../lib/match.hpp"
 #include "../macro.hpp"
 #include "../reserved/notify.hpp"
@@ -195,10 +194,8 @@ using namespace ns_parser::ns_interface;
       else
       {
         std::string error_msg = "add requires exactly two arguments (/path/to/dir /path/to/file.layer)";
-        ns_vector::push_back(cmd.args
-          , Expect(args.pop_front(error_msg))
-          , Expect(args.pop_front(error_msg))
-        );
+        cmd.args.push_back(Expect(args.pop_front(error_msg)));
+        cmd.args.push_back(Expect(args.pop_front(error_msg)));
         qreturn_if(not args.empty(), Unexpected(error_msg));
       } // else
       return CmdType(cmd);
