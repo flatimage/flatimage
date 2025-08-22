@@ -69,3 +69,20 @@ class TestFimLayer(unittest.TestCase):
       self.assertEqual(count, count_layers+1)
       shutil.rmtree(self.dir_root, ignore_errors=True)
       count_layers += 1
+
+  def test_layer_cli(self):
+    # Missing op
+    output = self.run_cmd("fim-layer")
+    self.assertIn("Missing op for 'fim-layer' (create,add)", output)
+    # Missing source
+    output = self.run_cmd("fim-layer", "create")
+    self.assertIn("add requires exactly two arguments (/path/to/dir /path/to/file.layer)", output)
+    # Missing dest
+    output = self.run_cmd("fim-layer", "create", str(self.dir_root))
+    self.assertIn("add requires exactly two arguments (/path/to/dir /path/to/file.layer)", output)
+    # Source directory does not exist
+    output = self.run_cmd("fim-layer", "create", "/hello/world", str(self.file_layer))
+    self.assertIn("Source directory '/hello/world' does not exist", output)
+    # Source is not a directory
+    output = self.run_cmd("fim-layer", "create", str(self.file_layer), str(self.file_layer))
+    self.assertIn(f"Source '{str(self.file_layer)}' is not a directory", output)
