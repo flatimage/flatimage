@@ -70,26 +70,26 @@ class TestFimInstance(unittest.TestCase):
     import time
     # Missing arguments for instance
     output = self.run_cmd("fim-instance")
-    self.assertTrue(output.endswith("Incorrect number of arguments"))
+    self.assertIn("Missing op for 'fim-instance' (<exec|list>)", output)
     # Missing arguments for exec
     output = self.run_cmd("fim-instance", "exec")
-    self.assertTrue(output.endswith("Missing id argument"))
+    self.assertIn("Missing 'id' argument for 'fim-instance'", output)
     # Invalid id
     output = self.run_cmd("fim-instance", "exec", "foo")
-    self.assertTrue(output.endswith("Id argument must be a digit"))
+    self.assertIn("Id argument must be a digit", output)
     # Missing instance
     output = self.run_cmd("fim-instance", "exec", "0", "echo", "hello")
-    self.assertTrue(output.endswith("No instances are running"))
+    self.assertIn("No instances are running", output)
     # Spawn command as root
     self.procs.append(self.spawn_cmd("fim-exec", "sleep", "10"))
     time.sleep(1)
     # Missing instance command
     output = self.run_cmd("fim-instance", "exec", "0")
-    self.assertTrue(output.endswith("Missing command argument"))
+    self.assertIn("Missing 'cmd' argument for 'fim-instance'", output)
     # Out of bounds id
     output = self.run_cmd("fim-instance", "exec", "-1", "echo", "hello")
-    self.assertTrue(output.endswith("Id argument must be a digit"))
+    self.assertIn("Id argument must be a digit", output)
     output = self.run_cmd("fim-instance", "exec", "1", "echo", "hello")
-    self.assertTrue(output.endswith("Instance index out of bounds"))
+    self.assertIn("Instance index out of bounds", output)
     [proc.kill() for proc in self.procs]
     time.sleep(1)
