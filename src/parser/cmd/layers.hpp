@@ -48,6 +48,9 @@ namespace ns_layers
   qreturn_if(not file_list.is_open()
     , Unexpected("Could not open list of files '{}' to compress"_fmt(path_file_list))
   );
+  // Check if source directory exists and is a directory
+  qreturn_if(not fs::exists(path_dir_src), Unexpected("Source directory '{}' does not exist"_fmt(path_dir_src)));
+  qreturn_if(not fs::is_directory(path_dir_src), Unexpected("Source '{}' is not a directory"_fmt(path_dir_src)));
   // Gather files to compress
   for(auto&& entry = fs::recursive_directory_iterator(path_dir_src)
     ; entry != fs::recursive_directory_iterator()
