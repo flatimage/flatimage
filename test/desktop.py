@@ -132,7 +132,7 @@ class TestFimDesktop(unittest.TestCase):
     self.assertIn("Missing argument from 'setup' (/path/to/file.json)", output)
     # Extra argument
     output = self.run_cmd("fim-desktop", "setup", "some-file.json", "hello")
-    self.assertIn("Extra unused arguments passed to setup: ['hello',]", output)
+    self.assertIn("Trailing arguments for fim-desktop: ['hello',]", output)
     # Missing json file
     output = self.run_cmd("fim-desktop", "setup", "some-file.json")
     self.assertIn("Failed to open file 'some-file.json' for desktop integration", output)
@@ -169,6 +169,9 @@ class TestFimDesktop(unittest.TestCase):
     # All
     self.run_cmd("fim-desktop", "enable", "entry,mimetype,icon")
     self.check_enabled_options(self.assertTrue, self.assertTrue, self.assertTrue)
+    # None
+    self.run_cmd("fim-desktop", "enable", "none")
+    self.check_enabled_options(self.assertFalse, self.assertFalse, self.assertFalse)
 
   def test_enable_json(self):
     # Mimetype
@@ -195,10 +198,13 @@ class TestFimDesktop(unittest.TestCase):
   def test_enable_cli(self):
     # Missing arguments
     output = self.run_cmd("fim-desktop", "enable")
-    self.assertIn("Missing arguments for 'enable' (desktop,entry,mimetype)", output)
+    self.assertIn("Missing arguments for 'enable' (desktop,entry,mimetype,none)", output)
     # Extra arguments
     output = self.run_cmd("fim-desktop", "enable", "icon", "mimetype")
-    self.assertIn("Extra unused arguments passed to enable: ['mimetype',]", output)
+    self.assertIn("Trailing arguments for fim-desktop: ['mimetype',]", output)
+    # none + others
+    output = self.run_cmd("fim-desktop", "enable", "none,mimetype")
+    self.assertIn("'none' option should not be used with others", output)
     # Invalid arguments
     output = self.run_cmd("fim-desktop", "enable", "icon2")
     self.assertIn("Could not determine enum entry from 'ICON2'", output)

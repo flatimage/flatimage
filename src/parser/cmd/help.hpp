@@ -163,11 +163,12 @@ inline std::string desktop_usage()
     .with_args({
       { "json-file", "Path to the json file with the desktop configuration"},
     })
-    .with_usage("fim-desktop enable [entry,mimetype,icon]")
+    .with_usage("fim-desktop enable [entry,mimetype,icon,none]")
     .with_args({
       { "entry", "Enable the start menu desktop entry"},
       { "mimetype", "Enable the mimetype"},
       { "icon", "Enable the icon for the file manager and desktop entry"},
+      { "none", "Disables desktop integrations"},
     })
     .get();
 }

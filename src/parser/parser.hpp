@@ -178,22 +178,29 @@ using namespace ns_parser::ns_interface;
       if ( cmd.op == CmdDesktopOp::SETUP )
       {
         cmd.arg = fs::path{Expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))};
-        qreturn_if(not args.empty(), Unexpected("Extra unused arguments passed to setup: {}"_fmt(args.data())));
+        qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-desktop: {}"_fmt(args.data())));
       } // if
       else
       {
         // Get comma separated argument list
         std::vector<std::string> vec_items =
-            Expect(args.pop_front("Missing arguments for 'enable' (desktop,entry,mimetype)"))
+            Expect(args.pop_front("Missing arguments for 'enable' (desktop,entry,mimetype,none)"))
           | std::views::split(',')
           | std::ranges::to<std::vector<std::string>>();
+        // Create items
         std::set<ns_desktop::IntegrationItem> set_enum;
         for(auto&& item : vec_items)
         {
           set_enum.insert(Expect(ns_desktop::IntegrationItem::from_string(item)));
         }
+        // Check for 'none'
+        if(set_enum.size() > 1 and set_enum.contains(ns_desktop::IntegrationItem::NONE))
+        {
+          return Unexpected("'none' option should not be used with others");
+        }
+        // Check for trailing arguments
+        qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-desktop: {}"_fmt(args.data())));
         cmd.arg = set_enum;
-        qreturn_if(not args.empty(), Unexpected("Extra unused arguments passed to enable: {}"_fmt(args.data())));
       } // else
       return CmdType(cmd);
     },
