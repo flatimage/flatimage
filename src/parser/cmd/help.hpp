@@ -117,6 +117,7 @@ inline std::string perms_usage()
       { "add", "Allow one or more permissions" },
       { "del", "Delete one or more permissions" },
       { "list", "List current permissions" },
+      { "clear", "Clears permissions" },
     })
     .with_note("Permissions: home,media,audio,wayland,xorg,dbus_user,dbus_system,udev,usb,input,gpu,network")
     .with_usage("fim-perms add <perms...>")
@@ -128,6 +129,7 @@ inline std::string perms_usage()
       { "perms", "One or more permissions" },
     })
     .with_usage("fim-perms list")
+    .with_usage("fim-perms clear")
     .with_example("fim-perms add home,network,gpu")
     .get();
 }

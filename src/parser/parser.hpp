@@ -113,15 +113,26 @@ using namespace ns_parser::ns_interface;
       CmdPermsOp op = Expect(
         CmdPermsOp::from_string(Expect(args.pop_front("Missing op for fim-perms (add,del,list,set)")))
       );
+      // Invalid op
       qreturn_if(op == CmdPermsOp::NONE, Unexpected("Invalid operation on permissions"));
-      // Check if is list
-      qreturn_if(op == CmdPermsOp::LIST,  CmdType(CmdPerms{ .op = op, .permissions = {} }));
-      // Dispatch command
-      CmdPerms cmd_perms;
-      cmd_perms.op = op;
-      cmd_perms.permissions = ns_vector::from_string(Expect(args.pop_front("No arguments for '{}' command"_fmt(op))), ',');
+      // Valid ops
+      CmdType cmd_type;
+      if(op == CmdPermsOp::LIST or op == CmdPermsOp::CLEAR)
+      {
+        cmd_type = CmdPerms{ .op = op, .permissions = {} };
+      }
+      else
+      {
+        CmdPerms cmd_perms;
+        cmd_perms.op = op;
+        cmd_perms.permissions = ns_vector::from_string(Expect(args.pop_front("No arguments for '{}' command"_fmt(op))), ',')
+          | std::views::transform([](auto&& s){ return std::views::transform(s, ::tolower) | std::ranges::to<std::string>(); })
+          | std::ranges::to<std::vector<std::string>>();
+        cmd_type = cmd_perms;
+      }
+      // Check for trailing arguments
       qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-perms: {}"_fmt(args.data())));
-      return CmdType(cmd_perms);
+      return cmd_type;
     },
     // Configure environment
     ns_match::equal("fim-env") >>= [&] -> Expected<CmdType>
@@ -423,6 +434,7 @@ using namespace ns_parser::ns_interface;
       case ns_parser::CmdPermsOp::ADD: Expect(permissions.add(cmd->permissions)); break;
       case ns_parser::CmdPermsOp::SET: Expect(permissions.set(cmd->permissions)); break;
       case ns_parser::CmdPermsOp::DEL: Expect(permissions.del(cmd->permissions)); break;
+      case ns_parser::CmdPermsOp::CLEAR: Expect(permissions.set(cmd->permissions)); break;
       case ns_parser::CmdPermsOp::LIST:
         std::ranges::copy(permissions.to_vector_string()
           , std::ostream_iterator<std::string>(std::cout, "\n")

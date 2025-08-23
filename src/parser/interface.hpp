@@ -29,7 +29,7 @@ struct CmdExec
   std::vector<std::string> args;
 };
 
-ENUM(CmdPermsOp,SET,ADD,DEL,LIST);
+ENUM(CmdPermsOp,SET,ADD,DEL,LIST,CLEAR);
 struct CmdPerms
 {
   CmdPermsOp op;

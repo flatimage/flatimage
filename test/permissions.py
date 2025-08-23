@@ -82,6 +82,34 @@ class TestFimPerms(unittest.TestCase):
     output = self.run_cmd("fim-perms", "add", "home", "world")
     self.assertIn("Trailing arguments for fim-perms: ['world',]", output)
 
+  def test_list_cli(self):
+    # Set permissions
+    self.run_cmd("fim-perms", "add", "audio,wayland,xorg")
+    output = self.run_cmd("fim-perms", "list")
+    lines = output.strip().splitlines()
+    # List permissions
+    self.assertIn("audio", output)
+    self.assertIn("wayland", output)
+    self.assertIn("xorg", output)
+    self.assertGreaterEqual(len(lines), 3)
+    # Extra arguments
+    output = self.run_cmd("fim-perms", "list", "foo")
+    self.assertIn("Trailing arguments for fim-perms: ['foo',]", output)
+
+  def test_clear_cli(self):
+    # Set permissions
+    self.run_cmd("fim-perms", "add", "audio,wayland,xorg")
+    output = self.run_cmd("fim-perms", "list")
+    lines = output.strip().splitlines()
+    self.assertGreaterEqual(len(lines), 3)
+    # Clear permissions
+    self.run_cmd("fim-perms", "clear")
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual(output, '')
+    # Extra arguments
+    output = self.run_cmd("fim-perms", "clear", "foo")
+    self.assertIn("Trailing arguments for fim-perms: ['foo',]", output)
+
   def test_del_cli(self):
     # Missing permission
     output = self.run_cmd("fim-perms", "del")
