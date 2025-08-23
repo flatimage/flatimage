@@ -125,7 +125,7 @@ class TestFimEnv(unittest.TestCase):
   def test_option_empty(self):
     # Empty variable
     output = self.run_cmd("fim-env")
-    self.assertIn("Missing op for 'fim-env' (add,del,list,set)", output)
+    self.assertIn("Missing op for 'fim-env' (add,del,list,set,clear)", output)
 
   def test_option_invalid(self):
     # Invalid variable
