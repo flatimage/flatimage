@@ -97,10 +97,3 @@ target_compile_definitions(boot PRIVATE
 add_executable(magic src/magic/magic.cpp)
 target_compile_options(magic PRIVATE --std=gnu++23 -Wall -Os -Wextra)
 target_link_options(magic PRIVATE -static)
-add_custom_target(run_magic ALL
-  DEPENDS boot magic
-  COMMAND ${CMAKE_CURRENT_BINARY_DIR}/magic ${CMAKE_CURRENT_BINARY_DIR}/boot
-  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-  COMMENT "Running magic with boot as argument"
-  VERBATIM
-)

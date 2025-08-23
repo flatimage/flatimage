@@ -23,13 +23,15 @@ ENV FIM_DIST=$FIM_DIST
 ARG FIM_RESERVED_SIZE
 ENV FIM_RESERVED_SIZE=$FIM_RESERVED_SIZE
 
-# Compile
+# Setup CMake
 RUN cmake -H. -Bbuild -DFIM_RESERVED_SIZE="$FIM_RESERVED_SIZE"
-RUN cmake --build build
+
+# Compile boot
+RUN cmake --build build --target boot
 RUN strip -s ./build/boot
 
-# Include magic bytes
-RUN ./build/magic ./build/boot
+# Compile magic
+RUN cmake --build build --target magic
 
 # Compile janitor
 RUN g++ --std=c++23 -O3 -static -o src/janitor/fim_janitor src/janitor/janitor.cpp
