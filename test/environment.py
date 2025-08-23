@@ -51,6 +51,24 @@ class TestFimEnv(unittest.TestCase):
     self.assertEqual(len(lines), 2)
     self.assertEqual(lines[0], "HELLO=WORLD")
     self.assertEqual(lines[1], "TEST=ME")
+    # Extra argument
+    output = self.run_cmd("fim-env", "list", "foo")
+    self.assertIn("Trailing arguments for fim-env: ['foo',]", output)
+
+  def test_variable_clear(self):
+    # Define variables
+    self.run_cmd("fim-env", "add", "HELLO=WORLD", "TEST=ME")
+    output = self.run_cmd("fim-env", "list")
+    lines = output.splitlines()
+    self.assertEqual(len(lines), 2)
+    self.assertEqual(lines[0], "HELLO=WORLD")
+    self.assertEqual(lines[1], "TEST=ME")
+    # Clear
+    output = self.run_cmd("fim-env", "clear")
+    self.assertEqual("", output)
+    # Extra argument
+    output = self.run_cmd("fim-env", "clear", "foo")
+    self.assertIn("Trailing arguments for fim-env: ['foo',]", output)
 
   def test_variable_set(self):
     # No variables
@@ -105,7 +123,7 @@ class TestFimEnv(unittest.TestCase):
     self.assertIn("Variable assignment 'IMADETHIS' is invalid", output)
 
   def test_option_empty(self):
-    # Invalid variable
+    # Empty variable
     output = self.run_cmd("fim-env")
     self.assertIn("Missing op for 'fim-env' (add,del,list,set)", output)
 

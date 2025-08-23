@@ -36,7 +36,7 @@ struct CmdPerms
   std::vector<std::string> permissions;
 };
 
-ENUM(CmdEnvOp,SET,ADD,DEL,LIST);
+ENUM(CmdEnvOp,SET,ADD,DEL,LIST,CLEAR);
 struct CmdEnv
 {
   CmdEnvOp op;

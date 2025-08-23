@@ -89,6 +89,10 @@ using namespace ns_parser::ns_interface;
       {
         return m_data.empty();
       }
+      void clear()
+      {
+        m_data.clear();
+      }
   };
   
   VecArgs args(argv+1, argv+argc);
@@ -141,15 +145,24 @@ using namespace ns_parser::ns_interface;
       CmdEnvOp op = Expect(
         CmdEnvOp::from_string(Expect(args.pop_front("Missing op for 'fim-env' (add,del,list,set)")))
       );
+      // Invalid op
       qreturn_if(op == CmdEnvOp::NONE, Unexpected("Invalid operation on environment"));
-      // Check if is list
-      qreturn_if(op == CmdEnvOp::LIST,  CmdType(CmdEnv{ .op = op, .environment = {} }));
+      // Valid Ops
+      CmdType cmd_type;
+      if(op == CmdEnvOp::LIST or op == CmdEnvOp::CLEAR)
+      {
+        cmd_type = CmdEnv{ .op = op, .environment = {} };
+      }
+      else
+      {
+        qreturn_if(args.empty(), Unexpected("Missing arguments for '{}'"_fmt(op)));
+        cmd_type = CmdEnv({ .op = op, .environment = args.data() });
+        args.clear();
+      }
+      // Check for trailing arguments
+      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-env: {}"_fmt(args.data())));
       // Check if is other command with valid args
-      qreturn_if(argc < 4, Unexpected("Missing arguments for '{}'"_fmt(op)));
-      return CmdType(CmdEnv({
-        .op = op,
-        .environment = args.data()
-      }));
+      return cmd_type;
     },
     // Configure environment
     ns_match::equal("fim-desktop") >>= [&] -> Expected<CmdType>
@@ -452,6 +465,7 @@ using namespace ns_parser::ns_interface;
       case ns_parser::CmdEnvOp::ADD: Expect(ns_db::ns_environment::add(config.path_file_config_environment, cmd->environment)); break;
       case ns_parser::CmdEnvOp::SET: Expect(ns_db::ns_environment::set(config.path_file_config_environment, cmd->environment)); break;
       case ns_parser::CmdEnvOp::DEL: Expect(ns_db::ns_environment::del(config.path_file_config_environment, cmd->environment)); break;
+      case ns_parser::CmdEnvOp::CLEAR: Expect(ns_db::ns_environment::set(config.path_file_config_environment, cmd->environment)); break;
       case ns_parser::CmdEnvOp::LIST:
         std::ranges::copy(Expect(ns_db::ns_environment::get(config.path_file_config_environment))
           , std::ostream_iterator<std::string>(std::cout, "\n")

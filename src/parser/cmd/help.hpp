@@ -141,11 +141,13 @@ inline std::string env_usage()
     .with_commands({
       { "set", "Redefines the environment variables as the input arguments" },
       { "add", "Include a novel environment variable" },
+      { "clear", "Clears configured environment variables" },
     })
     .with_usage("fim-env add <'key=value'...>")
     .with_example("fim-env add 'APP_NAME=hello-world' 'HOME=/home/my-app'")
     .with_usage("fim-env set <'key=value'...>")
     .with_example("fim-env set 'APP_NAME=hello-world' 'HOME=/home/my-app'")
+    .with_usage("fim-env clear")
     .get();
 }
 
