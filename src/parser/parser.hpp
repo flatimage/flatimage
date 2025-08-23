@@ -178,8 +178,7 @@ using namespace ns_parser::ns_interface;
       if ( cmd.op == CmdDesktopOp::SETUP )
       {
         cmd.arg = fs::path{Expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))};
-        qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-desktop: {}"_fmt(args.data())));
-      } // if
+      }
       else
       {
         // Get comma separated argument list
@@ -199,9 +198,9 @@ using namespace ns_parser::ns_interface;
           return Unexpected("'none' option should not be used with others");
         }
         // Check for trailing arguments
-        qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-desktop: {}"_fmt(args.data())));
         cmd.arg = set_enum;
-      } // else
+      }
+      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-desktop: {}"_fmt(args.data())));
       return CmdType(cmd);
     },
     // Manage layers
