@@ -45,6 +45,9 @@ class TestFimInstance(unittest.TestCase):
     # Spawn command as root
     self.procs.append(self.spawn_cmd("fim-root", "sleep", "10"))
     time.sleep(1)
+    # Extra argument
+    output = self.run_cmd("fim-instance", "list", "foo")
+    self.assertIn("Trailing arguments for fim-instance: ['foo',]", output)
     # Check for the instance value
     output = self.run_cmd("fim-instance", "list")
     self.assertEqual(output.count('\n'), 0)

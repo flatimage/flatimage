@@ -310,23 +310,29 @@ using namespace ns_parser::ns_interface;
     ns_match::equal("fim-instance") >>= [&] -> Expected<CmdType>
     {
       std::string msg = "Missing op for 'fim-instance' (<exec|list>)";
-      std::string str_op = Expect(args.pop_front(msg));
-      CmdInstanceOp op = Expect(CmdInstanceOp::from_string(str_op));
+      CmdInstanceOp op = Expect(CmdInstanceOp::from_string(Expect(args.pop_front(msg))));
+      CmdType cmd_type;
       // List
       if(op == CmdInstanceOp::LIST)
       {
-        return CmdType(CmdInstance(CmdInstanceOp::LIST, -1, {}));
+        cmd_type = CmdInstance(op, -1, {});
       }
       // Exec
-      std::string str_id = Expect(args.pop_front("Missing 'id' argument for 'fim-instance'"));
-      qreturn_if(not std::ranges::all_of(str_id, ::isdigit)
-        , Unexpected("Id argument must be a digit")
-      );
-      qreturn_if(args.empty(), Unexpected("Missing 'cmd' argument for 'fim-instance'"));
-      return CmdType(CmdInstance(CmdInstanceOp::EXEC
-        , std::stoi(str_id)
-        , args.data()
-      ));
+      else
+      {
+        std::string str_id = Expect(args.pop_front("Missing 'id' argument for 'fim-instance'"));
+        qreturn_if(not std::ranges::all_of(str_id, ::isdigit)
+          , Unexpected("Id argument must be a digit")
+        );
+        qreturn_if(args.empty(), Unexpected("Missing 'cmd' argument for 'fim-instance'"));
+        cmd_type = CmdInstance(op
+          , std::stoi(str_id)
+          , args.data()
+        );
+        args.clear();
+      }
+      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-instance: {}"_fmt(args.data())));
+      return cmd_type;
     },
     // Use the default startup command
     ns_match::equal("fim-help") >>= [&]
