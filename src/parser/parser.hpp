@@ -115,7 +115,7 @@ using namespace ns_parser::ns_interface;
     {
       // Get op
       CmdPermsOp op = Expect(
-        CmdPermsOp::from_string(Expect(args.pop_front("Missing op for fim-perms (add,del,list,set)")))
+        CmdPermsOp::from_string(Expect(args.pop_front("Missing op for fim-perms (add,del,list,set,clear)")))
       );
       // Invalid op
       qreturn_if(op == CmdPermsOp::NONE, Unexpected("Invalid operation on permissions"));
@@ -143,7 +143,7 @@ using namespace ns_parser::ns_interface;
     {
       // Get op
       CmdEnvOp op = Expect(
-        CmdEnvOp::from_string(Expect(args.pop_front("Missing op for 'fim-env' (add,del,list,set)")))
+        CmdEnvOp::from_string(Expect(args.pop_front("Missing op for 'fim-env' (add,del,list,set,clear)")))
       );
       // Invalid op
       qreturn_if(op == CmdEnvOp::NONE, Unexpected("Invalid operation on environment"));
