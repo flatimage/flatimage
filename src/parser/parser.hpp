@@ -116,12 +116,11 @@ using namespace ns_parser::ns_interface;
       qreturn_if(op == CmdPermsOp::NONE, Unexpected("Invalid operation on permissions"));
       // Check if is list
       qreturn_if(op == CmdPermsOp::LIST,  CmdType(CmdPerms{ .op = op, .permissions = {} }));
-      // Check if is other command with valid args
-      qreturn_if(args.empty(), Unexpected("No arguments for '{}' command"_fmt(op)));
       // Dispatch command
       CmdPerms cmd_perms;
       cmd_perms.op = op;
-      cmd_perms.permissions = args.data();
+      cmd_perms.permissions = ns_vector::from_string(Expect(args.pop_front("No arguments for '{}' command"_fmt(op))), ',');
+      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-perms: {}"_fmt(args.data())));
       return CmdType(cmd_perms);
     },
     // Configure environment
