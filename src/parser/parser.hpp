@@ -302,9 +302,26 @@ using namespace ns_parser::ns_interface;
     // Set the default startup command
     ns_match::equal("fim-boot") >>= [&] -> Expected<CmdType>
     {
-      return CmdType(CmdBoot(Expect(args.pop_front("Incorrect number of arguments for 'fim-boot' (<program> [args...])"))
-        , args.data()
+      CmdBoot cmd_boot;
+      // Check op
+      cmd_boot.op = Expect(CmdBootOp::from_string(
+        Expect(args.pop_front("Invalid operation for 'fim-boot' (<set|show|clear>)"))
       ));
+      // Process ops
+      switch(cmd_boot.op)
+      {
+        case CmdBootOp::SET:
+          cmd_boot.program = Expect(args.pop_front("Missing program for 'set' operation"));
+          cmd_boot.args = args.data();
+          args.clear();
+        break;
+        case CmdBootOp::SHOW: break;
+        case CmdBootOp::CLEAR: break;
+        case CmdBootOp::NONE: return Unexpected("Invalid boot operation");
+      }
+      // Check for trailing arguments
+      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-boot: {}"_fmt(args.data())));
+      return cmd_boot;
     },
     // Run a command in an existing instance
     ns_match::equal("fim-instance") >>= [&] -> Expected<CmdType>
@@ -613,13 +630,42 @@ using namespace ns_parser::ns_interface;
   // Update default command on database
   else if ( auto cmd = std::get_if<ns_parser::CmdBoot>(&variant_cmd) )
   {
-    // Create database
-    ns_db::Db db;
-    // Insert values
-    db("program") = cmd->program;
-    db("args") = cmd->args;
-    // Write fields
-    Expect(ns_reserved::ns_boot::write(config.path_file_binary, db.dump()));
+    switch(cmd->op)
+    {
+      case CmdBootOp::SET:
+      {
+        // Create database
+        ns_db::Db db;
+        // Insert values
+        db("program") = cmd->program;
+        db("args") = cmd->args;
+        // Write fields
+        Expect(ns_reserved::ns_boot::write(config.path_file_binary, db.dump()));
+      }
+      break;
+      case CmdBootOp::SHOW:
+      {
+        // Read database
+        ns_db::Db db = ns_db::from_string(
+          Expect(ns_reserved::ns_boot::read(config.path_file_binary))
+        ).value_or(ns_db::Db());
+        // Print database
+        if(not db.empty())
+        {
+          std::cout << db.dump() << '\n';
+        }
+      }
+      break;
+      case CmdBootOp::CLEAR:
+      {
+        // Create empty database
+        ns_db::Db db;
+        // Write empty database
+        Expect(ns_reserved::ns_boot::write(config.path_file_binary, db.dump()));
+      }
+      break;
+      case CmdBootOp::NONE: return Unexpected("Invalid boot operation");
+    }
   } // else if
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )
   {

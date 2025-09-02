@@ -50,8 +50,10 @@ struct CmdDesktop
   std::variant<std::filesystem::path,std::set<ns_desktop::IntegrationItem>> arg;
 };
 
+ENUM(CmdBootOp,SET,SHOW,CLEAR);
 struct CmdBoot
 {
+  CmdBootOp op;
   std::string program;
   std::vector<std::string> args;
 };
