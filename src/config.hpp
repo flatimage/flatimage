@@ -112,7 +112,6 @@ struct FlatimageConfig
   fs::path path_dir_mount_overlayfs;
 
   fs::path path_dir_config;
-  fs::path path_file_config_boot;
   fs::path path_file_config_environment;
   fs::path path_file_config_bindings;
   fs::path path_file_config_casefold;
@@ -194,7 +193,6 @@ inline Expected<FlatimageConfig> config()
    std::clamp(compression_level, uint32_t{0}, uint32_t{10});
   });
   // Paths to the configuration files
-  config.path_file_config_boot        = config.path_dir_config / "boot.json";
   config.path_file_config_environment = config.path_dir_config / "environment.json";
   config.path_file_config_bindings    = config.path_dir_config / "bindings.json";
   config.path_file_config_casefold    = config.path_dir_config / "casefold.json";
@@ -211,7 +209,6 @@ inline Expected<FlatimageConfig> config()
       ns_log::error()("Could not create file '{}'", path_file);
     }
   };
-  f_touch_json(config.path_file_config_boot);
   f_touch_json(config.path_file_config_environment);
   f_touch_json(config.path_file_config_bindings);
   f_touch_json(config.path_file_config_casefold);
@@ -255,7 +252,6 @@ inline void push_config_files(fs::path const& path_dir_layers, fs::path const& p
 {
   auto vec_path_dir_layer = get_mounted_layers(path_dir_layers);
   // Write configuration files to upper directory
-  search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/boot.json");
   search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/environment.json");
   search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/bindings.json");
   search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/casefold.json");

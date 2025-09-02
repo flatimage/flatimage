@@ -23,6 +23,7 @@
 #include "../lib/match.hpp"
 #include "../macro.hpp"
 #include "../reserved/notify.hpp"
+#include "../reserved/boot.hpp"
 #include "../bwrap/bwrap.hpp"
 #include "../config.hpp"
 #include "interface.hpp"
@@ -299,7 +300,7 @@ using namespace ns_parser::ns_interface;
       return cmd_casefold;
     },
     // Set the default startup command
-    ns_match::equal("fim-boot", "fim-cmd") >>= [&] -> Expected<CmdType>
+    ns_match::equal("fim-boot") >>= [&] -> Expected<CmdType>
     {
       return CmdType(CmdBoot(Expect(args.pop_front("Incorrect number of arguments for 'fim-boot' (<program> [args...])"))
         , args.data()
@@ -612,15 +613,13 @@ using namespace ns_parser::ns_interface;
   // Update default command on database
   else if ( auto cmd = std::get_if<ns_parser::CmdBoot>(&variant_cmd) )
   {
-    // Mount filesystem as RW
-    [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config);
-    // Open database
-    auto db = ns_db::read_file(config.path_file_config_boot).value_or(ns_db::Db());
-    // Update fields
+    // Create database
+    ns_db::Db db;
+    // Insert values
     db("program") = cmd->program;
     db("args") = cmd->args;
     // Write fields
-    Expect(ns_db::write_file(config.path_file_config_boot, db));
+    Expect(ns_reserved::ns_boot::write(config.path_file_binary, db.dump()));
   } // else if
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )
   {
@@ -664,10 +663,10 @@ using namespace ns_parser::ns_interface;
   // Update default command on database
   else if ( std::get_if<ns_parser::CmdNone>(&variant_cmd) )
   {
+    auto db = ns_db::from_string(Expect(ns_reserved::ns_boot::read(config.path_file_binary)))
+      .value_or(ns_db::Db());
     // Fetch default command
     fs::path program = [&] -> Expected<fs::path> {
-      // Read boot configuration file
-      auto db = Expect(ns_db::read_file(config.path_file_config_boot));
       // Read startup program
       auto program = Expect(db("program").template value<std::string>());
       // Expand program if it is an environment variable or shell expression
@@ -676,8 +675,6 @@ using namespace ns_parser::ns_interface;
     // Fetch default arguments
     std::vector<std::string> args = [&] -> Expected<std::vector<std::string>> {
       using Args = std::vector<std::string>;
-      // Read boot configuration file
-      ns_db::Db db = Expect(ns_db::read_file(config.path_file_config_boot));
       // Read arguments
       Args args = Expect(db("args").template value<Args>());
       // Append arguments from argv
