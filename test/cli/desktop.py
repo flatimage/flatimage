@@ -125,6 +125,14 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(desktop["integrations"], ["ENTRY", "MIMETYPE", "ICON"])
     self.assertEqual(desktop["name"], "MyCoolApp")
     self.assertEqual(len(desktop), 3)
+    # Icon missing
+    with open(self.file_desktop, "r") as file:
+      desktop = json.loads(file.read())
+      desktop["icon"] = "/some/path/to/missing/icon.png"
+    with open(self.file_desktop, "w") as file:
+      json.dump(desktop, file)
+    output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertIn("Could not get size of file '/some/path/to/missing/icon.png': No such file or directory", output)
 
   def test_setup_cli(self):
     # Missing argument

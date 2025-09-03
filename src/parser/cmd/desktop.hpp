@@ -462,6 +462,7 @@ inline void integrate_bash(fs::path const& path_dir_home)
  */
 [[nodiscard]] inline Expected<void> setup(ns_config::FlatimageConfig const& config, fs::path const& path_file_json_src)
 {
+  std::error_code ec;
   // Create desktop struct with input json
   std::ifstream file_json_src{path_file_json_src};
   qreturn_if(not file_json_src.is_open()
@@ -477,7 +478,8 @@ inline void integrate_bash(fs::path const& path_dir_home)
   qreturn_if(str_ext.empty(), Unexpected("Icon extension '{}' is not supported"_fmt(path_file_icon.extension())));
   // Read icon into memory
   auto image_data = ({
-    std::streamsize size_file_icon = fs::file_size(path_file_icon);
+    std::streamsize size_file_icon = fs::file_size(path_file_icon, ec);
+    qreturn_if(ec, Unexpected("Could not get size of file '{}': {}"_fmt(path_file_icon, ec.message())));
     qreturn_if(static_cast<uint64_t>(size_file_icon) >= ns_reserved::FIM_RESERVED_OFFSET_ICON_END - ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN
       , Unexpected("File is too large, '{}' bytes"_fmt(size_file_icon))
     );
