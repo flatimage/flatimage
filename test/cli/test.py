@@ -13,10 +13,8 @@ import desktop
 import environment
 import exec
 import layer
-import metadata
 import permissions
 import root
-import magic
 import portal
 import instance
 
@@ -36,12 +34,12 @@ class Suite(unittest.TestSuite):
 
   def global_teardown(self):
     shutil.rmtree(os.environ["DIR_IMAGE"], ignore_errors=True)
-    shutil.copy(os.environ["FILE_IMAGE_SRC"], os.environ["FILE_IMAGE"])
+    shutil.rmtree(Path(__file__).resolve().parent / "__pycache__", ignore_errors=True)
+    os.unlink(os.environ["FILE_IMAGE"])
     
 
 def suite():
   suite = Suite()
-  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(metadata.TestFimMetadata))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(bindings.TestFimBind))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(boot.TestFimBoot))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(commit.TestFimCommit))
@@ -51,7 +49,6 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(layer.TestFimLayer))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(permissions.TestFimPerms))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(root.TestFimRoot))
-  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(magic.TestFimMagic))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(portal.TestFimPortal))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(instance.TestFimInstance))
   return suite

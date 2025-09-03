@@ -7,7 +7,7 @@ import shutil
 import pathlib
 import json
 
-class TestFimMetadata(unittest.TestCase):
+class TestFimBuildInfo(unittest.TestCase):
 
   @classmethod
   def setUpClass(cls):

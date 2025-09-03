@@ -1,9 +1,22 @@
-src/conan-libs
+# Ignore on project root
 .gdb_history
 doxygen
 build
+
+# Ignore everything in test
 test/*
+# But not these file types
 !test/*.svg
 !test/*.png
-!test/*.py
 !test/*.sh
+# Re-allow the directories
+!test/cli
+!test/meta
+# Ignore all files
+test/cli/*
+test/meta/*
+# Only allow Python files inside it
+!test/cli/*.py
+!test/cli/*.svg
+!test/cli/*.png
+!test/meta/*.py

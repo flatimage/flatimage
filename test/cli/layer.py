@@ -30,7 +30,8 @@ class TestFimLayer(unittest.TestCase):
 
   def tearDown(self):
     shutil.rmtree(self.dir_root, ignore_errors=True)
-    shutil.rmtree(self.file_layer, ignore_errors=True)
+    if Path.exists(self.file_layer):
+      os.unlink(self.file_layer)
 
   def run_cmd(self, *args):
     result = subprocess.run(
@@ -84,5 +85,5 @@ class TestFimLayer(unittest.TestCase):
     output = self.run_cmd("fim-layer", "create", "/hello/world", str(self.file_layer))
     self.assertIn("Source directory '/hello/world' does not exist", output)
     # Source is not a directory
-    output = self.run_cmd("fim-layer", "create", str(self.file_layer), str(self.file_layer))
-    self.assertIn(f"Source '{str(self.file_layer)}' is not a directory", output)
+    output = self.run_cmd("fim-layer", "create", str(Path(__file__).resolve()), str(self.file_layer))
+    self.assertIn(f"Source '{str(Path(__file__).resolve())}' is not a directory", output)

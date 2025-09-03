@@ -19,8 +19,9 @@ class TestFimDesktop(unittest.TestCase):
 
   def tearDown(self):
     os.environ["HOME"] = self.home_host
-    shutil.rmtree(self.dir_script / "home1", ignore_errors=True)
-    shutil.rmtree(self.file_desktop, ignore_errors=True)
+    shutil.rmtree(self.dir_script / "home_tmp", ignore_errors=True)
+    if Path.exists(self.file_desktop):
+      os.unlink(self.file_desktop)
 
   def run_cmd(self, *args):
     result = subprocess.run(
@@ -32,7 +33,7 @@ class TestFimDesktop(unittest.TestCase):
     return result.stdout.strip()
   
   def make_json_setup(self, integrations):
-    with open(self.file_desktop, "w+") as file:
+    with open(self.file_desktop, "w") as file:
       file.write(
       """{""" "\n"
       rf"""  "integrations": [{integrations}],""" "\n"
@@ -114,7 +115,6 @@ class TestFimDesktop(unittest.TestCase):
       with open(path_dir_entry, "r") as file:
         contents = file.read()
         self.assertEqual(expected, contents)
-
 
   def test_setup(self):
     self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''')
