@@ -2,6 +2,7 @@
 .gdb_history
 doxygen
 build
+doc/mkdocs/site
 
 # Ignore everything in test
 test/*

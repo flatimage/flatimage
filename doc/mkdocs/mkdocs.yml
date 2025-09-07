@@ -1,0 +1,33 @@
+site_name: FlatImage Documentation
+nav:
+  - FlatImage: index.md
+  - Comparison:
+    - comparison.md
+  - Examples:
+    - Steam: examples/steam.md
+    - Firefox: examples/firefox.md
+  - Commands:
+    - fim-bind: cmd/bind.md
+    - fim-boot: cmd/boot.md
+    - fim-casefold: cmd/casefold.md
+    - fim-commit: cmd/commit.md
+    - fim-desktop: cmd/desktop.md
+    - fim-env: cmd/env.md
+    - fim-exec: cmd/exec.md
+    - fim-instance: cmd/instance.md
+    - fim-layer: cmd/layer.md
+    - fim-notify: cmd/notify.md
+    - fim-perms: cmd/perms.md
+    - fim-root: cmd/root.md
+    - fim-version: cmd/version.md
+  - Environment:
+    - environment.md
+  - Portal:
+    - portal.md
+  - Configuration:
+    - Prompt: configuration/prompt.md
+    - Compression: configuration/compression.md
+    - Binding: configuration/binding.md
+  - Architecture:
+    - Directories: architecture/directories.md
+theme: readthedocs
