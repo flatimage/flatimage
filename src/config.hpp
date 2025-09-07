@@ -15,6 +15,7 @@
 
 #include "lib/env.hpp"
 #include "std/filesystem.hpp"
+#include "reserved/casefold.hpp"
 
 // Version
 #ifndef FIM_VERSION
@@ -106,6 +107,7 @@ struct FlatimageConfig
   fs::path path_dir_host_home;
   fs::path path_dir_host_config;
   fs::path path_dir_host_config_tmp;
+  fs::path path_dir_mount_ciopfs;
   fs::path path_dir_data_overlayfs;
   fs::path path_dir_upper_overlayfs;
   fs::path path_dir_work_overlayfs;
@@ -137,14 +139,6 @@ inline Expected<FlatimageConfig> config()
   // Distribution
   config.str_dist = FIM_DIST;
 
-  // Flags
-  config.is_root = ns_env::exists("FIM_ROOT", "1");
-  config.is_readonly = ns_env::exists("FIM_RO", "1");
-  config.is_debug = ns_env::exists("FIM_DEBUG", "1");
-  config.is_casefold = ns_env::exists("FIM_CASEFOLD", "1");
-  config.overlay_type = ns_env::exists("FIM_FUSE_UNIONFS", "1")? OverlayType::FUSE_UNIONFS
-    : ns_env::exists("FIM_FUSE_OVERLAYFS", "1")? OverlayType::FUSE_OVERLAYFS
-    : OverlayType::BWRAP;
   // Paths in /tmp
   config.path_dir_global          = Expect(ns_env::get_expected("FIM_DIR_GLOBAL"));
   config.path_file_binary         = Expect(ns_env::get_expected("FIM_FILE_BINARY"));
@@ -158,6 +152,15 @@ inline Expected<FlatimageConfig> config()
   config.path_file_bash           = config.path_dir_app_bin / "bash";
   config.path_dir_mount_layers    = config.path_dir_mount / "layers";
   config.path_dir_mount_overlayfs = config.path_dir_mount / "overlayfs";
+  // Flags
+  config.is_root = ns_env::exists("FIM_ROOT", "1");
+  config.is_readonly = ns_env::exists("FIM_RO", "1");
+  config.is_debug = ns_env::exists("FIM_DEBUG", "1");
+  config.is_casefold = ns_env::exists("FIM_CASEFOLD", "1")
+    or Expect(ns_reserved::ns_casefold::read(config.path_file_binary));
+  config.overlay_type = ns_env::exists("FIM_FUSE_UNIONFS", "1")? OverlayType::FUSE_UNIONFS
+    : ns_env::exists("FIM_FUSE_OVERLAYFS", "1")? OverlayType::FUSE_OVERLAYFS
+    : OverlayType::BWRAP;
   // Paths only available inside the container (runtime)
   config.path_dir_runtime = "/tmp/fim/run";
   config.path_dir_runtime_host = config.path_dir_runtime / "host";
@@ -171,6 +174,7 @@ inline Expected<FlatimageConfig> config()
   Expect(ns_filesystem::ns_path::create_if_not_exists(config.path_dir_host_config_tmp));
   ns_env::set("FIM_DIR_CONFIG", config.path_dir_host_config, ns_env::Replace::Y);
   // Overlayfs write data to remain on the host
+  config.path_dir_mount_ciopfs = config.path_dir_host_config / "casefold";
   config.path_dir_data_overlayfs = config.path_dir_host_config / "overlays";
   config.path_dir_upper_overlayfs = config.path_dir_data_overlayfs / "upperdir";
   config.path_dir_work_overlayfs = config.path_dir_instance / "workdir";
@@ -195,7 +199,6 @@ inline Expected<FlatimageConfig> config()
   // Paths to the configuration files
   config.path_file_config_environment = config.path_dir_config / "environment.json";
   config.path_file_config_bindings    = config.path_dir_config / "bindings.json";
-  config.path_file_config_casefold    = config.path_dir_config / "casefold.json";
   // Create files if they do not exist
   auto f_touch_json = [](fs::path const& path_file)
   {
@@ -211,7 +214,6 @@ inline Expected<FlatimageConfig> config()
   };
   f_touch_json(config.path_file_config_environment);
   f_touch_json(config.path_file_config_bindings);
-  f_touch_json(config.path_file_config_casefold);
 
   // LD_LIBRARY_PATH
   if ( auto ret = ns_env::get_expected("LD_LIBRARY_PATH") )
@@ -254,7 +256,6 @@ inline void push_config_files(fs::path const& path_dir_layers, fs::path const& p
   // Write configuration files to upper directory
   search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/environment.json");
   search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/bindings.json");
-  search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/casefold.json");
 }
 
 } // namespace ns_config

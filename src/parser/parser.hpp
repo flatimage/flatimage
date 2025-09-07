@@ -23,6 +23,7 @@
 #include "../lib/match.hpp"
 #include "../macro.hpp"
 #include "../reserved/notify.hpp"
+#include "../reserved/casefold.hpp"
 #include "../reserved/boot.hpp"
 #include "../bwrap/bwrap.hpp"
 #include "../config.hpp"
@@ -293,10 +294,11 @@ using namespace ns_parser::ns_interface;
     ns_match::equal("fim-casefold") >>= [&] -> Expected<CmdType>
     {
       std::string msg = "Incorrect number of arguments for 'fim-casefold' (<on|off>)";
+      qreturn_if(args.empty(), Unexpected(msg));
       auto cmd_casefold = CmdType(CmdCaseFold{
         Expect(CmdCaseFoldOp::from_string(Expect(args.pop_front(msg))))
       });
-      qreturn_if(args.empty(), Unexpected(msg));
+      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-casefold: {}"_fmt(args.data())));
       return cmd_casefold;
     },
     // Set the default startup command
@@ -412,10 +414,13 @@ using namespace ns_parser::ns_interface;
           , .path_dir_work = config.path_dir_work_overlayfs
         })
       : std::nullopt;
+    fs::path path_dir_root = ( config.is_casefold and config.overlay_type != ns_config::OverlayType::BWRAP )?
+        config.path_dir_mount_ciopfs
+      : config.path_dir_mount_overlayfs;
     // Create bwrap command
     ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(config.is_root
       , bwrap_overlay
-      , config.path_dir_mount_overlayfs
+      , path_dir_root
       , config.path_file_bashrc
       , program
       , args
@@ -620,12 +625,7 @@ using namespace ns_parser::ns_interface;
   // Enable or disable casefold (useful for wine)
   else if ( auto cmd = std::get_if<ns_parser::CmdCaseFold>(&variant_cmd) )
   {
-    // Open database
-    auto db = ns_db::read_file(config.path_file_config_casefold).value_or(ns_db::Db());
-    // Update fields
-    db("enable") = cmd->op;
-    // Write fields
-    Expect(ns_db::write_file(config.path_file_config_casefold, db));
+    Expect(ns_reserved::ns_casefold::write(config.path_file_binary, cmd->op == CmdCaseFoldOp::ON));
   } // else if
   // Update default command on database
   else if ( auto cmd = std::get_if<ns_parser::CmdBoot>(&variant_cmd) )

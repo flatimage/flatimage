@@ -68,20 +68,12 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
   , m_opt_pid_janitor(std::nullopt)
 {
   // Mount compressed layers
-  uint64_t index_fs = mount_dwarfs(config.path_dir_mount_layers, config.path_file_binary, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
+  [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_mount_layers, config.path_file_binary, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
   // Push config files to upper directories if they do not exist in it
   ns_config::push_config_files(config.path_dir_mount_layers, config.path_dir_upper_overlayfs);
-  // Check if should mount ciopfs
-  if (config.is_casefold)
-  {
-    mount_ciopfs(config.path_dir_mount_layers / std::to_string(index_fs-1)
-      , config.path_dir_mount_layers / std::to_string(index_fs)
-    );
-    ns_log::debug()("ciopfs is enabled");
-  }
+  // Use unionfs-fuse
   if ( config.overlay_type == ns_config::OverlayType::FUSE_UNIONFS )
   {
-    // Mount overlayfs
     mount_unionfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
       , config.path_dir_upper_overlayfs
       , config.path_dir_mount_overlayfs
@@ -95,6 +87,23 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
       , config.path_dir_mount_overlayfs
       , config.path_dir_work_overlayfs
     );
+  }
+  // Put casefold over overlayfs or unionfs
+  if (config.is_casefold)
+  {
+    if(config.overlay_type == ns_config::OverlayType::BWRAP)
+    {
+      ns_log::warn()("casefold cannot be used with bwrap overlays");
+    }
+    else
+    {
+      mount_ciopfs(config.path_dir_mount_overlayfs, config.path_dir_mount_ciopfs);
+      ns_log::debug()("casefold is enabled");
+    }
+  }
+  else
+  {
+    ns_log::debug()("casefold is disabled");
   }
   // Spawn janitor, make it permissive since flatimage works without it
   elog_expected("Could not spawn janitor: {}", spawn_janitor());
