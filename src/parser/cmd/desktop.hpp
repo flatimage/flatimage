@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include <filesystem>
 #include <print>
 
@@ -321,54 +320,6 @@ namespace fs = std::filesystem;
   return {};
 }
 
-/**
- * @brief Configures .bashrc to contain proper XDG environment configuration
- * 
- * @param path_dir_home Path to the HOME directory
- */
-inline void integrate_bash(fs::path const& path_dir_home)
-{
-  fs::path path_file_bashrc = path_dir_home / ".bashrc";
-
-  // If a backup was already made, then the integration process was completed
-  fs::path path_file_bashrc_backup = path_dir_home / ".bashrc.flatimage.bak";
-  dreturn_if(fs::exists(path_file_bashrc_backup), "FlatImage backup exists in {}"_fmt(path_file_bashrc_backup));
-
-  // Location where flatimage stores desktop entries, icons, and mimetypes.
-  fs::path path_dir_data = path_dir_home / ".local" / "share";
-
-  // Check if XDG_DATA_HOME contain ~/.local/share
-  if (auto str_xdg_data_home = ns_env::get_expected("XDG_DATA_HOME"); str_xdg_data_home)
-  {
-    dreturn_if(fs::path(str_xdg_data_home.value()) == path_dir_data, "Found '{}' in XDG_DATA_HOME"_fmt(path_dir_data));
-  } // if
-
-  // Check if XDG_DATA_DIRS contain ~/.local/share
-  if (auto str_xdg_data_dirs = ns_env::get_expected("XDG_DATA_DIRS"); str_xdg_data_dirs)
-  {
-    auto vec_path_dirs = ns_vector::from_string<std::vector<fs::path>>(str_xdg_data_dirs.value(), ':');
-    auto search = std::ranges::find(vec_path_dirs, path_dir_data, [](fs::path const& e)
-    {
-      std::error_code ec;
-      return fs::canonical(e,ec);
-    });
-    dreturn_if(search != std::ranges::end(vec_path_dirs), "Found '{}' in XDG_DATA_DIRS"_fmt(path_dir_data));
-  } // if
-
-  // Backup if exists
-  if (fs::exists(path_file_bashrc))
-  {
-    fs::copy_file(path_file_bashrc, path_file_bashrc_backup);
-    ns_log::info()("Saved a backup of ~/.bashrc in '{}'", path_file_bashrc_backup);
-  }
-
-  // Integrate
-  std::ofstream of_bashrc{path_file_bashrc, std::ios::app};
-  of_bashrc << "export XDG_DATA_DIRS=\"$HOME/.local/share:$XDG_DATA_DIRS\"";
-  of_bashrc.close();
-  ns_log::info()("Modified XDG_DATA_DIRS in ~/.bashrc");
-}
-
 } // namespace
 
 /**
@@ -391,23 +342,6 @@ inline void integrate_bash(fs::path const& path_dir_home)
   // Get HOME directory
   fs::path path_dir_home = Expect(ns_env::get_expected("HOME"));
 
-  // Check if XDG_DATA_DIRS contains ~/.local/bin
-  if (auto cstr_shell = ns_env::get_expected("SHELL"))
-  {
-    std::string str_shell{cstr_shell.value()};
-    if ( cstr_shell and str_shell.ends_with("bash") )
-    {
-      integrate_bash(path_dir_home);
-    }
-    else
-    {
-      ns_log::error()("Unsupported shell '{}' for integration", str_shell);
-    }
-  }
-  else
-  {
-    ns_log::error()("SHELL environment variable is undefined");
-  }
   // Create desktop entry
   if(desktop.get_integrations().contains(IntegrationItem::ENTRY))
   {
