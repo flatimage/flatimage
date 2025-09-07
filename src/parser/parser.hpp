@@ -362,20 +362,21 @@ using namespace ns_parser::ns_interface;
         return CmdType(CmdExit{});
       }
       auto message = ns_match::match(args.pop_front("Missing argument for 'fim-help'"),
-        ns_match::equal("exec")     >>=  ns_cmd::ns_help::exec_usage(),
-        ns_match::equal("root")     >>=  ns_cmd::ns_help::root_usage(),
-        ns_match::equal("perms")    >>=  ns_cmd::ns_help::perms_usage(),
-        ns_match::equal("env")      >>=  ns_cmd::ns_help::env_usage(),
-        ns_match::equal("desktop")  >>=  ns_cmd::ns_help::desktop_usage(),
-        ns_match::equal("layer")    >>=  ns_cmd::ns_help::layer_usage(),
         ns_match::equal("bind")     >>=  ns_cmd::ns_help::bind_usage(),
-        ns_match::equal("commit")   >>=  ns_cmd::ns_help::commit_usage(),
-        ns_match::equal("notify")   >>=  ns_cmd::ns_help::notify_usage(),
-        ns_match::equal("casefold") >>=  ns_cmd::ns_help::casefold_usage(),
         ns_match::equal("boot")     >>=  ns_cmd::ns_help::boot_usage(),
-        ns_match::equal("instance") >>=  ns_cmd::ns_help::instance_usage()
+        ns_match::equal("casefold") >>=  ns_cmd::ns_help::casefold_usage(),
+        ns_match::equal("commit")   >>=  ns_cmd::ns_help::commit_usage(),
+        ns_match::equal("desktop")  >>=  ns_cmd::ns_help::desktop_usage(),
+        ns_match::equal("env")      >>=  ns_cmd::ns_help::env_usage(),
+        ns_match::equal("exec")     >>=  ns_cmd::ns_help::exec_usage(),
+        ns_match::equal("instance") >>=  ns_cmd::ns_help::instance_usage(),
+        ns_match::equal("layer")    >>=  ns_cmd::ns_help::layer_usage(),
+        ns_match::equal("notify")   >>=  ns_cmd::ns_help::notify_usage(),
+        ns_match::equal("perms")    >>=  ns_cmd::ns_help::perms_usage(),
+        ns_match::equal("root")     >>=  ns_cmd::ns_help::root_usage(),
+        ns_match::equal("version")  >>=  ns_cmd::ns_help::version_usage()
       );
-      std::cout << message.value_or("Invalid argument for help command") << '\n';
+      std::cout << message.value_or("Invalid argument for help command\n");
       return CmdType(CmdExit{});
     }
   ));
