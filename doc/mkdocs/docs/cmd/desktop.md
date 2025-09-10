@@ -33,7 +33,8 @@ create a `json` file with the integration data, assume we create a file named
 {
   "name": "MyApp",
   "icon": "./my_app.png",
-  "categories": ["System","Audio"]
+  "categories": ["System","Audio"],
+  "integrations": ["ENTRY", "MIMETYPE", "ICON"]
 }
 ```
 
@@ -79,7 +80,56 @@ Examples:
 
 ## How it Works
 
-FlatImage installs desktop entries in `$HOME/.local/share/applications`, icons
-are installed in `$HOME/.local/share/icons` and mimetypes are installed in
-`$HOME/.local/share/mime`. The user must define `XDG_DATA_HOME` to `$HOME/.local/share`
-or `XDG_DATA_DIRS` to contain the path `$HOME/.local/share`.
+Consider the following integration setup:
+
+```json
+{
+  "name": "MyApp",
+  "icon": "./my_app.png",
+  "categories": ["System","Audio"],
+  "integrations": ["ENTRY", "MIMETYPE", "ICON"]
+}
+```
+
+**XDG_DATA_HOME**
+
+* If `XDG_DATA_HOME` is undefined, it falls back to `$HOME/.local/share`.
+* If `HOME` is undefined, the integration does not take place.
+
+**Desktop Entry**
+
+Enabled with `fim-desktop enable entry`, this option creates a desktop entry in
+`$XDG_DATA_HOME/applications/flatimage-MyApp.desktop` that executes the application
+from its current path. If the file is moved or its name is changed, the next
+execution updates the desktop entry with the correct path to the application.
+
+**Mime Type**
+
+Enabled with `fim-desktop enable mimetype`, this option creates two files:
+
+1. `$XDG_DATA_HOME/mime/packages/flatimage-MyApp.xml`: This is a mime type specific for
+the packaged application, it matches the base name of the full path and is required
+to show an application specific icon in the file manager.
+2. `$XDG_DATA_HOME/mime/packages/flatimage.xml`: This is a generic FlatImage mime type
+that match files with the glob pattern `*.flatimage`.
+
+The mime database is updated after the first execution after the desktop integration is
+configured with `fim-desktop setup ...`, and also when the basename of the application file
+changes.
+
+**Icon**
+
+This enables the integration of the `FlatImage` generic icon, and the application specific
+icon.
+
+For the application specific icons, in case they are in the `svg` format:
+
+- `$XDG_DATA_HOME/icons/hicolor/scalable/mimetypes/application-flatimage_MyApp.svg`
+- `$XDG_DATA_HOME/icons/hicolor/scalable/apps/flatimage_MyApp.svg`
+
+For the application specific icons, in case they are in the `png` format:
+
+- `$XDG_DATA_HOME/icons/hicolor/{}x{}/mimetypes/application-flatimage_MyApp.png`
+- `$XDG_DATA_HOME/icons/hicolor/{}x{}/apps/application-flatimage_MyApp.png`
+
+Where the placeholders `{}x{}` are replaced by equal values of `16,22,24,32,48,64,96,128,256`.
