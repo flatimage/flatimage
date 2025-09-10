@@ -51,12 +51,12 @@ class TestFimDesktop(unittest.TestCase):
     return result.stdout.strip()
 
   
-  def make_json_setup(self, integrations):
+  def make_json_setup(self, integrations, name):
     with open(self.file_desktop, "w") as file:
       file.write(
       """{""" "\n"
       rf"""  "integrations": [{integrations}],""" "\n"
-      """  "name": "MyCoolApp",""" "\n"
+      rf"""  "name": "{name}",""" "\n"
       rf"""  "icon": "{self.dir_script}/icon.png",""" "\n"
       """  "categories": ["System", "Network"]""" "\n"
       """}""" "\n"
@@ -108,8 +108,6 @@ class TestFimDesktop(unittest.TestCase):
         contents = file.read()
         self.assertEqual(expected, contents)
 
-
-
   def check_icons(self, name, path_dir_xdg, ext, fun):
     for i in [16,22,24,32,48,64,96,128,256]:
       fun((path_dir_xdg / "icons" / "hicolor" / f"{i}x{i}" / "apps" / f"flatimage_{name}.{ext}").exists())
@@ -135,13 +133,14 @@ class TestFimDesktop(unittest.TestCase):
         self.assertEqual(expected, contents)
 
   def test_setup(self):
-    self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''')
+    name = "MyApp"
+    self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''', name)
     output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
     import json
     desktop = json.loads(output)
     self.assertEqual(desktop["categories"], ["Network", "System"])
     self.assertEqual(desktop["integrations"], ["ENTRY", "MIMETYPE", "ICON"])
-    self.assertEqual(desktop["name"], "MyCoolApp")
+    self.assertEqual(desktop["name"], name)
     self.assertEqual(len(desktop), 3)
     # Icon missing
     with open(self.file_desktop, "r") as file:
@@ -164,16 +163,15 @@ class TestFimDesktop(unittest.TestCase):
     self.assertIn("Failed to open file 'some-file.json' for desktop integration", output)
 
   def setup_alt_home(self):
-    name = "MyCoolApp"
     path_dir_home = self.dir_script / "home_tmp"
     path_dir_xdg = path_dir_home / ".local" / "share"
     shutil.rmtree(path_dir_home, ignore_errors=True)
     path_dir_home.mkdir(parents=True, exist_ok=False)
     os.environ["HOME"] = str(path_dir_home)
-    return (name, path_dir_xdg, path_dir_home)
+    return (path_dir_xdg, path_dir_home)
 
-  def check_enabled_options(self, fchk1 ,fchk2, fchk3):
-    name, path_dir_xdg, path_dir_home = self.setup_alt_home()
+  def check_enabled_options(self, name, fchk1 ,fchk2, fchk3):
+    path_dir_xdg, path_dir_home = self.setup_alt_home()
     self.run_cmd("fim-exec", "echo")
     self.check_mime(name, path_dir_xdg, fchk1)
     self.check_icons(name, path_dir_xdg, "png", fchk2)
@@ -183,45 +181,47 @@ class TestFimDesktop(unittest.TestCase):
  
   def test_enable(self):
     # Setup integration
-    self.make_json_setup("")
+    name = "MyApp"
+    self.make_json_setup("", name)
     self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
     # Nothing enabled
-    self.check_enabled_options(self.assertFalse, self.assertFalse, self.assertFalse)
+    self.check_enabled_options(name, self.assertFalse, self.assertFalse, self.assertFalse)
     # Mimetype
     self.run_cmd("fim-desktop", "enable", "mimetype")
-    self.check_enabled_options(self.assertTrue, self.assertFalse, self.assertFalse)
+    self.check_enabled_options(name, self.assertTrue, self.assertFalse, self.assertFalse)
     # Icon
     self.run_cmd("fim-desktop", "enable", "icon")
-    self.check_enabled_options(self.assertFalse, self.assertTrue, self.assertFalse)
+    self.check_enabled_options(name, self.assertFalse, self.assertTrue, self.assertFalse)
     # Desktop entry
     self.run_cmd("fim-desktop", "enable", "entry")
-    self.check_enabled_options(self.assertFalse, self.assertFalse, self.assertTrue)
+    self.check_enabled_options(name, self.assertFalse, self.assertFalse, self.assertTrue)
     # All
     self.run_cmd("fim-desktop", "enable", "entry,mimetype,icon")
-    self.check_enabled_options(self.assertTrue, self.assertTrue, self.assertTrue)
+    self.check_enabled_options(name, self.assertTrue, self.assertTrue, self.assertTrue)
     # None
     self.run_cmd("fim-desktop", "enable", "none")
-    self.check_enabled_options(self.assertFalse, self.assertFalse, self.assertFalse)
+    self.check_enabled_options(name, self.assertFalse, self.assertFalse, self.assertFalse)
 
   def test_enable_json(self):
+    name = "MyApp"
     # Mimetype
-    self.make_json_setup('''"MIMETYPE"''')
+    self.make_json_setup('''"MIMETYPE"''', name)
     self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.check_enabled_options(self.assertTrue, self.assertFalse, self.assertFalse)
+    self.check_enabled_options(name, self.assertTrue, self.assertFalse, self.assertFalse)
     # Icons
-    self.make_json_setup('''"ICON"''')
+    self.make_json_setup('''"ICON"''', name)
     self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.check_enabled_options(self.assertFalse, self.assertTrue, self.assertFalse)
+    self.check_enabled_options(name, self.assertFalse, self.assertTrue, self.assertFalse)
     # Desktop entry
-    self.make_json_setup('''"ENTRY"''')
+    self.make_json_setup('''"ENTRY"''', name)
     self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.check_enabled_options(self.assertFalse, self.assertFalse, self.assertTrue)
+    self.check_enabled_options(name, self.assertFalse, self.assertFalse, self.assertTrue)
     # All
-    self.make_json_setup('''"ENTRY","MIMETYPE","ICON"''')
+    self.make_json_setup('''"ENTRY","MIMETYPE","ICON"''', name)
     self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.check_enabled_options(self.assertTrue, self.assertTrue, self.assertTrue)
+    self.check_enabled_options(name, self.assertTrue, self.assertTrue, self.assertTrue)
     # Invalid
-    self.make_json_setup('''"ICONN"''')
+    self.make_json_setup('''"ICONN"''', name)
     output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
     self.assertIn("Failed to deserialize json: Could not determine enum entry from 'ICONN'", output)
 
@@ -240,9 +240,10 @@ class TestFimDesktop(unittest.TestCase):
     self.assertIn("Could not determine enum entry from 'ICON2'", output)
 
   def test_path_change(self):
-    name, path_dir_xdg, _ = self.setup_alt_home()
+    name = "MyApp"
+    path_dir_xdg, _ = self.setup_alt_home()
     # Setup integration
-    self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''')
+    self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
     os.environ["FIM_DEBUG"] = "1"
     self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
     # First run integrates mime database
@@ -263,3 +264,21 @@ class TestFimDesktop(unittest.TestCase):
     self.check_entry(file_image, name, path_dir_xdg, self.assertTrue)
     output = self.run_cmd2(file_image, "fim-exec", "echo")
     self.assertIn("Skipping mime database update...", output)
+
+  def test_name_with_spaces(self):
+    name = "My App"
+    path_dir_xdg, _ = self.setup_alt_home()
+    # Setup integration
+    self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
+    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.run_cmd("fim-exec", "echo")
+    # Check for the correct files paths
+    self.check_enabled_options(name, self.assertTrue, self.assertTrue, self.assertTrue)
+
+  def test_name_with_slash(self):
+    name = "My/App"
+    path_dir_xdg, _ = self.setup_alt_home()
+    # Setup integration
+    self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
+    output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertIn("Application name cannot contain the '/' character", output)

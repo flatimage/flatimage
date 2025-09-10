@@ -453,6 +453,7 @@ namespace fs = std::filesystem;
       , Unexpected("Failed to open file '{}' for desktop integration"_fmt(path_file_json_src))
   );
   auto desktop = Expect(ns_db::ns_desktop::deserialize(file_json_src), "Failed to deserialize json: {}", __expected_ret.error());
+  qreturn_if(desktop.get_name().contains('/'), Unexpected("Application name cannot contain the '/' character"));
   // Validate icon
   fs::path path_file_icon = Expect(desktop.get_path_file_icon(), "Could not retrieve icon path field from json: {}", __expected_ret.error());
   std::string str_ext = (path_file_icon.extension() == ".svg")? "svg"
