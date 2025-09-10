@@ -147,7 +147,11 @@ inline Controller::~Controller()
   qreturn_if(m_opt_pid_janitor < 0, std::unexpected("Failed to fork janitor"));
 
   // Is parent
-  qreturn_if(m_opt_pid_janitor > 0, std::unexpected("Spawned janitor with PID '{}'"_fmt(*m_opt_pid_janitor)));
+  if(m_opt_pid_janitor > 0)
+  {
+    ns_log::debug()("Spawned janitor with PID '{}'"_fmt(*m_opt_pid_janitor));
+    return {};
+  }
 
   // Redirect stdout/stderr to a log file
   fs::path path_stdout = std::string{Expect(ns_env::get_expected("FIM_DIR_MOUNT"))} + ".janitor.stdout.log";
