@@ -164,7 +164,7 @@ class Location
     uint32_t m_line;
 
   public:
-    Location(
+    explicit Location(
         char const* str_file = __builtin_FILE()
       , uint32_t line = __builtin_LINE()
     )
@@ -233,7 +233,7 @@ class debug final : public Writer
   private:
     Location m_loc;
   public:
-    debug(Location location = {})
+    debug(Location location = Location())
       : Writer(location, Level::DEBUG, "D")
       , m_loc(location)
     {}
@@ -244,7 +244,7 @@ class info : public Writer
   private:
     Location m_loc;
   public:
-    info(Location location = {})
+    info(Location location = Location())
       : Writer(location, Level::INFO, "I")
       , m_loc(location)
     {}
@@ -255,7 +255,7 @@ class warn : public Writer
   private:
     Location m_loc;
   public:
-    warn(Location location = {})
+    warn(Location location = Location())
       : Writer(location, Level::WARN, "W")
       , m_loc(location)
     {}
@@ -266,7 +266,7 @@ class error : public Writer
   private:
     Location m_loc;
   public:
-    error(Location location = {})
+    error(Location location = Location())
       : Writer(location, Level::ERROR, "E")
       , m_loc(location)
     {}
@@ -277,7 +277,7 @@ class critical : public Writer
   private:
     Location m_loc;
   public:
-    critical(Location location = {})
+    critical(Location location = Location())
       : Writer(location, Level::CRITICAL, "C")
       , m_loc(location)
     {}
