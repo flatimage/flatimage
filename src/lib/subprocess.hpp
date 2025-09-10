@@ -584,13 +584,21 @@ template<typename T, typename... Args>
  * 
  * @param ret The Subprocess::wait() return value
  * @param msg The message to display on errors
- * @return Expected<int> The ret argument
  */
-[[maybe_unused]] inline Expected<int> log(Expected<int> const& ret, std::string_view msg)
+[[maybe_unused]] inline void log(Expected<int> const& ret, std::string_view msg)
 {
-  if ( not ret ) { ns_log::error()("{} was signalled"_fmt(msg)); }
-  if ( ret.value() != 0 ) { ns_log::error()("{} exited with non-zero exit code '{}'"_fmt(msg), ret.value()); }
-  return ret;
+  if ( not ret )
+  {
+    ns_log::error()("{} was signalled"_fmt(msg));
+  }
+  else if ( ret.value() == 0 )
+  {
+    ns_log::debug()("{} exited with code 0"_fmt(msg));
+  }
+  else
+  {
+    ns_log::error()("{} exited with non-zero exit code '{}'"_fmt(msg), ret.value());
+  }
 }
 
 } // namespace ns_subprocess

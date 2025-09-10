@@ -6,6 +6,7 @@ import subprocess
 import unittest
 import json
 from pathlib import Path
+import shutil
 
 class TestFimDesktop(unittest.TestCase):
 
@@ -18,10 +19,18 @@ class TestFimDesktop(unittest.TestCase):
     cls.home_host = os.environ["HOME"]
 
   def tearDown(self):
+    os.unsetenv("FIM_DEBUG")
     os.environ["HOME"] = self.home_host
     shutil.rmtree(self.dir_script / "home_tmp", ignore_errors=True)
     if Path.exists(self.file_desktop):
       os.unlink(self.file_desktop)
+    image_file = Path(self.file_image).parent / "temp.flatimage"
+    if Path.exists(image_file):
+      os.unlink(image_file)
+    image_dir = Path(self.file_image).parent / ".temp.flatimage.config"
+    if Path.exists(image_dir):
+      shutil.rmtree(image_dir)
+
 
   def run_cmd(self, *args):
     result = subprocess.run(
@@ -31,6 +40,16 @@ class TestFimDesktop(unittest.TestCase):
       text=True
     )
     return result.stdout.strip()
+
+  def run_cmd2(self, image, *args):
+    result = subprocess.run(
+      [image] + list(args),
+      stdout=subprocess.PIPE,
+      stderr=subprocess.STDOUT,
+      text=True
+    )
+    return result.stdout.strip()
+
   
   def make_json_setup(self, integrations):
     with open(self.file_desktop, "w") as file:
@@ -39,7 +58,7 @@ class TestFimDesktop(unittest.TestCase):
       rf"""  "integrations": [{integrations}],""" "\n"
       """  "name": "MyCoolApp",""" "\n"
       rf"""  "icon": "{self.dir_script}/icon.png",""" "\n"
-      """  "categories": ["System"]""" "\n"
+      """  "categories": ["System", "Network"]""" "\n"
       """}""" "\n"
     )
 
@@ -57,7 +76,7 @@ class TestFimDesktop(unittest.TestCase):
         r"""    <comment>FlatImage Application</comment>""" "\n"
         rf"""    <glob weight="100" pattern="{Path(self.file_image).name}"/>""" "\n"
         r"""    <sub-class-of type="application/x-executable"/>""" "\n"
-        r"""    <generic-icon name="application-x-executable"/>""" "\n"
+        r"""    <generic-icon name="application-flatimage"/>""" "\n"
         r"""  </mime-type>""" "\n"
         r"""</mime-info>""" "\n"
       )
@@ -81,7 +100,7 @@ class TestFimDesktop(unittest.TestCase):
         """    </magic>""" "\n"
         rf"""    <glob weight="50" pattern="*.flatimage"/>""" "\n"
         """    <sub-class-of type="application/x-executable"/>""" "\n"
-        """    <generic-icon name="application-x-executable"/>""" "\n"
+        """    <generic-icon name="application-flatimage"/>""" "\n"
         """  </mime-type>""" "\n"
         """</mime-info>""" "\n"
       )
@@ -93,9 +112,9 @@ class TestFimDesktop(unittest.TestCase):
 
   def check_icons(self, name, path_dir_xdg, ext, fun):
     for i in [16,22,24,32,48,64,96,128,256]:
-      fun((path_dir_xdg / "icons" / "hicolor" / f"{i}x{i}" / "apps" / f"application-flatimage_{name}.{ext}").exists())
+      fun((path_dir_xdg / "icons" / "hicolor" / f"{i}x{i}" / "apps" / f"flatimage_{name}.{ext}").exists())
 
-  def check_entry(self, name, path_dir_xdg, fun):
+  def check_entry(self, image, name, path_dir_xdg, fun):
     path_dir_entry = path_dir_xdg / "applications" / f"flatimage-{name}.desktop"
     # Check if it exists or not
     fun(path_dir_entry.exists())
@@ -106,11 +125,10 @@ class TestFimDesktop(unittest.TestCase):
         rf"""Name={name}""" "\n"
         """Type=Application""" "\n"
         rf'''Comment=FlatImage distribution of "{name}"''' "\n"
-        rf"""TryExec={self.file_image}""" "\n"
-        rf"""Exec="{self.file_image}" %F""" "\n"
-        rf"""Icon=application-flatimage_{name}""" "\n"
-        rf"""MimeType=application/flatimage_{name}""" "\n"
-        """Categories=System;""" "\n"
+        rf"""Exec="{image}" %F""" "\n"
+        rf"""Icon=flatimage_{name}""" "\n"
+        rf"""MimeType=application/flatimage_{name};""" "\n"
+        """Categories=Network;System;""" "\n"
       )
       with open(path_dir_entry, "r") as file:
         contents = file.read()
@@ -121,7 +139,7 @@ class TestFimDesktop(unittest.TestCase):
     output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
     import json
     desktop = json.loads(output)
-    self.assertEqual(desktop["categories"], ["System"])
+    self.assertEqual(desktop["categories"], ["Network", "System"])
     self.assertEqual(desktop["integrations"], ["ENTRY", "MIMETYPE", "ICON"])
     self.assertEqual(desktop["name"], "MyCoolApp")
     self.assertEqual(len(desktop), 3)
@@ -155,7 +173,7 @@ class TestFimDesktop(unittest.TestCase):
     self.run_cmd("fim-exec", "echo")
     self.check_mime(name, path_dir_xdg, fchk1)
     self.check_icons(name, path_dir_xdg, "png", fchk2)
-    self.check_entry(name, path_dir_xdg, fchk3)
+    self.check_entry(self.file_image, name, path_dir_xdg, fchk3)
     shutil.rmtree(path_dir_home, ignore_errors=True)
     path_dir_home.mkdir(parents=True, exist_ok=False)
  
@@ -216,3 +234,34 @@ class TestFimDesktop(unittest.TestCase):
     # Invalid arguments
     output = self.run_cmd("fim-desktop", "enable", "icon2")
     self.assertIn("Could not determine enum entry from 'ICON2'", output)
+
+  def test_path_change(self):
+    # Setup HOME path
+    name = "MyCoolApp"
+    path_dir_home = self.dir_script / "home_tmp"
+    path_dir_xdg = path_dir_home / ".local" / "share"
+    shutil.rmtree(path_dir_home, ignore_errors=True)
+    path_dir_home.mkdir(parents=True, exist_ok=False)
+    os.environ["HOME"] = str(path_dir_home)
+    # Setup integration
+    self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''')
+    os.environ["FIM_DEBUG"] = "1"
+    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    # First run integrates mime database
+    output = self.run_cmd("fim-exec", "echo")
+    self.assertIn("Updating mime database...", output)
+    # Second run detects it is already integrated
+    output = self.run_cmd("fim-exec", "echo")
+    self.assertIn("Skipping mime database update...", output)
+    # Check if entry has correct binary path
+    self.check_entry(self.file_image, name, path_dir_xdg, self.assertTrue)
+    # Copy file to another path
+    file_image = Path(self.file_image).parent / "temp.flatimage"
+    shutil.copyfile(self.file_image, file_image)
+    os.chmod(file_image, 0o755)
+    # Run again
+    output = self.run_cmd2(file_image, "fim-exec", "echo")
+    self.assertIn("Updating mime database...", output)
+    self.check_entry(file_image, name, path_dir_xdg, self.assertTrue)
+    output = self.run_cmd2(file_image, "fim-exec", "echo")
+    self.assertIn("Skipping mime database update...", output)

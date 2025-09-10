@@ -34,9 +34,11 @@ namespace ns_path
 [[nodiscard]] inline Expected<fs::path> create_if_not_exists(fs::path const& path) noexcept
 {
   std::error_code ec;
-  if(not fs::exists(path, ec) and not fs::create_directories(path))
+  if(not fs::exists(path, ec) and not fs::create_directories(path, ec))
   {
-    return Unexpected("Could not create directory '{}'"_fmt(path));
+    return (ec)?
+        Unexpected("Could not create directory '{}'"_fmt(path))
+      : Unexpected("Could not create directory '{}': {}"_fmt(path, ec.message()));
   }
   return path;
 }
