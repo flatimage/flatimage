@@ -533,15 +533,18 @@ inline Subprocess& Subprocess::spawn()
   argv_custom[m_args.size()] = nullptr;
 
   // Set environment variables
-  std::ranges::for_each(m_env, [](auto&& e)
+  for(auto&& entry : m_env)
   {
-    auto entry = ns_vector::from_string(e, '=');
-    ereturn_if(entry.size() < 2, "Invalid environment variable '{}'"_fmt(e));
-    setenv(entry.front().c_str()
-      , ns_string::from_container(std::next(entry.begin()), entry.end()).c_str()
-      , 1
+    auto pos_key = entry.find('=');
+    econtinue_if(pos_key == std::string::npos or pos_key == 0
+      , "Invalid environment variable '{}'"_fmt(entry)
     );
-  });
+    std::string key = entry.substr(0, pos_key);
+    std::string val = entry.substr(pos_key+1);
+    elog_if(setenv(key.c_str(), val.c_str(), 1) < 0
+      , "Could not set environment variable: {}"_fmt(strerror(errno))
+    );
+  }
 
   // Create environment for execve
   auto envp_custom = std::make_unique<const char*[]>(m_env.size() + 1);
