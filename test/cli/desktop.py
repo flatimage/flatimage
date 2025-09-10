@@ -19,7 +19,7 @@ class TestFimDesktop(unittest.TestCase):
     cls.home_host = os.environ["HOME"]
 
   def tearDown(self):
-    os.unsetenv("FIM_DEBUG")
+    os.environ["FIM_DEBUG"] = "0"
     os.environ["HOME"] = self.home_host
     shutil.rmtree(self.dir_script / "home_tmp", ignore_errors=True)
     if Path.exists(self.file_desktop):
@@ -163,13 +163,17 @@ class TestFimDesktop(unittest.TestCase):
     output = self.run_cmd("fim-desktop", "setup", "some-file.json")
     self.assertIn("Failed to open file 'some-file.json' for desktop integration", output)
 
-  def check_enabled_options(self, fchk1 ,fchk2, fchk3):
+  def setup_alt_home(self):
     name = "MyCoolApp"
     path_dir_home = self.dir_script / "home_tmp"
     path_dir_xdg = path_dir_home / ".local" / "share"
     shutil.rmtree(path_dir_home, ignore_errors=True)
     path_dir_home.mkdir(parents=True, exist_ok=False)
     os.environ["HOME"] = str(path_dir_home)
+    return (name, path_dir_xdg, path_dir_home)
+
+  def check_enabled_options(self, fchk1 ,fchk2, fchk3):
+    name, path_dir_xdg, path_dir_home = self.setup_alt_home()
     self.run_cmd("fim-exec", "echo")
     self.check_mime(name, path_dir_xdg, fchk1)
     self.check_icons(name, path_dir_xdg, "png", fchk2)
@@ -236,13 +240,7 @@ class TestFimDesktop(unittest.TestCase):
     self.assertIn("Could not determine enum entry from 'ICON2'", output)
 
   def test_path_change(self):
-    # Setup HOME path
-    name = "MyCoolApp"
-    path_dir_home = self.dir_script / "home_tmp"
-    path_dir_xdg = path_dir_home / ".local" / "share"
-    shutil.rmtree(path_dir_home, ignore_errors=True)
-    path_dir_home.mkdir(parents=True, exist_ok=False)
-    os.environ["HOME"] = str(path_dir_home)
+    name, path_dir_xdg, _ = self.setup_alt_home()
     # Setup integration
     self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''')
     os.environ["FIM_DEBUG"] = "1"
