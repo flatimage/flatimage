@@ -23,6 +23,8 @@ Usage: fim-desktop <enable> [entry,mimetype,icon,none]
    <mimetype> : Enables the mimetype
    <icon> : Enables the icon for the file manager and desktop entry
    <none> : Disables desktop integrations
+Usage: fim-desktop <clean>
+   <clean> : Cleans the desktop integration files from XDG_DATA_HOME
 ```
 
 To setup the desktop integration for a flatimage package, the first step is to
@@ -62,11 +64,12 @@ $ ./app.flatimage fim-desktop enable entry,mimetype,icon
 
 **Erase entries**
 
-To erase all desktop entries and icons created by flatimage, you can use the
-command:
+To erase all desktop integration files created by flatimage, use the command:
 
 ```bash
-$ find ~/.local/share -iname "*flatimage*" -exec rm -v "{}" \;
+$ ./app.flatimage fim-desktop clean
+# (optional) Disable desktop integration to avoid the creation of files on the next execution
+$ ./app.flatimage fim-desktop enable none
 ```
 
 **xdg-open**

@@ -173,34 +173,44 @@ using namespace ns_parser::ns_interface;
       CmdDesktop cmd;
       // Get operation
       cmd.op = Expect(CmdDesktopOp::from_string(
-        Expect(args.pop_front("Missing op for 'fim-desktop' (enable,setup)"))
+        Expect(args.pop_front("Missing op for 'fim-desktop' (enable,setup,clean)"))
       ));
-      qreturn_if( cmd.op == CmdDesktopOp::NONE, Unexpected("Invalid desktop operation"));
       // Get operation specific arguments
-      if ( cmd.op == CmdDesktopOp::SETUP )
+      switch(cmd.op)
       {
-        cmd.arg = fs::path{Expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))};
-      }
-      else
-      {
-        // Get comma separated argument list
-        std::vector<std::string> vec_items =
-            Expect(args.pop_front("Missing arguments for 'enable' (desktop,entry,mimetype,none)"))
-          | std::views::split(',')
-          | std::ranges::to<std::vector<std::string>>();
-        // Create items
-        std::set<ns_desktop::IntegrationItem> set_enum;
-        for(auto&& item : vec_items)
+        case CmdDesktopOp::SETUP:
         {
-          set_enum.insert(Expect(ns_desktop::IntegrationItem::from_string(item)));
+          cmd.arg = fs::path{Expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))};
         }
-        // Check for 'none'
-        if(set_enum.size() > 1 and set_enum.contains(ns_desktop::IntegrationItem::NONE))
+        break;
+        case CmdDesktopOp::ENABLE:
         {
-          return Unexpected("'none' option should not be used with others");
+          // Get comma separated argument list
+          std::vector<std::string> vec_items =
+              Expect(args.pop_front("Missing arguments for 'enable' (desktop,entry,mimetype,none)"))
+            | std::views::split(',')
+            | std::ranges::to<std::vector<std::string>>();
+          // Create items
+          std::set<ns_desktop::IntegrationItem> set_enum;
+          for(auto&& item : vec_items)
+          {
+            set_enum.insert(Expect(ns_desktop::IntegrationItem::from_string(item)));
+          }
+          // Check for 'none'
+          if(set_enum.size() > 1 and set_enum.contains(ns_desktop::IntegrationItem::NONE))
+          {
+            return Unexpected("'none' option should not be used with others");
+          }
+          // Check for trailing arguments
+          cmd.arg = set_enum;
         }
-        // Check for trailing arguments
-        cmd.arg = set_enum;
+        break;
+        case CmdDesktopOp::CLEAN:
+        break;
+        case CmdDesktopOp::NONE:
+        {
+          return Unexpected("Invalid desktop operation");
+        }
       }
       qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-desktop: {}"_fmt(args.data())));
       return CmdType(cmd);
@@ -528,7 +538,12 @@ using namespace ns_parser::ns_interface;
         auto ptr_path_file_src_json = std::get_if<fs::path>(&cmd->arg);
         qreturn_if(ptr_path_file_src_json == nullptr, Unexpected("Could not convert variant value to fs::path"));
         Expect(ns_desktop::setup(config, *ptr_path_file_src_json));
-      } // case
+      }
+      break;
+      case ns_parser::CmdDesktopOp::CLEAN:
+      {
+        Expect(ns_desktop::clean(config));
+      }
       break;
       case ns_parser::CmdDesktopOp::NONE: return Unexpected("Invalid desktop operation");
     } // switch

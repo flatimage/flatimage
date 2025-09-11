@@ -43,7 +43,7 @@ struct CmdEnv
   std::vector<std::string> environment;
 };
 
-ENUM(CmdDesktopOp,SETUP,ENABLE);
+ENUM(CmdDesktopOp,SETUP,ENABLE,CLEAN);
 struct CmdDesktop
 {
   CmdDesktopOp op;

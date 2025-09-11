@@ -151,6 +151,10 @@ inline std::string desktop_usage()
       { "icon", "Enables the icon for the file manager and desktop entry"},
       { "none", "Disables desktop integrations"},
     })
+    .with_usage("fim-desktop <clean>")
+    .with_args({
+      { "clean", "Cleans the desktop integration files from XDG_DATA_HOME" },
+    })
     .get();
 }
 

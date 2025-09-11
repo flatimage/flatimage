@@ -28,8 +28,8 @@ class TestFimDesktop(unittest.TestCase):
     if Path.exists(image_file):
       os.unlink(image_file)
     image_dir = Path(self.file_image).parent / ".temp.flatimage.config"
-    if Path.exists(image_dir):
-      shutil.rmtree(image_dir)
+    # if Path.exists(image_dir):
+    #   shutil.rmtree(image_dir, )
 
 
   def run_cmd(self, *args):
@@ -62,28 +62,10 @@ class TestFimDesktop(unittest.TestCase):
       """}""" "\n"
     )
 
-  def check_mime(self, name, path_dir_xdg, fun):
-    self.maxDiff = None
-    path_dir_mime_generic = path_dir_xdg / "mime" / "packages" / "flatimage.xml"
-    path_dir_mime = path_dir_xdg / "mime" / "packages" / f"flatimage-{name}.xml"
-    fun(path_dir_mime_generic.exists())
-    fun(path_dir_mime.exists())
-    if path_dir_mime.exists():
-      expected = (
-        r"""<?xml version="1.0" encoding="UTF-8"?>""" "\n"
-        r"""<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">""" "\n"
-        rf"""  <mime-type type="application/flatimage_{name}">""" "\n"
-        r"""    <comment>FlatImage Application</comment>""" "\n"
-        rf"""    <glob weight="100" pattern="{Path(self.file_image).name}"/>""" "\n"
-        r"""    <sub-class-of type="application/x-executable"/>""" "\n"
-        r"""    <generic-icon name="application-flatimage"/>""" "\n"
-        r"""  </mime-type>""" "\n"
-        r"""</mime-info>""" "\n"
-      )
-      with open(path_dir_mime, 'r') as file:
-        contents = file.read()
-        self.assertEqual(expected, contents)
-    if path_dir_mime_generic.exists():
+  def check_mime_generic(self, name, path_dir_xdg, fun):
+    path_file_mime_generic = path_dir_xdg / "mime" / "packages" / "flatimage.xml"
+    fun(path_file_mime_generic.exists())
+    if path_file_mime_generic.exists():
       expected = (
         """<?xml version="1.0" encoding="UTF-8"?>""" "\n"
         """<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">""" "\n"
@@ -104,7 +86,26 @@ class TestFimDesktop(unittest.TestCase):
         """  </mime-type>""" "\n"
         """</mime-info>""" "\n"
       )
-      with open(path_dir_mime_generic, 'r') as file:
+      with open(path_file_mime_generic, 'r') as file:
+        contents = file.read()
+        self.assertEqual(expected, contents)
+
+  def check_mime(self, name, path_dir_xdg, fun):
+    path_file_mime = path_dir_xdg / "mime" / "packages" / f"flatimage-{name}.xml"
+    fun(path_file_mime.exists())
+    if path_file_mime.exists():
+      expected = (
+        r"""<?xml version="1.0" encoding="UTF-8"?>""" "\n"
+        r"""<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">""" "\n"
+        rf"""  <mime-type type="application/flatimage_{name}">""" "\n"
+        r"""    <comment>FlatImage Application</comment>""" "\n"
+        rf"""    <glob weight="100" pattern="{Path(self.file_image).name}"/>""" "\n"
+        r"""    <sub-class-of type="application/x-executable"/>""" "\n"
+        r"""    <generic-icon name="application-flatimage"/>""" "\n"
+        r"""  </mime-type>""" "\n"
+        r"""</mime-info>""" "\n"
+      )
+      with open(path_file_mime, 'r') as file:
         contents = file.read()
         self.assertEqual(expected, contents)
 
@@ -174,6 +175,7 @@ class TestFimDesktop(unittest.TestCase):
     path_dir_xdg, path_dir_home = self.setup_alt_home()
     self.run_cmd("fim-exec", "echo")
     self.check_mime(name, path_dir_xdg, fchk1)
+    self.check_mime_generic(name, path_dir_xdg, fchk1)
     self.check_icons(name, path_dir_xdg, "png", fchk2)
     self.check_entry(self.file_image, name, path_dir_xdg, fchk3)
     shutil.rmtree(path_dir_home, ignore_errors=True)
@@ -282,3 +284,25 @@ class TestFimDesktop(unittest.TestCase):
     self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
     output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
     self.assertIn("Application name cannot contain the '/' character", output)
+
+  def test_clean(self):
+    # Clean without setup
+    output = self.run_cmd("fim-desktop", "clean")
+    self.assertIn("Could not parse json file", output)
+    # Setup integration
+    name = "MyApp"
+    path_dir_xdg, _ = self.setup_alt_home()
+    self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''', name)
+    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.run_cmd("fim-exec", "echo")
+    # All enabled
+    self.check_mime(name, path_dir_xdg, self.assertTrue)
+    self.check_mime_generic(name, path_dir_xdg, self.assertTrue)
+    self.check_entry(self.file_image, name, path_dir_xdg, self.assertTrue)
+    self.check_icons(name, path_dir_xdg, 'png', self.assertTrue)
+    self.run_cmd("fim-desktop", "clean")
+    # All removed
+    self.check_mime(name, path_dir_xdg, self.assertFalse)
+    self.check_mime_generic(name, path_dir_xdg, self.assertTrue)
+    self.check_entry(self.file_image, name, path_dir_xdg, self.assertFalse)
+    self.check_icons(name, path_dir_xdg, 'png', self.assertFalse)

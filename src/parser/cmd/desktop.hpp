@@ -29,14 +29,19 @@ using IntegrationItem = ns_db::ns_desktop::IntegrationItem;
 namespace
 {
 
+// MIME type icon
 constexpr std::string_view const template_dir_mimetype = "icons/hicolor/{}x{}/mimetypes";
+constexpr std::string_view const template_file_mime = "application-flatimage_{}.png";
+// Application icon
 constexpr std::string_view const template_dir_apps = "icons/hicolor/{}x{}/apps";
-constexpr std::string_view const template_file_icon = "flatimage_{}.png";
-constexpr std::string_view const template_file_icon_mime = "application-flatimage_{}.png";
-constexpr std::string_view const template_dir_mimetype_scalable = "icons/hicolor/scalable/mimetypes";
+constexpr std::string_view const template_file_app = "flatimage_{}.png";
+// MIME type icon (scalable)
+constexpr std::string_view const template_dir_mime_scalable = "icons/hicolor/scalable/mimetypes";
+constexpr std::string_view const template_file_mime_scalable = "application-flatimage_{}.svg";
+// Application type icon (scalable)
 constexpr std::string_view const template_dir_apps_scalable = "icons/hicolor/scalable/apps";
-constexpr std::string_view const template_file_icon_scalable = "flatimage_{}.svg";
-constexpr std::string_view const template_file_icon_scalable_mime = "application-flatimage_{}.svg";
+constexpr std::string_view const template_file_app_scalable = "flatimage_{}.svg";
+// PNG target image sizes
 constexpr const std::array<uint32_t, 9> arr_sizes {16,22,24,32,48,64,96,128,256};
 
 namespace fs = std::filesystem;
@@ -46,34 +51,70 @@ namespace fs = std::filesystem;
  * @brief Constructs the path to the png icon file
  * 
  * @param name_app The flatimage application name
- * @param template_dir The template path to the icon's directory
  * @param size The size of the icon, e.g., 32x32, 64x64
- * @return The constructed icon path 
+ * @return Expected<std::pair<fs::path,fs::path>> Paths to the mime type and application icons,
+ * or the respective error
  */
-[[nodiscard]] Expected<fs::path> get_path_file_icon_png(std::string_view name_app
-  , std::string_view template_dir
-  , std::string_view template_file
-  , uint32_t size) noexcept
+[[nodiscard]] Expected<std::pair<fs::path,fs::path>> get_path_file_icon_png(std::string_view name_app, uint32_t size)
 {
-  return Expect(ns_env::xdg_data_home<fs::path>())
-    / std::vformat(template_dir, std::make_format_args(size, size))
-    / std::vformat(template_file, std::make_format_args(name_app));
+  fs::path path_file_mime = Expect(ns_env::xdg_data_home<fs::path>())
+    / std::vformat(template_dir_mimetype, std::make_format_args(size, size))
+    / std::vformat(template_file_mime, std::make_format_args(name_app));
+  fs::path path_file_app = Expect(ns_env::xdg_data_home<fs::path>())
+    / std::vformat(template_dir_apps, std::make_format_args(size, size))
+    / std::vformat(template_file_app, std::make_format_args(name_app));
+  return std::make_pair(path_file_mime,path_file_app);
 }
 
 /**
  * @brief Constructs the path to the svg icon file
  * 
  * @param name_app The flatimage application name
- * @param template_dir The template path to the icon's directory
- * @return The constructed icon path 
+ * @return Expected<std::pair<fs::path,fs::path>> Paths to the mime type and application icons,
+ * or the respective error
  */
-[[nodiscard]] Expected<fs::path> get_path_file_icon_svg(std::string_view name_app
-  , std::string_view template_dir
-  , std::string_view template_file) noexcept
+[[nodiscard]] Expected<std::pair<fs::path,fs::path>> get_path_file_icon_svg(std::string_view name_app)
 {
-  return Expect(ns_env::xdg_data_home<fs::path>())
-    / template_dir
-    / std::vformat(template_file, std::make_format_args(name_app));
+  fs::path path_file_mime = Expect(ns_env::xdg_data_home<fs::path>())
+    / template_dir_mime_scalable
+    / std::vformat(template_file_mime_scalable, std::make_format_args(name_app));
+  fs::path path_file_app = Expect(ns_env::xdg_data_home<fs::path>())
+    / template_dir_apps_scalable
+    / std::vformat(template_file_app_scalable, std::make_format_args(name_app));
+  return std::make_pair(path_file_mime,path_file_app);
+}
+
+/**
+ * @brief Get the file path to the desktop entry
+ * 
+ * @return Expected<fs::path> The path to the desktop entry file, or the respective error
+ */
+[[nodiscard]] Expected<fs::path> get_path_file_desktop(ns_db::ns_desktop::Desktop const& desktop)
+{
+  auto xdg_data_home = Expect(ns_env::xdg_data_home<fs::path>());
+  return xdg_data_home / "applications/flatimage-{}.desktop"_fmt(desktop.get_name());
+}
+
+/**
+ * @brief Get the file path to the application specific mimetype file
+ * 
+ * @return Expected<fs::path> The path to the mimetype file, or the respective error
+ */
+[[nodiscard]] Expected<fs::path> get_path_file_mimetype(ns_db::ns_desktop::Desktop const& desktop)
+{
+  fs::path xdg_data_home = Expect(ns_env::xdg_data_home<fs::path>());
+  return xdg_data_home / "mime/packages/flatimage-{}.xml"_fmt(desktop.get_name());
+}
+
+/**
+ * @brief Get the file path to the generic mimetype file
+ * 
+ * @return Expected<fs::path> The path to the generic mimetype file, or the respective error
+ */
+[[nodiscard]] Expected<fs::path> get_path_file_mimetype_generic()
+{
+  fs::path xdg_data_home = Expect(ns_env::xdg_data_home<fs::path>());
+  return xdg_data_home / "mime/packages/flatimage.xml";
 }
 
 /**
@@ -86,9 +127,8 @@ namespace fs = std::filesystem;
 [[nodiscard]] Expected<void> integrate_desktop_entry(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_binary)
 {
   std::error_code ec;
-  auto xdg_data_home = Expect(ns_env::xdg_data_home<fs::path>());
   // Create path to entry
-  fs::path path_file_desktop = xdg_data_home / "applications/flatimage-{}.desktop"_fmt(desktop.get_name());
+  fs::path path_file_desktop = Expect(get_path_file_desktop(desktop));
   // Create parent directories for entry
   fs::create_directories(path_file_desktop.parent_path(), ec);
   qreturn_if(ec, Unexpected("Could not create directories {}"_fmt(ec.message())));
@@ -130,6 +170,20 @@ namespace fs = std::filesystem;
 }
 
 /**
+ * @brief Runs update-mime-database on the current XDG_DATA_HOME diretory
+ * 
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+[[nodiscard]] inline Expected<void> update_mime_database()
+{
+  fs::path xdg_data_home = Expect(ns_env::xdg_data_home());
+  fs::path path_bin_mime = Expect(ns_env::search_path("update-mime-database"));
+  ns_log::info()("Updating mime database...");
+  ns_subprocess::log(ns_subprocess::wait(path_bin_mime, xdg_data_home / "mime"), "update-mime-database");
+  return {};
+}
+
+/**
  * @brief Integrates the flatimage mime package the mime package database
  * 
  * @param desktop The desktop object
@@ -138,20 +192,16 @@ namespace fs = std::filesystem;
 [[nodiscard]] inline Expected<void> integrate_mime_database(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_binary)
 {
   std::error_code ec;
-  fs::path xdg_data_home = Expect(ns_env::xdg_data_home<fs::path>());
-  // Get application mimetype location
-  fs::path path_file_xml = xdg_data_home / "mime/packages/flatimage-{}.xml"_fmt(desktop.get_name());
+  // Get application specific mimetype location
+  fs::path path_file_xml = Expect(get_path_file_mimetype(desktop));
+  // Create parent directories
   fs::path path_dir_xml = path_file_xml.parent_path();
   qreturn_if(not fs::exists(path_dir_xml, ec) and not fs::create_directories(path_dir_xml, ec),
     (ec)? Unexpected("Could not create upper mimetype directories: {}"_fmt(path_dir_xml))
         : Unexpected("Could not create upper mimetype directories '{}': {}"_fmt(path_dir_xml, ec.message()))
   );
   // Check if should update mime database
-  if(is_update_mime_database(path_file_binary, path_file_xml) )
-  {
-    ns_log::debug()("Updating mime database...");
-  }
-  else
+  if(not is_update_mime_database(path_file_binary, path_file_xml) )
   {
     ns_log::debug()("Skipping mime database update...");
     return {};
@@ -170,7 +220,7 @@ namespace fs = std::filesystem;
   file_xml << R"(</mime-info>)" << '\n';
   file_xml.close();
   // Create flatimage mimetype file
-  fs::path path_file_xml_generic = xdg_data_home / "mime/packages/flatimage.xml";
+  fs::path path_file_xml_generic = Expect(get_path_file_mimetype_generic());
   std::ofstream file_xml_generic(path_file_xml_generic, std::ios::out | std::ios::trunc);
   qreturn_if(not file_xml_generic.is_open(), Unexpected("Could not open '{}'"_fmt(path_file_xml_generic)));
   file_xml_generic << R"(<?xml version="1.0" encoding="UTF-8"?>)" << '\n';
@@ -193,8 +243,7 @@ namespace fs = std::filesystem;
   file_xml_generic << R"(</mime-info>)" << '\n';
   file_xml_generic.close();
   // Update mime database
-  auto path_bin_mime = Expect(ns_env::search_path("update-mime-database"));
-  ns_subprocess::log(ns_subprocess::wait(path_bin_mime, xdg_data_home / "mime"), "update-mime-database");
+  Expect(update_mime_database());
   return {};
 }
 
@@ -207,16 +256,8 @@ namespace fs = std::filesystem;
 [[nodiscard]] inline Expected<void> integrate_icons_svg(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_icon)
 {
   // Path to mimetype icon
-  auto path_icon_mimetype = Expect(get_path_file_icon_svg(desktop.get_name()
-    , template_dir_mimetype_scalable
-    , template_file_icon_scalable_mime
-  ));
+  auto [path_icon_mimetype, path_icon_app] = Expect(get_path_file_icon_svg(desktop.get_name()));
   Expect(ns_filesystem::ns_path::create_if_not_exists(path_icon_mimetype.parent_path()));
-  // Path to app icon
-  auto path_icon_app = Expect(get_path_file_icon_svg(desktop.get_name()
-    , template_dir_apps_scalable
-    , template_file_icon_scalable
-  ));
   Expect(ns_filesystem::ns_path::create_if_not_exists(path_icon_app.parent_path()));
   auto f_copy_icon = [](fs::path const& path_icon_src, fs::path const& path_icon_dst)
   {
@@ -255,17 +296,8 @@ namespace fs = std::filesystem;
   for(auto&& size : arr_sizes)
   {
     // Path to mimetype and application icons
-    fs::path path_icon_mimetype = Expect(get_path_file_icon_png(desktop.get_name()
-      , template_dir_mimetype
-      , template_file_icon_mime
-      , size
-    ));
+    auto [path_icon_mimetype,path_icon_app] = Expect(get_path_file_icon_png(desktop.get_name(), size));
     Expect(f_create_parent(path_icon_mimetype));
-    fs::path path_icon_app = Expect(get_path_file_icon_png(desktop.get_name()
-      , template_dir_apps
-      , template_file_icon
-      , size
-    ));
     Expect(f_create_parent(path_icon_app));
     // Avoid overwrite
     qcontinue_if (fs::exists(path_icon_mimetype, ec));
@@ -298,7 +330,7 @@ namespace fs = std::filesystem;
   };
   fs::path path_dir_xdg = Expect(ns_env::xdg_data_home<fs::path>());
   // Path to mimetype icon
-  fs::path path_icon_mime = path_dir_xdg / fs::path{template_dir_mimetype_scalable} / "application-flatimage.svg";
+  fs::path path_icon_mime = path_dir_xdg / fs::path{template_dir_mime_scalable} / "application-flatimage.svg";
   Expect(f_write_icon(path_icon_mime));
   // Path to app icon
   fs::path path_icon_app = path_dir_xdg / fs::path{template_dir_apps_scalable} / "flatimage.svg";
@@ -318,15 +350,8 @@ namespace fs = std::filesystem;
   std::error_code ec;
   // Try to get a valid icon path to a png or svg file
   fs::path path_file_icon = ({
-    fs::path path_file_icon_png = Expect(get_path_file_icon_png(desktop.get_name()
-      , template_dir_apps
-      , template_file_icon
-      , 64
-    ));
-    fs::path path_file_icon_svg = Expect(get_path_file_icon_svg(desktop.get_name()
-      , template_dir_apps_scalable
-      , template_file_icon_scalable
-    ));
+    fs::path path_file_icon_png = Expect(get_path_file_icon_png(desktop.get_name(), 64)).second;
+    fs::path path_file_icon_svg = Expect(get_path_file_icon_svg(desktop.get_name())).second;
     fs::exists(path_file_icon_png, ec)? path_file_icon_png : path_file_icon_svg;
   });
   // Check for existing integration
@@ -408,18 +433,11 @@ namespace fs = std::filesystem;
     // Get bash binary
     fs::path path_file_binary_bash = Expect(ns_env::search_path("bash"));
     // Get possible icon paths
-  fs::path path_file_icon = ({
-    fs::path path_file_icon_png = Expect(get_path_file_icon_png(desktop.get_name()
-      , template_dir_apps
-      , template_file_icon
-      , 64
-    ));
-    fs::path path_file_icon_svg = Expect(get_path_file_icon_svg(desktop.get_name()
-      , template_dir_apps_scalable
-      , template_file_icon_scalable
-    ));
-    fs::exists(path_file_icon_png, ec)? path_file_icon_png : path_file_icon_svg;
-  });
+    fs::path path_file_icon = ({
+      fs::path path_file_icon_png = Expect(get_path_file_icon_png(desktop.get_name(), 64)).second;
+      fs::path path_file_icon_svg = Expect(get_path_file_icon_svg(desktop.get_name())).second;
+      fs::exists(path_file_icon_png, ec)? path_file_icon_png : path_file_icon_svg;
+    });
     // Path to mimetype icon
     std::ignore = ns_subprocess::Subprocess(path_file_binary_bash)
       .with_piped_outputs()
@@ -516,6 +534,66 @@ namespace fs = std::filesystem;
   auto str_raw_json = Expect(ns_db::ns_desktop::serialize(desktop));
   // Write json
   Expect(ns_reserved::ns_desktop::write(config.path_file_binary, str_raw_json));
+  return {};
+}
+
+/**
+ * @brief Cleans desktop integration files
+ * 
+ * @param config The FlatImage configuration object
+ * @return Expected<void> Nothing on success or the respective error
+ */
+[[nodiscard]] inline Expected<void> clean(ns_config::FlatimageConfig const& config)
+{
+  // Read json
+  auto str_json = Expect(ns_reserved::ns_desktop::read(config.path_file_binary));
+  // Deserialize json
+  auto desktop = Expect(ns_db::ns_desktop::deserialize(str_json));
+  auto integrations = desktop.get_integrations();
+  auto f_try_erase = [](fs::path const& path)
+  {
+    std::error_code ec;
+    fs::remove(path, ec);
+    if(ec)
+    {
+      ns_log::error()("Could not remove '{}': {}"_fmt(path, ec.message()));
+    }
+    else
+    {
+      ns_log::info()("Removed file '{}'"_fmt(path));
+    }
+  };
+  // Remove entry
+  if( integrations.contains(ns_db::ns_desktop::IntegrationItem::ENTRY))
+  {
+    f_try_erase(Expect(get_path_file_desktop(desktop)));
+  }
+  // Remove mimetype database
+  if(integrations.contains(ns_db::ns_desktop::IntegrationItem::MIMETYPE))
+  {
+    f_try_erase(Expect(get_path_file_mimetype(desktop)));
+    Expect(update_mime_database());
+  }
+  // Remove icons
+  if(integrations.contains(ns_db::ns_desktop::IntegrationItem::ICON))
+  {
+    ns_reserved::ns_icon::Icon icon = Expect(ns_reserved::ns_icon::read(config.path_file_binary));
+    if(std::string_view(icon.m_ext) == "png")
+    {
+      for(auto size : arr_sizes)
+      {
+        auto [path_icon_mime,path_icon_app] = Expect(get_path_file_icon_png(desktop.get_name(), size));
+        f_try_erase(path_icon_mime);
+        f_try_erase(path_icon_app);
+      }
+    }
+    else
+    {
+      auto [path_icon_mime,path_icon_app] = Expect(get_path_file_icon_svg(desktop.get_name()));
+      f_try_erase(path_icon_mime);
+      f_try_erase(path_icon_app);
+    }
+  }
   return {};
 }
 
