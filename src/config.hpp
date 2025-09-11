@@ -16,6 +16,7 @@
 #include "lib/env.hpp"
 #include "std/filesystem.hpp"
 #include "reserved/casefold.hpp"
+#include "reserved/notify.hpp"
 
 // Version
 #ifndef FIM_VERSION
@@ -88,6 +89,7 @@ struct FlatimageConfig
   bool is_readonly;
   bool is_debug;
   bool is_casefold;
+  bool is_notify;
 
   OverlayType overlay_type;
   uint64_t offset_reserved;
@@ -157,6 +159,7 @@ inline Expected<FlatimageConfig> config()
   config.is_debug = ns_env::exists("FIM_DEBUG", "1");
   config.is_casefold = ns_env::exists("FIM_CASEFOLD", "1")
     or Expect(ns_reserved::ns_casefold::read(config.path_file_binary));
+  config.is_notify = Expect(ns_reserved::ns_notify::read(config.path_file_binary));
   config.overlay_type = ns_env::exists("FIM_FUSE_UNIONFS", "1")? OverlayType::FUSE_UNIONFS
     : ns_env::exists("FIM_FUSE_OVERLAYFS", "1")? OverlayType::FUSE_OVERLAYFS
     : OverlayType::BWRAP;

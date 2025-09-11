@@ -12,7 +12,6 @@
 #include <print>
 
 #include "../../db/desktop.hpp"
-#include "../../reserved/notify.hpp"
 #include "../../reserved/icon.hpp"
 #include "../../reserved/desktop.hpp"
 #include "../../lib/subprocess.hpp"
@@ -403,7 +402,7 @@ namespace fs = std::filesystem;
     }
   }
   // Check if should notify
-  if (Expect(ns_reserved::ns_notify::read(config.path_file_binary)))
+  if (config.is_notify)
   {
     std::error_code ec;
     // Get bash binary
