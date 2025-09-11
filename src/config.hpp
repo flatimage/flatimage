@@ -116,7 +116,6 @@ struct FlatimageConfig
   fs::path path_dir_config;
   fs::path path_file_config_environment;
   fs::path path_file_config_bindings;
-  fs::path path_file_config_casefold;
 
   uint32_t layer_compression_level;
 
