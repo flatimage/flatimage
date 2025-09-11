@@ -134,6 +134,9 @@ T ExpectedOrDefault(Expected<T> expected)
 #define elog_if(cond, msg) \
   if (cond) { ns_log::error()(msg); }
 
+#define wlog_if(cond, msg) \
+  if (cond) { ns_log::warn()(msg); }
+
 #define ilog_if(cond, msg) \
   if (cond) { ns_log::info()(msg); }
 
