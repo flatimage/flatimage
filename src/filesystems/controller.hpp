@@ -133,22 +133,6 @@ inline Controller::~Controller()
   {
     ns_log::error()("Janitor is not running");
   }
-  // Clean up bwrap work directory
-  if (fs::path path_dir_work_bwrap = m_path_dir_work / "work"; fs::exists(path_dir_work_bwrap))
-  {
-    std::error_code ec;
-    fs::permissions(path_dir_work_bwrap
-      ,   fs::perms::owner_read  | fs::perms::owner_write | fs::perms::owner_exec
-        | fs::perms::group_read  | fs::perms::group_exec
-        | fs::perms::others_read | fs::perms::others_exec
-      , ec
-    );
-    elog_if(ec, "Error to modify permissions '{}': '{}'"_fmt(path_dir_work_bwrap, ec.message()));
-  }
-  // Clean up work directory
-  std::error_code ec;
-  fs::remove_all(m_path_dir_work, ec);
-  elog_if(ec, "Error to erase '{}': '{}'"_fmt(m_path_dir_work, ec.message()));
 }
 
 /**

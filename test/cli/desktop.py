@@ -28,8 +28,8 @@ class TestFimDesktop(unittest.TestCase):
     if Path.exists(image_file):
       os.unlink(image_file)
     image_dir = Path(self.file_image).parent / ".temp.flatimage.config"
-    # if Path.exists(image_dir):
-    #   shutil.rmtree(image_dir, )
+    if Path.exists(image_dir):
+      shutil.rmtree(image_dir, )
 
 
   def run_cmd(self, *args):

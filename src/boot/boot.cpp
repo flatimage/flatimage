@@ -42,9 +42,10 @@ extern char** environ;
 [[nodiscard]] Expected<int> boot(int argc, char** argv)
 {
   // Create configuration object
-  ns_config::FlatimageConfig config = Expect(ns_config::config());
+  std::shared_ptr<ns_config::FlatimageConfig> config = Expect(ns_config::config());
+  qreturn_if(config == nullptr, Unexpected("Failed to initialize configuration"));
   // Set log file, permissive
-  if(auto ret = ns_log::set_sink_file(config.path_dir_mount.string() + ".boot.log"); not ret)
+  if(auto ret = ns_log::set_sink_file(config->path_dir_mount.string() + ".boot.log"); not ret)
   {
     std::cerr << "Could not setup logger sink: " << ret.error() << '\n';
   }
@@ -55,7 +56,7 @@ extern char** environ;
     std::cerr << "Could not execute portal daemon: " << portal.error() << '\n';
   }
   // Parse flatimage command if exists
-  return Expect(ns_parser::parse_cmds(config, argc, argv));
+  return Expect(ns_parser::parse_cmds(*config, argc, argv));
 }
 
 /**
