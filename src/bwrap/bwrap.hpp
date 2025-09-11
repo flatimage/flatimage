@@ -206,17 +206,19 @@ inline Bwrap::Bwrap(
  */
 inline Bwrap::~Bwrap()
 {
-  std::error_code ec;
-  if ( m_opt_path_dir_work )
+  // Remove workdir on exit, permissive
+  if (std::error_code ec; m_opt_path_dir_work )
   {
-    // 755, non-fatal on error
-    fs::permissions(*m_opt_path_dir_work / "work"
+    fs::path path_dir_work_bwrap = m_opt_path_dir_work.value() / "work";
+    fs::permissions(path_dir_work_bwrap
       ,   fs::perms::owner_read  | fs::perms::owner_write | fs::perms::owner_exec
         | fs::perms::group_read  | fs::perms::group_exec
         | fs::perms::others_read | fs::perms::others_exec
       , ec
     );
-    elog_if(ec, "Error to set permissions on '{}': '{}'"_fmt(m_opt_path_dir_work.value(), ec.message()));
+    elog_if(ec, "Error to modify permissions '{}': '{}'"_fmt(path_dir_work_bwrap, ec.message()));
+    fs::remove_all(path_dir_work_bwrap, ec);
+    elog_if(ec, "Error to erase '{}': '{}'"_fmt(m_opt_path_dir_work.value() / "work", ec.message()));
   }
 }
 
@@ -727,8 +729,8 @@ inline Expected<bwrap_run_ret_t> Bwrap::run(ns_permissions::PermissionBits const
   int errno_nr = -1;
 
   // Read possible errors if any
-  elog_if(read(pipe_error[0], &syscall_nr, sizeof(syscall_nr)) < 0, "Could not read syscall error");
-  elog_if(read(pipe_error[0], &errno_nr, sizeof(errno_nr)) < 0, "Could not read errno number");
+  wlog_if(read(pipe_error[0], &syscall_nr, sizeof(syscall_nr)) < 0, "Could not read syscall error, success?");
+  wlog_if(read(pipe_error[0], &errno_nr, sizeof(errno_nr)) < 0, "Could not read errno number, success?");
 
   // Close pipe
   close(pipe_error[0]);
