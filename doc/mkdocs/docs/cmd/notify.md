@@ -15,8 +15,8 @@ You can use `./app.flatimage fim-help notify` to get the following usage details
 ```txt
 fim-notify : Notify with 'notify-send' when the program starts
 Usage: fim-notify <on|off>
-   <on> : Turns on notify-send to signal the application start
-   <off> : Turns off notify-send to signal the application start
+  <on> : Turns on notify-send to signal the application start
+  <off> : Turns off notify-send to signal the application start
 ```
 
 To enable the startup notification:

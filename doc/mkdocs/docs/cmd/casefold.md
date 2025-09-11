@@ -11,8 +11,8 @@ This command enables [ciopfs](https://www.brain-dump.org/projects/ciopfs) to use
 ```txt
 fim-casefold : Enables casefold for the filesystem (ignore case)
 Usage: fim-casefold <on|off>
-   <on> : Enables casefold
-   <off> : Disables casefold
+  <on> : Enables casefold
+  <off> : Disables casefold
 ```
 
 **Case insensitive filesystem manipulation**

@@ -11,12 +11,12 @@ You can use `./app.flatimage fim-help instance` to get the following usage detai
 ```txt
 fim-instance : Manage running instances
 Usage: fim-instance <exec> <id> [args...]
-   <exec> : Run a command in a running instance
-   <id> : id of the instance in which to execute the command
-   <args> : Arguments for the 'exec' command
+  <exec> : Run a command in a running instance
+  <id> : id of the instance in which to execute the command
+  <args> : Arguments for the 'exec' command
 Example: fim-instance exec 0 echo hello
 Usage: fim-instance <list>
-   <list> : Lists current instances
+  <list> : Lists current instances
 ```
 
 Interact with multiple instances of the same FlatImage container using the command portal facility.

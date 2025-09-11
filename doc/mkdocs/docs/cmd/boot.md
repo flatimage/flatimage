@@ -11,13 +11,13 @@ It specifies the default command to execute when no arguments are passed for the
 ```txt
 fim-boot : Configure the default startup command
 Usage: fim-boot <set> <command> [args...]
-   <set> : Execute <command> with optional [args] when FlatImage is launched
-   <command> : Startup command
-   <args...> : Arguments for the startup command
+  <set> : Execute <command> with optional [args] when FlatImage is launched
+  <command> : Startup command
+  <args...> : Arguments for the startup command
 Example: fim-boot set echo test
 Usage: fim-boot <show|clear>
-   <show> : Displays the current startup command
-   <clear> : Clears the set startup command
+  <show> : Displays the current startup command
+  <clear> : Clears the set startup command
 ```
 
 ### Setting the default command

@@ -56,13 +56,13 @@ You can use `./app.flatimage fim-help perms` to get the following usage details:
 fim-perms : Edit current permissions for the flatimage
 Note: Permissions: home,media,audio,wayland,xorg,dbus_user,dbus_system,udev,usb,input,gpu,network
 Usage: fim-perms <add|del> <perms...>
-   <add> : Allow one or more permissions
-   <del> : Delete one or more permissions
-   <perms...> : One or more permissions
+  <add> : Allow one or more permissions
+  <del> : Delete one or more permissions
+  <perms...> : One or more permissions
 Example: fim-perms add home,network,gpu
 Usage: fim-perms <list|clear>
-   <list> : Lists the current permissions
-   <clear> : Clears all permissions
+  <list> : Lists the current permissions
+  <clear> : Clears all permissions
 ```
 
 ---

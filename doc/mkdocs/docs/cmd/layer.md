@@ -11,12 +11,12 @@ You can use `./app.flatimage fim-help layer` to get the following usage details:
 ```txt
 fim-layer : Manage the layers of the current FlatImage
 Usage: fim-layer <create> <in-dir> <out-file>
-   <create> : Creates a novel layer from <in-dir> and save in <out-file>
-   <in-dir> : Input directory to create a novel layer from
-   <out-file> : Output file name of the layer file
+  <create> : Creates a novel layer from <in-dir> and save in <out-file>
+  <in-dir> : Input directory to create a novel layer from
+  <out-file> : Output file name of the layer file
 Usage: fim-layer <add> <in-file>
-   <add> : Includes the novel layer <in-file> in the image in the top of the layer stack
-   <in-file> : Path to the layer file to include in the FlatImage
+  <add> : Includes the novel layer <in-file> in the image in the top of the layer stack
+  <in-file> : Path to the layer file to include in the FlatImage
 ```
 
 In this example, lets create a new layer that includes an executable to print

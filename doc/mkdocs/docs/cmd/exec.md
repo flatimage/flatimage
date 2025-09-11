@@ -13,8 +13,8 @@ You can use `./app.flatimage fim-help exec` to get the following usage details:
 ```txt
 fim-exec : Executes a command as a regular user
 Usage: fim-exec <program> [args...]
-   <program> : Name of the program to execute, it can be the name of a binary or the full path
-   <args...> : Arguments for the executed program
+  <program> : Name of the program to execute, it can be the name of a binary or the full path
+  <args...> : Arguments for the executed program
 Example: fim-exec echo -e "hello\nworld"
 ```
 

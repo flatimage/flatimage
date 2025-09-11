@@ -49,7 +49,7 @@ class HelpEntry
   {
     std::ranges::for_each(args, [&](auto&& e)
     {
-      m_msg += std::string{"   <"} + e.first + "> : " + e.second + '\n';
+      m_msg += std::string{"  <"} + e.first + "> : " + e.second + '\n';
     });
     return *this;
   }

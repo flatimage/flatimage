@@ -15,16 +15,16 @@ You can use `./app.flatimage fim-help desktop` to get the following usage detail
 ```
 fim-desktop : Configure the desktop integration
 Usage: fim-desktop <setup> <json-file>
-   <setup> : Sets up the desktop integration with an input json file
-   <json-file> : Path to the json file with the desktop configuration
+  <setup> : Sets up the desktop integration with an input json file
+  <json-file> : Path to the json file with the desktop configuration
 Usage: fim-desktop <enable> [entry,mimetype,icon,none]
-   <enable> : Enables the desktop integration selectively
-   <entry> : Enables the start menu desktop entry
-   <mimetype> : Enables the mimetype
-   <icon> : Enables the icon for the file manager and desktop entry
-   <none> : Disables desktop integrations
+  <enable> : Enables the desktop integration selectively
+  <entry> : Enables the start menu desktop entry
+  <mimetype> : Enables the mimetype
+  <icon> : Enables the icon for the file manager and desktop entry
+  <none> : Disables desktop integrations
 Usage: fim-desktop <clean>
-   <clean> : Cleans the desktop integration files from XDG_DATA_HOME
+  <clean> : Cleans the desktop integration files from XDG_DATA_HOME
 ```
 
 To setup the desktop integration for a flatimage package, the first step is to

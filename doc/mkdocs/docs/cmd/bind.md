@@ -10,15 +10,15 @@ You can use `./app.flatimage fim-help bind` to get the following usage details:
 
 ```txt
 Usage: fim-bind <add> <type> <src> <dst>
-   <add> : Create a novel binding of type <type> from <src> to <dst>
-   <type> : ro, rw, dev
-   <src> : A file, directory, or device
-   <dst> : A file, directory, or device
+  <add> : Create a novel binding of type <type> from <src> to <dst>
+  <type> : ro, rw, dev
+  <src> : A file, directory, or device
+  <dst> : A file, directory, or device
 Usage: fim-bind <del> <index>
-   <del> : Deletes a binding with the specified index
-   <index> : Index of the binding to erase
+  <del> : Deletes a binding with the specified index
+  <index> : Index of the binding to erase
 Usage: fim-bind <list>
-   <list> : Lists current bindings
+  <list> : Lists current bindings
 ```
 
 ---

@@ -11,14 +11,14 @@ You can use `./app.flatimage fim-help env` to get the following usage details:
 ```
 fim-env : Define environment variables in FlatImage
 Usage: fim-env <add|set> <'key=value'...>
-   <add> : Include a novel environment variable
-   <set> : Redefines the environment variables as the input arguments
-   <'key=value'...> : List of variables to add or set
+  <add> : Include a novel environment variable
+  <set> : Redefines the environment variables as the input arguments
+  <'key=value'...> : List of variables to add or set
 Example: fim-env add 'APP_NAME=hello-world' 'HOME=/home/my-app'
 Usage: fim-env <clear>
-   <clear> : Clears configured environment variables
+  <clear> : Clears configured environment variables
 Usage: fim-env <list>
-   <list> : Lists configured environment variables
+  <list> : Lists configured environment variables
 ```
 
 The `env` command allows you to set new environment variables as so:

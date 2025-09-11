@@ -11,8 +11,8 @@ You can use `./app.flatimage fim-help root` to get the following usage details:
 ```txt
 fim-root : Executes a command as the root user
 Usage: fim-root <program> [args...]
-   <program> : Name of the program to execute, it can be the name of a binary or the full path
-   <args...> : Arguments for the executed program
+  <program> : Name of the program to execute, it can be the name of a binary or the full path
+  <args...> : Arguments for the executed program
 Example: fim-root id -u
 ```
 
