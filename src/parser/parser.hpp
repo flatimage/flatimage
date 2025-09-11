@@ -405,17 +405,14 @@ using namespace ns_parser::ns_interface;
   // Parse args
   CmdType variant_cmd = Expect(ns_parser::parse(argc, argv));
 
-  // Initialize permissions
-  ns_reserved::ns_permissions::Permissions permissions(config.path_file_binary);
-
   auto f_bwrap_impl = [&](auto&& program, auto&& args) -> Expected<ns_bwrap::bwrap_run_ret_t>
   {
+    // Initialize permissions
+    ns_reserved::ns_permissions::Permissions permissions(config.path_file_binary);
     // Mount filesystems
     [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config);
     // Execute specified command
     auto environment = ExpectedOrDefault(ns_db::ns_environment::get(config.path_file_config_environment));
-    // Read permissions
-    auto bits_permissions = ExpectedOrDefault(permissions.get());
     // Check if should use bwrap native overlayfs
     std::optional<ns_bwrap::Overlay> bwrap_overlay = ( config.overlay_type == ns_config::OverlayType::BWRAP )?
         std::make_optional(ns_bwrap::Overlay
@@ -441,12 +438,12 @@ using namespace ns_parser::ns_interface;
       .with_bind_ro("/", config.path_dir_runtime_host)
       .with_binds_from_file(config.path_file_config_bindings);
     // Check if should enable GPU
-    if ( bits_permissions.gpu )
+    if (permissions.contains(ns_reserved::ns_permissions::Permission::GPU))
     {
       std::ignore = bwrap.with_bind_gpu(config.path_dir_upper_overlayfs, config.path_dir_runtime_host);
     }
     // Run bwrap
-    return bwrap.run(bits_permissions, config.path_dir_app_bin);
+    return bwrap.run(permissions, config.path_dir_app_bin);
   };
 
 
@@ -487,15 +484,24 @@ using namespace ns_parser::ns_interface;
   // Configure permissions
   else if ( auto cmd = std::get_if<ns_parser::CmdPerms>(&variant_cmd) )
   {
-    // Determine open mode
+    using Permission = ns_reserved::ns_permissions::Permission;
+    // Create permissions from input strings
+    std::set<Permission> set_permissions;
+    for(auto arg : cmd->permissions)
+    {
+      set_permissions.insert(Expect(Permission::from_string(arg)));
+    }
+    // Retrieve permissions
+    ns_reserved::ns_permissions::Permissions permissions(config.path_file_binary);
+    // Determine permission operation
     switch( cmd->op )
     {
-      case ns_parser::CmdPermsOp::ADD: Expect(permissions.add(cmd->permissions)); break;
-      case ns_parser::CmdPermsOp::SET: Expect(permissions.set(cmd->permissions)); break;
-      case ns_parser::CmdPermsOp::DEL: Expect(permissions.del(cmd->permissions)); break;
-      case ns_parser::CmdPermsOp::CLEAR: Expect(permissions.set(cmd->permissions)); break;
+      case ns_parser::CmdPermsOp::ADD: Expect(permissions.add(set_permissions)); break;
+      case ns_parser::CmdPermsOp::SET: Expect(permissions.set(set_permissions)); break;
+      case ns_parser::CmdPermsOp::DEL: Expect(permissions.del(set_permissions)); break;
+      case ns_parser::CmdPermsOp::CLEAR: Expect(permissions.set_all(false)); break;
       case ns_parser::CmdPermsOp::LIST:
-        std::ranges::copy(permissions.to_vector_string()
+        std::ranges::copy(Expect(permissions.to_strings())
           , std::ostream_iterator<std::string>(std::cout, "\n")
         );
         break;

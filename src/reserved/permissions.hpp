@@ -8,10 +8,13 @@
 
 #pragma once
 
+#include <map>
 #include <cstring>
+#include <set>
+#include <ranges>
 
-#include "../lib/match.hpp"
 #include "reserved.hpp"
+#include "../std/enum.hpp"
 
 namespace ns_reserved::ns_permissions
 {
@@ -23,57 +26,67 @@ namespace fs = std::filesystem;
 
 }
 
-struct Bits
+// Permission bits
+using Bits = uint64_t;
+
+// Permissions as fields
+ENUM(Permission,ALL,HOME,MEDIA,AUDIO,WAYLAND,XORG,DBUS_USER,DBUS_SYSTEM,UDEV,USB,INPUT,GPU,NETWORK);
+
+// Corresponding bit position index
+inline std::map<Permission,Bits> const permission_mask =
 {
-  uint64_t home        : 1 = 0;
-  uint64_t media       : 1 = 0;
-  uint64_t audio       : 1 = 0;
-  uint64_t wayland     : 1 = 0;
-  uint64_t xorg        : 1 = 0;
-  uint64_t dbus_user   : 1 = 0;
-  uint64_t dbus_system : 1 = 0;
-  uint64_t udev        : 1 = 0;
-  uint64_t usb         : 1 = 0;
-  uint64_t input       : 1 = 0;
-  uint64_t gpu         : 1 = 0;
-  uint64_t network     : 1 = 0;
-  Bits() noexcept = default;
-  [[nodiscard]] Expected<void> set(std::string permission, bool value) noexcept
-  {
-    std::ranges::transform(permission, permission.begin(), ::tolower);
-    return ns_match::match(permission
-      , ns_match::equal("home")        >>= [&,this]{ home = value; }
-      , ns_match::equal("media")       >>= [&,this]{ media = value; }
-      , ns_match::equal("audio")       >>= [&,this]{ audio = value; }
-      , ns_match::equal("wayland")     >>= [&,this]{ wayland = value; }
-      , ns_match::equal("xorg")        >>= [&,this]{ xorg = value; }
-      , ns_match::equal("dbus_user")   >>= [&,this]{ dbus_user = value; }
-      , ns_match::equal("dbus_system") >>= [&,this]{ dbus_system = value; }
-      , ns_match::equal("udev")        >>= [&,this]{ udev = value; }
-      , ns_match::equal("usb")         >>= [&,this]{ usb = value; }
-      , ns_match::equal("input")       >>= [&,this]{ input = value; }
-      , ns_match::equal("gpu")         >>= [&,this]{ gpu = value; }
-      , ns_match::equal("network")     >>= [&,this]{ network = value; }
-    );
-  } // set
-  [[nodiscard]] std::vector<std::string> to_vector_string() noexcept
-  {
-    std::vector<std::string> out;
-    if ( home )        { out.push_back("home"); }
-    if ( media )       { out.push_back("media"); }
-    if ( audio )       { out.push_back("audio"); }
-    if ( wayland )     { out.push_back("wayland"); }
-    if ( xorg )        { out.push_back("xorg"); }
-    if ( dbus_user )   { out.push_back("dbus_user"); }
-    if ( dbus_system ) { out.push_back("dbus_system"); }
-    if ( udev )        { out.push_back("udev"); }
-    if ( usb )         { out.push_back("usb"); }
-    if ( input )       { out.push_back("input"); }
-    if ( gpu )         { out.push_back("gpu"); }
-    if ( network )     { out.push_back("network"); }
-    return out;
-  }
+  {Permission::HOME, Bits{1} << 0},
+  {Permission::MEDIA, Bits{1} << 1},
+  {Permission::AUDIO, Bits{1} << 2},
+  {Permission::WAYLAND, Bits{1} << 3},
+  {Permission::XORG, Bits{1} << 4},
+  {Permission::DBUS_USER, Bits{1} << 5},
+  {Permission::DBUS_SYSTEM, Bits{1} << 6},
+  {Permission::UDEV, Bits{1} << 7},
+  {Permission::USB, Bits{1} << 8},
+  {Permission::INPUT, Bits{1} << 9},
+  {Permission::GPU, Bits{1} << 10},
+  {Permission::NETWORK, Bits{1} << 11},
 };
+
+/**
+ * @brief Sets a bit permission with the target value
+ * 
+ * @param bits Permission bits
+ * @param permission Permission to change in the bits
+ * @param value Value to set the target permission
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+[[nodiscard]] inline Expected<void> bit_set(Bits& bits, Permission const& permission, bool value) noexcept
+{
+  auto it = permission_mask.find(permission);
+  qreturn_if(it == permission_mask.end(), Unexpected("Permission '{}' not found"_fmt(permission)));
+  Bits mask = it->second;
+  if (value) { bits |= mask;  }
+  else       { bits &= ~mask; }
+  return {};
+}
+
+/**
+ * @brief Creates a set of lowercase string permission representations
+ * 
+ * @param bits Permission bits
+ * @return std::set<std::string> The string permission list
+ */
+[[nodiscard]] inline std::set<std::string> to_strings(Bits const& bits) noexcept
+{
+  std::set<std::string> out;
+  for(auto&& [permission,mask] : permission_mask)
+  {
+    if(bits & mask)
+    {
+      std::string str = permission;
+      std::ranges::transform(str, str.begin(), ::tolower);
+      out.insert(str);
+    }
+  }
+  return out;
+}
 
 /**
  * @brief Write the Bits struct to the given binary
@@ -84,6 +97,7 @@ struct Bits
  */
 inline Expected<void> write(fs::path const& path_file_binary, Bits const& bits) noexcept
 {
+  static_assert(sizeof(Bits) == sizeof(uint64_t), "Bits size must be 8 bytes");
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
   uint64_t offset_end = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_END;
   return ns_reserved::write(path_file_binary, offset_begin, offset_end, reinterpret_cast<char const*>(&bits), sizeof(bits));
@@ -97,14 +111,13 @@ inline Expected<void> write(fs::path const& path_file_binary, Bits const& bits) 
  */
 inline Expected<Bits> read(fs::path const& path_file_binary) noexcept
 {
+  static_assert(sizeof(Bits) == sizeof(uint64_t), "Bits size must be 8 bytes");
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
   uint64_t size = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_END - offset_begin;
   constexpr size_t const size_bits = sizeof(Bits);
-  char buffer[size_bits];
   qreturn_if(size_bits != size, Unexpected("Trying to read an exceeding number of bytes: {} vs {}"_fmt(size_bits, size)));
-  Expect(ns_reserved::read(path_file_binary, offset_begin, buffer, size_bits));
   Bits bits;
-  std::memcpy(&bits, buffer, sizeof(bits));
+  Expect(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&bits), size_bits));
   return bits;
 }
 
@@ -112,47 +125,66 @@ class Permissions
 {
   private:
     fs::path m_path_file_binary;
+
+    Expected<void> set_permissions(Bits bits, std::set<Permission> const& permissions, bool value)
+    {
+      if(permissions.contains(Permission::NONE))
+      {
+        return Unexpected("Invalid permission 'NONE'");
+      }
+      if(permissions.contains(Permission::ALL))
+      {
+        qreturn_if(permissions.size() > 1, Unexpected("Permission 'all' should not be used with others"));
+        return this->set_all(true);
+      }
+      for(Permission const& permission : permissions)
+      {
+        Expect(bit_set(bits, permission, value));
+      };
+      Expect(write(m_path_file_binary, bits));
+      return {};
+    }
   public:
-    Permissions() = default;
-    Permissions(fs::path const& path_file_binary) : m_path_file_binary(path_file_binary) {}
-    template<ns_concept::Iterable R>
-    [[nodiscard]] inline Expected<void> set(R&& r)
+    Permissions(fs::path const& path_file_binary)
+      : m_path_file_binary(path_file_binary)
+    {}
+    
+    [[nodiscard]] inline Expected<void> set_all(bool value)
     {
-      Bits bits;
-      for(auto&& e : r) { Expect(bits.set(e, true)); };
-      Expect(write(m_path_file_binary, bits));
-      return {};
+      auto permissions = permission_mask
+        | std::views::transform([](auto&& e){ return e.first; })
+        | std::views::filter([](auto&& e){ return e != Permission::ALL; })
+        | std::ranges::to<std::set<Permission>>();
+      return set_permissions(Bits{}, permissions, value);
     }
 
-    template<ns_concept::Iterable R>
-    [[nodiscard]] inline Expected<void> add(R&& r)
+    [[nodiscard]] inline Expected<void> set(std::set<Permission> const& permissions)
     {
-      Bits bits = Expect(read(m_path_file_binary));
-      for(auto&& e : r) { Expect(bits.set(e, true)); };
-      Expect(write(m_path_file_binary, bits));
-      return {};
+      return set_permissions(Bits{}, permissions, true);
     }
 
-    template<ns_concept::Iterable R>
-    [[nodiscard]] inline Expected<void> del(R&& r)
+    [[nodiscard]] inline Expected<void> add(std::set<Permission> const& permissions)
     {
-      Bits bits = Expect(read(m_path_file_binary));
-      for(auto&& e : r) { Expect(bits.set(e, false)); };
-      Expect(write(m_path_file_binary, bits));
-      return {};
+      return set_permissions(Expect(read(m_path_file_binary)), permissions, true);
     }
 
-    [[nodiscard]] inline Expected<Bits> get() noexcept
+    [[nodiscard]] inline Expected<void> del(std::set<Permission> const& permissions)
     {
-      return read(m_path_file_binary);
+      return set_permissions(Expect(read(m_path_file_binary)), permissions, false);
     }
 
-    [[nodiscard]] inline std::vector<std::string> to_vector_string() noexcept
+    [[nodiscard]] inline bool contains(Permission const& permission) const noexcept
     {
-      std::vector<std::string> out;
-      auto expected = read(m_path_file_binary);
-      ereturn_if(not expected, "Failed to read permissions: {}"_fmt(expected.error()), out);
-      return expected->to_vector_string();
+      qreturn_if(permission == Permission::NONE or permission == Permission::ALL, false);
+      Bits bits = read(m_path_file_binary).value_or(0);
+      auto it = permission_mask.find(permission);
+      qreturn_if(it == permission_mask.end(), false);
+      return (bits & it->second) != 0;
+    }
+
+    [[nodiscard]] inline Expected<std::set<std::string>> to_strings() const noexcept
+    {
+      return ::ns_reserved::ns_permissions::to_strings(Expect(read(m_path_file_binary)));
     }
 };
 

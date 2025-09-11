@@ -41,13 +41,8 @@ struct Overlay
   fs::path path_dir_work;
 };
 
-namespace ns_permissions
-{
-
-using PermissionBits = ns_reserved::ns_permissions::Bits;
 using Permissions = ns_reserved::ns_permissions::Permissions;
-
-} // namespace ns_permissions
+using Permission = ns_reserved::ns_permissions::Permission;
 
 struct bwrap_run_ret_t { int code; int syscall_nr; int errno_nr; };
 
@@ -106,7 +101,7 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind(fs::path const& src, fs::path const& dst);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
-    [[maybe_unused]] [[nodiscard]] Expected<bwrap_run_ret_t> run(ns_permissions::PermissionBits const& permissions
+    [[maybe_unused]] [[nodiscard]] Expected<bwrap_run_ret_t> run(Permissions const& permissions
       , fs::path const& path_dir_app_bin);
 };
 
@@ -564,7 +559,7 @@ inline Bwrap& Bwrap::bind_dbus_user()
  */
 inline Bwrap& Bwrap::bind_dbus_system()
 {
-  ns_log::debug()("perm(dbus_system)");
+  ns_log::debug()("PERM(DBUS_SYSTEM)");
   ns_vector::push_back(m_args, "--bind-try", "/run/dbus/system_bus_socket", "/run/dbus/system_bus_socket");
   return *this;
 }
@@ -655,23 +650,23 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
  * @param path_dir_app_bin Path to the binary directory of flatimage's binary files
  * @return bwrap_run_ret_t 
  */
-inline Expected<bwrap_run_ret_t> Bwrap::run(ns_permissions::PermissionBits const& permissions
+inline Expected<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   , fs::path const& path_dir_app_bin)
 {
   std::error_code ec;
   
   // Configure bindings
-  if(permissions.home){ std::ignore = bind_home(); };
-  if(permissions.media){ std::ignore = bind_media(); };
-  if(permissions.audio){ std::ignore = bind_audio(); };
-  if(permissions.wayland){ std::ignore = bind_wayland(); };
-  if(permissions.xorg){ std::ignore = bind_xorg(); };
-  if(permissions.dbus_user){ std::ignore = bind_dbus_user(); };
-  if(permissions.dbus_system){ std::ignore = bind_dbus_system(); };
-  if(permissions.udev){ std::ignore = bind_udev(); };
-  if(permissions.input){ std::ignore = bind_input(); };
-  if(permissions.usb){ std::ignore = bind_usb(); };
-  if(permissions.network){ std::ignore = bind_network(); };
+  if(permissions.contains(Permission::HOME)){ std::ignore = bind_home(); };
+  if(permissions.contains(Permission::MEDIA)){ std::ignore = bind_media(); };
+  if(permissions.contains(Permission::AUDIO)){ std::ignore = bind_audio(); };
+  if(permissions.contains(Permission::WAYLAND)){ std::ignore = bind_wayland(); };
+  if(permissions.contains(Permission::XORG)){ std::ignore = bind_xorg(); };
+  if(permissions.contains(Permission::DBUS_USER)){ std::ignore = bind_dbus_user(); };
+  if(permissions.contains(Permission::DBUS_SYSTEM)){ std::ignore = bind_dbus_system(); };
+  if(permissions.contains(Permission::UDEV)){ std::ignore = bind_udev(); };
+  if(permissions.contains(Permission::INPUT)){ std::ignore = bind_input(); };
+  if(permissions.contains(Permission::USB)){ std::ignore = bind_usb(); };
+  if(permissions.contains(Permission::NETWORK)){ std::ignore = bind_network(); };
 
   // Search for bash
   fs::path path_file_bash = Expect(ns_env::search_path("bash"));

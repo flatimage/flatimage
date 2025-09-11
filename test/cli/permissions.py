@@ -15,14 +15,17 @@ class TestFimPerms(unittest.TestCase):
     cls.file_image = os.environ["FILE_IMAGE"]
     cls.home_custom = cls.dir_script / "user"
 
+  def setUp(self):
+    self.run_cmd("fim-perms", "clear")
+
   def run_cmd(self, *args):
     result = subprocess.run(
       [self.file_image] + list(args),
       stdout=subprocess.PIPE,
-      stderr=subprocess.STDOUT,
+      stderr=subprocess.PIPE,
       text=True
     )
-    return result.stdout.strip()
+    return f"{result.stdout.strip()}{result.stderr.strip()}"
 
   def test_bind_and_del_home(self):
     self.home_custom.mkdir(parents=True, exist_ok=True)
@@ -68,21 +71,51 @@ class TestFimPerms(unittest.TestCase):
     self.assertIn("gpu", output)
     self.assertGreaterEqual(len(lines), 2)
 
-  def test_add_cli(self):
+  def test_add(self):
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual("", output)
     # Missing permission
     output = self.run_cmd("fim-perms", "add")
     self.assertIn("No arguments for 'ADD' command", output)
     # Invalid permission
     output = self.run_cmd("fim-perms", "add", "hello")
-    self.assertIn("No match for 'hello'", output)
+    self.assertIn("Could not determine enum entry from 'HELLO'", output)
     # Invalid permission mixed with valid permission
     output = self.run_cmd("fim-perms", "add", "home,hello")
-    self.assertIn("No match for 'hello'", output)
+    self.assertIn("Could not determine enum entry from 'HELLO'", output)
+    # Trying to add 'none' as a permission
+    output = self.run_cmd("fim-perms", "add", "none")
+    self.assertIn("Invalid permission 'NONE'", output)
     # Extra arguments
     output = self.run_cmd("fim-perms", "add", "home", "world")
     self.assertIn("Trailing arguments for fim-perms: ['world',]", output)
+    # Argument add
+    output = self.run_cmd("fim-perms", "add", "home,xorg,wayland,network")
+    self.assertEqual("", output)
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual("home\nnetwork\nwayland\nxorg", output)
+    # Add more permissions
+    output = self.run_cmd("fim-perms", "add", "dbus_system,dbus_user")
+    self.assertEqual("", output)
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual("dbus_system\ndbus_user\nhome\nnetwork\nwayland\nxorg", output)
+    # Add all + others
+    output = self.run_cmd("fim-perms", "add", "all,home")
+    self.assertIn("Permission 'all' should not be used with others", output)
+    # Add all
+    output = self.run_cmd("fim-perms", "add", "all")
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual(
+      "audio\ndbus_system\ndbus_user\ngpu\nhome\n"
+      "input\nmedia\nnetwork\nudev\nusb\nwayland\nxorg"
+      , output
+    )
+    output = self.run_cmd("fim-perms", "clear")
+    self.assertEqual("", output)
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual("", output)
 
-  def test_list_cli(self):
+  def test_list(self):
     # Set permissions
     self.run_cmd("fim-perms", "add", "audio,wayland,xorg")
     output = self.run_cmd("fim-perms", "list")
@@ -96,7 +129,7 @@ class TestFimPerms(unittest.TestCase):
     output = self.run_cmd("fim-perms", "list", "foo")
     self.assertIn("Trailing arguments for fim-perms: ['foo',]", output)
 
-  def test_clear_cli(self):
+  def test_clear(self):
     # Set permissions
     self.run_cmd("fim-perms", "add", "audio,wayland,xorg")
     output = self.run_cmd("fim-perms", "list")
@@ -110,30 +143,61 @@ class TestFimPerms(unittest.TestCase):
     output = self.run_cmd("fim-perms", "clear", "foo")
     self.assertIn("Trailing arguments for fim-perms: ['foo',]", output)
 
-  def test_del_cli(self):
+  def test_del(self):
     # Missing permission
     output = self.run_cmd("fim-perms", "del")
     self.assertIn("No arguments for 'DEL' command", output)
     # Invalid permission
     output = self.run_cmd("fim-perms", "del", "hello")
-    self.assertIn("No match for 'hello'", output)
+    self.assertIn("Could not determine enum entry from 'HELLO'", output)
     # Invalid permission mixed with valid permission
     output = self.run_cmd("fim-perms", "del", "home,hello")
-    self.assertIn("No match for 'hello'", output)
+    self.assertIn("Could not determine enum entry from 'HELLO'", output)
     # Extra arguments
     output = self.run_cmd("fim-perms", "del", "home", "world")
     self.assertIn("Trailing arguments for fim-perms: ['world',]", output)
+    # Trying to del 'none' permission
+    output = self.run_cmd("fim-perms", "del", "none")
+    self.assertIn("Invalid permission 'NONE'", output)
 
-  def test_set_cli(self):
+  def test_set(self):
     # Missing permission
     output = self.run_cmd("fim-perms", "set")
     self.assertIn("No arguments for 'SET' command", output)
     # Invalid permission
     output = self.run_cmd("fim-perms", "set", "hello")
-    self.assertIn("No match for 'hello'", output)
+    self.assertIn("Could not determine enum entry from 'HELLO'", output)
     # Invalid permission mixed with valid permission
     output = self.run_cmd("fim-perms", "set", "home,hello")
-    self.assertIn("No match for 'hello'", output)
+    self.assertIn("Could not determine enum entry from 'HELLO'", output)
     # Extra arguments
     output = self.run_cmd("fim-perms", "set", "home", "world")
     self.assertIn("Trailing arguments for fim-perms: ['world',]", output)
+    # Trying to set 'none' permission
+    output = self.run_cmd("fim-perms", "set", "none")
+    self.assertIn("Invalid permission 'NONE'", output)
+    # Argument set
+    output = self.run_cmd("fim-perms", "set", "home,xorg,wayland,network")
+    self.assertEqual("", output)
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual("home\nnetwork\nwayland\nxorg", output)
+    # Argument re-set
+    output = self.run_cmd("fim-perms", "set", "dbus_system,dbus_user")
+    self.assertEqual("", output)
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual("dbus_system\ndbus_user", output)
+    # Set all + others
+    output = self.run_cmd("fim-perms", "set", "all,home")
+    self.assertIn("Permission 'all' should not be used with others", output)
+    # Set all
+    output = self.run_cmd("fim-perms", "set", "all")
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual(
+      "audio\ndbus_system\ndbus_user\ngpu\nhome\n"
+      "input\nmedia\nnetwork\nudev\nusb\nwayland\nxorg"
+      , output
+    )
+    output = self.run_cmd("fim-perms", "clear")
+    self.assertEqual("", output)
+    output = self.run_cmd("fim-perms", "list")
+    self.assertEqual("", output)
