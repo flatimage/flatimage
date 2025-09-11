@@ -3,6 +3,7 @@
 doxygen
 build
 doc/mkdocs/site
+compile_commands.json
 
 # Ignore everything in test
 test/*
