@@ -28,6 +28,7 @@ class Controller
 {
   private:
     fs::path m_path_dir_mount;
+    fs::path m_path_dir_work;
     std::vector<fs::path> m_vec_path_dir_mountpoints;
     std::vector<std::unique_ptr<ns_dwarfs::Dwarfs>> m_layers;
     std::vector<std::unique_ptr<ns_filesystem::Filesystem>> m_filesystems;
@@ -62,6 +63,7 @@ class Controller
  */
 inline Controller::Controller(ns_config::FlatimageConfig const& config)
   : m_path_dir_mount(config.path_dir_mount)
+  , m_path_dir_work(config.path_dir_work_overlayfs)
   , m_vec_path_dir_mountpoints()
   , m_layers()
   , m_filesystems()
@@ -115,6 +117,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
  */
 inline Controller::~Controller()
 {
+  // Terminate janitor
   if ( m_opt_pid_janitor and m_opt_pid_janitor.value() > 0)
   {
     // Stop janitor loop & wait for cleanup
@@ -125,11 +128,27 @@ inline Controller::~Controller()
     dreturn_if(not WIFEXITED(status), "Janitor exited abnormally");
     int code = WEXITSTATUS(status);
     dreturn_if(code != 0, "Janitor exited with code '{}'"_fmt(code));
-  } // if
+  }
   else
   {
     ns_log::error()("Janitor is not running");
-  } // else
+  }
+  // Clean up bwrap work directory
+  if (fs::path path_dir_work_bwrap = m_path_dir_work / "work"; fs::exists(path_dir_work_bwrap))
+  {
+    std::error_code ec;
+    fs::permissions(path_dir_work_bwrap
+      ,   fs::perms::owner_read  | fs::perms::owner_write | fs::perms::owner_exec
+        | fs::perms::group_read  | fs::perms::group_exec
+        | fs::perms::others_read | fs::perms::others_exec
+      , ec
+    );
+    elog_if(ec, "Error to modify permissions '{}': '{}'"_fmt(path_dir_work_bwrap, ec.message()));
+  }
+  // Clean up work directory
+  std::error_code ec;
+  fs::remove_all(m_path_dir_work, ec);
+  elog_if(ec, "Error to erase '{}': '{}'"_fmt(m_path_dir_work, ec.message()));
 }
 
 /**
