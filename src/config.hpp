@@ -177,7 +177,7 @@ inline Expected<FlatimageConfig> config()
   config.path_dir_mount_ciopfs = config.path_dir_host_config / "casefold";
   config.path_dir_data_overlayfs = config.path_dir_host_config / "overlays";
   config.path_dir_upper_overlayfs = config.path_dir_data_overlayfs / "upperdir";
-  config.path_dir_work_overlayfs = config.path_dir_instance / "workdir";
+  config.path_dir_work_overlayfs = config.path_dir_data_overlayfs / "workdir" / std::to_string(getpid());
   Expect(ns_filesystem::ns_path::create_if_not_exists(config.path_dir_upper_overlayfs));
   Expect(ns_filesystem::ns_path::create_if_not_exists(config.path_dir_work_overlayfs));
   // Configuration files directory
