@@ -25,33 +25,39 @@ class TestFimCommit(unittest.TestCase):
     os.chmod(hello_script, 0o755)
     
   def setUp(self):
+    os.environ["FIM_DEBUG"] = "0"
     shutil.rmtree(self.dir_image, ignore_errors=True)
 
   def tearDown(self):
+    os.environ["FIM_DEBUG"] = "0"
     shutil.rmtree(self.dir_image, ignore_errors=True)
 
   def run_cmd(self, *args):
     result = subprocess.run(
       [self.file_image] + list(args),
       stdout=subprocess.PIPE,
-      stderr=subprocess.STDOUT,
+      stderr=subprocess.PIPE,
       text=True
     )
-    return result.stdout.strip()
+    return (result.stdout.strip(), result.stderr.strip(), result.returncode)
 
   def commit(self, content):
     self.create_script(content)
     # Create layer
-    output = self.run_cmd("fim-commit")
-    self.assertIn("Included novel layer from file", output)
+    out,err,code = self.run_cmd("fim-commit")
+    self.assertIn("Included novel layer from file", out)
+    self.assertEqual(code, 0)
     # Remove directory from host
     shutil.rmtree(self.dir_image, ignore_errors=True)
     # Execute hello-world script which is compressed in the container
-    output = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
+    out,err,code = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     os.environ["FIM_DEBUG"] = "1"
-    debug = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
+    dbg,err,code = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
+    self.assertEqual(code, 0)
     del os.environ["FIM_DEBUG"]
-    return (output, debug.splitlines())
+    return (out, dbg.splitlines())
 
   def test_commit(self):
     count_layers=1
@@ -67,5 +73,7 @@ class TestFimCommit(unittest.TestCase):
 
   def test_commit_cli(self):
     # Extra arguments
-    output = self.run_cmd("fim-commit", "hello")
-    self.assertIn("'fim-commit' does not take arguments", output)
+    out,err,code = self.run_cmd("fim-commit", "hello")
+    self.assertEqual(out, "")
+    self.assertIn("'fim-commit' does not take arguments", err)
+    self.assertEqual(code, 125)

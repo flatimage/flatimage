@@ -37,28 +37,33 @@ class TestFimLayer(unittest.TestCase):
     result = subprocess.run(
       [self.file_image] + list(args),
       stdout=subprocess.PIPE,
-      stderr=subprocess.STDOUT,
+      stderr=subprocess.PIPE,
       text=True
     )
-    return result.stdout.strip()
+    return (result.stdout.strip(), result.stderr.strip(), result.returncode)
 
   def create_and_add_layer(self, content):
     self.create_script(content)
     # Create layer
-    output = self.run_cmd("fim-layer", "create", str(self.dir_root), str(self.file_layer))
-    self.assertIn("filesystem created without errors", output)
+    out,err,code = self.run_cmd("fim-layer", "create", str(self.dir_root), str(self.file_layer))
+    self.assertIn("filesystem created without errors", err)
+    self.assertEqual(code, 0)
     # Add layer
-    output = self.run_cmd("fim-layer", "add", str(self.file_layer))
-    self.assertIn("Included novel layer from file", output)
+    out,err,code = self.run_cmd("fim-layer", "add", str(self.file_layer))
+    self.assertIn("Included novel layer from file", out)
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     # Remove directory from host
     shutil.rmtree(self.dir_root, ignore_errors=True)
     # Execute hello-world script which is compressed in the container
+    out,_,code = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
+    self.assertIn(content, out)
+    self.assertEqual(code, 0)
     os.environ["FIM_DEBUG"] = "1"
-    output = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
-    self.assertIn(content, output)
-    debug = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
+    debug,_,code = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
+    self.assertEqual(code, 0)
     del os.environ["FIM_DEBUG"]
-    return (output, debug.splitlines())
+    return (out, debug.splitlines())
 
 
   def test_layer_creation_and_execution(self):
@@ -66,24 +71,35 @@ class TestFimLayer(unittest.TestCase):
     for i in ["hello world", "second layer", "third layer"]:
       (output, debug) = self.create_and_add_layer(i)
       self.assertIn(i, output)
-      count = sum(1 for line in debug if "Overlay layer" in line)
-      self.assertEqual(count, count_layers+1)
+      overlays = set()
+      [overlays.add(line) for line in debug if "Overlay layer" in line]
+      self.assertEqual(len(overlays), count_layers+1)
       shutil.rmtree(self.dir_root, ignore_errors=True)
       count_layers += 1
 
   def test_layer_cli(self):
     # Missing op
-    output = self.run_cmd("fim-layer")
-    self.assertIn("Missing op for 'fim-layer' (create,add)", output)
+    out,err,code = self.run_cmd("fim-layer")
+    self.assertEqual(out, "")
+    self.assertIn("Missing op for 'fim-layer' (create,add)", err)
+    self.assertEqual(code, 125)
     # Missing source
-    output = self.run_cmd("fim-layer", "create")
-    self.assertIn("add requires exactly two arguments (/path/to/dir /path/to/file.layer)", output)
+    out,err,code = self.run_cmd("fim-layer", "create")
+    self.assertEqual(out, "")
+    self.assertIn("add requires exactly two arguments (/path/to/dir /path/to/file.layer)", err)
+    self.assertEqual(code, 125)
     # Missing dest
-    output = self.run_cmd("fim-layer", "create", str(self.dir_root))
-    self.assertIn("add requires exactly two arguments (/path/to/dir /path/to/file.layer)", output)
+    out,err,code = self.run_cmd("fim-layer", "create", str(self.dir_root))
+    self.assertEqual(out, "")
+    self.assertIn("add requires exactly two arguments (/path/to/dir /path/to/file.layer)", err)
+    self.assertEqual(code, 125)
     # Source directory does not exist
-    output = self.run_cmd("fim-layer", "create", "/hello/world", str(self.file_layer))
-    self.assertIn("Source directory '/hello/world' does not exist", output)
+    out,err,code = self.run_cmd("fim-layer", "create", "/hello/world", str(self.file_layer))
+    self.assertIn("Gathering files to compress", out)
+    self.assertIn("Source directory '/hello/world' does not exist", err)
+    self.assertEqual(code, 125)
     # Source is not a directory
-    output = self.run_cmd("fim-layer", "create", str(Path(__file__).resolve()), str(self.file_layer))
-    self.assertIn(f"Source '{str(Path(__file__).resolve())}' is not a directory", output)
+    out,err,code = self.run_cmd("fim-layer", "create", str(Path(__file__).resolve()), str(self.file_layer))
+    self.assertIn("Gathering files to compress", out)
+    self.assertIn(f"Source '{str(Path(__file__).resolve())}' is not a directory", err)
+    self.assertEqual(code, 125)

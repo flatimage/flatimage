@@ -36,19 +36,19 @@ class TestFimDesktop(unittest.TestCase):
     result = subprocess.run(
       [self.file_image] + list(args),
       stdout=subprocess.PIPE,
-      stderr=subprocess.STDOUT,
+      stderr=subprocess.PIPE,
       text=True
     )
-    return result.stdout.strip()
+    return (result.stdout.strip(), result.stderr.strip(), result.returncode)
 
   def run_cmd2(self, image, *args):
     result = subprocess.run(
       [image] + list(args),
       stdout=subprocess.PIPE,
-      stderr=subprocess.STDOUT,
+      stderr=subprocess.PIPE,
       text=True
     )
-    return result.stdout.strip()
+    return (result.stdout.strip(), result.stderr.strip(), result.returncode)
 
   
   def make_json_setup(self, integrations, name):
@@ -136,9 +136,11 @@ class TestFimDesktop(unittest.TestCase):
   def test_setup(self):
     name = "MyApp"
     self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''', name)
-    output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     import json
-    desktop = json.loads(output)
+    desktop = json.loads(out)
     self.assertEqual(desktop["categories"], ["Network", "System"])
     self.assertEqual(desktop["integrations"], ["ENTRY", "MIMETYPE", "ICON"])
     self.assertEqual(desktop["name"], name)
@@ -149,19 +151,27 @@ class TestFimDesktop(unittest.TestCase):
       desktop["icon"] = "/some/path/to/missing/icon.png"
     with open(self.file_desktop, "w") as file:
       json.dump(desktop, file)
-    output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.assertIn("Could not get size of file '/some/path/to/missing/icon.png': No such file or directory", output)
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out, "")
+    self.assertIn("Could not get size of file '/some/path/to/missing/icon.png': No such file or directory", err)
+    self.assertEqual(code, 125)
 
   def test_setup_cli(self):
     # Missing argument
-    output = self.run_cmd("fim-desktop", "setup")
-    self.assertIn("Missing argument from 'setup' (/path/to/file.json)", output)
+    out,err,code = self.run_cmd("fim-desktop", "setup")
+    self.assertEqual(out, "")
+    self.assertIn("Missing argument from 'setup' (/path/to/file.json)", err)
+    self.assertEqual(code, 125)
     # Extra argument
-    output = self.run_cmd("fim-desktop", "setup", "some-file.json", "hello")
-    self.assertIn("Trailing arguments for fim-desktop: ['hello',]", output)
+    out,err,code = self.run_cmd("fim-desktop", "setup", "some-file.json", "hello")
+    self.assertEqual(out, "")
+    self.assertIn("Trailing arguments for fim-desktop: ['hello',]", err)
+    self.assertEqual(code, 125)
     # Missing json file
-    output = self.run_cmd("fim-desktop", "setup", "some-file.json")
-    self.assertIn("Failed to open file 'some-file.json' for desktop integration", output)
+    out,err,code = self.run_cmd("fim-desktop", "setup", "some-file.json")
+    self.assertEqual(out, "")
+    self.assertIn("Failed to open file 'some-file.json' for desktop integration", err)
+    self.assertEqual(code, 125)
 
   def setup_alt_home(self):
     path_dir_home = self.dir_script / "home_tmp"
@@ -173,7 +183,10 @@ class TestFimDesktop(unittest.TestCase):
 
   def check_enabled_options(self, name, fchk1 ,fchk2, fchk3):
     path_dir_xdg, path_dir_home = self.setup_alt_home()
-    self.run_cmd("fim-exec", "echo")
+    out,err,code = self.run_cmd("fim-exec", "echo")
+    self.assertEqual(out, "")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_mime(name, path_dir_xdg, fchk1)
     self.check_mime_generic(name, path_dir_xdg, fchk1)
     self.check_icons(name, path_dir_xdg, "png", fchk2)
@@ -185,61 +198,156 @@ class TestFimDesktop(unittest.TestCase):
     # Setup integration
     name = "MyApp"
     self.make_json_setup("", name)
-    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out,
+      """{\n"""
+      """  "categories": [\n"""
+      """    "Network",\n"""
+      """    "System"\n"""
+      """  ],\n"""
+      """  "integrations": [],\n"""
+      """  "name": "MyApp"\n"""
+      """}"""
+    )
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     # Nothing enabled
     self.check_enabled_options(name, self.assertFalse, self.assertFalse, self.assertFalse)
     # Mimetype
-    self.run_cmd("fim-desktop", "enable", "mimetype")
+    out,err,code = self.run_cmd("fim-desktop", "enable", "mimetype")
+    self.assertEqual(out, "MIMETYPE")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_enabled_options(name, self.assertTrue, self.assertFalse, self.assertFalse)
     # Icon
-    self.run_cmd("fim-desktop", "enable", "icon")
+    out,err,code = self.run_cmd("fim-desktop", "enable", "icon")
+    self.assertEqual(out, "ICON")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_enabled_options(name, self.assertFalse, self.assertTrue, self.assertFalse)
     # Desktop entry
-    self.run_cmd("fim-desktop", "enable", "entry")
+    out,err,code = self.run_cmd("fim-desktop", "enable", "entry")
+    self.assertEqual(out, "ENTRY")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_enabled_options(name, self.assertFalse, self.assertFalse, self.assertTrue)
     # All
-    self.run_cmd("fim-desktop", "enable", "entry,mimetype,icon")
+    out,err,code = self.run_cmd("fim-desktop", "enable", "entry,mimetype,icon")
+    self.assertEqual(out, "ENTRY\nMIMETYPE\nICON")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_enabled_options(name, self.assertTrue, self.assertTrue, self.assertTrue)
     # None
-    self.run_cmd("fim-desktop", "enable", "none")
+    out,err,code = self.run_cmd("fim-desktop", "enable", "none")
+    self.assertEqual(out, "NONE")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_enabled_options(name, self.assertFalse, self.assertFalse, self.assertFalse)
 
   def test_enable_json(self):
     name = "MyApp"
     # Mimetype
     self.make_json_setup('''"MIMETYPE"''', name)
-    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out,
+      """{\n"""
+      """  "categories": [\n"""
+      """    "Network",\n"""
+      """    "System"\n"""
+      """  ],\n"""
+      """  "integrations": [\n"""
+      """    "MIMETYPE"\n"""
+      """  ],\n"""
+      """  "name": "MyApp"\n"""
+      """}"""
+    )
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_enabled_options(name, self.assertTrue, self.assertFalse, self.assertFalse)
     # Icons
     self.make_json_setup('''"ICON"''', name)
-    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out,
+      """{\n"""
+      """  "categories": [\n"""
+      """    "Network",\n"""
+      """    "System"\n"""
+      """  ],\n"""
+      """  "integrations": [\n"""
+      """    "ICON"\n"""
+      """  ],\n"""
+      """  "name": "MyApp"\n"""
+      """}"""
+    )
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_enabled_options(name, self.assertFalse, self.assertTrue, self.assertFalse)
     # Desktop entry
     self.make_json_setup('''"ENTRY"''', name)
-    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out,
+      """{\n"""
+      """  "categories": [\n"""
+      """    "Network",\n"""
+      """    "System"\n"""
+      """  ],\n"""
+      """  "integrations": [\n"""
+      """    "ENTRY"\n"""
+      """  ],\n"""
+      """  "name": "MyApp"\n"""
+      """}"""
+    )
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_enabled_options(name, self.assertFalse, self.assertFalse, self.assertTrue)
     # All
     self.make_json_setup('''"ENTRY","MIMETYPE","ICON"''', name)
-    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out,
+      """{\n"""
+      """  "categories": [\n"""
+      """    "Network",\n"""
+      """    "System"\n"""
+      """  ],\n"""
+      """  "integrations": [\n"""
+      """    "ENTRY",\n"""
+      """    "MIMETYPE",\n"""
+      """    "ICON"\n"""
+      """  ],\n"""
+      """  "name": "MyApp"\n"""
+      """}"""
+    )
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.check_enabled_options(name, self.assertTrue, self.assertTrue, self.assertTrue)
     # Invalid
     self.make_json_setup('''"ICONN"''', name)
-    output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.assertIn("Failed to deserialize json: Could not determine enum entry from 'ICONN'", output)
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out, "")
+    self.assertIn("Failed to deserialize json: Could not determine enum entry from 'ICONN'", err)
+    self.assertEqual(code, 125)
 
   def test_enable_cli(self):
     # Missing arguments
-    output = self.run_cmd("fim-desktop", "enable")
-    self.assertIn("Missing arguments for 'enable' (desktop,entry,mimetype,none)", output)
+    out,err,code = self.run_cmd("fim-desktop", "enable")
+    self.assertEqual(out, "")
+    self.assertIn("Missing arguments for 'enable' (desktop,entry,mimetype,none)", err)
+    self.assertEqual(code, 125)
     # Extra arguments
-    output = self.run_cmd("fim-desktop", "enable", "icon", "mimetype")
-    self.assertIn("Trailing arguments for fim-desktop: ['mimetype',]", output)
+    out,err,code = self.run_cmd("fim-desktop", "enable", "icon", "mimetype")
+    self.assertEqual(out, "")
+    self.assertIn("Trailing arguments for fim-desktop: ['mimetype',]", err)
+    self.assertEqual(code, 125)
     # none + others
-    output = self.run_cmd("fim-desktop", "enable", "none,mimetype")
-    self.assertIn("'none' option should not be used with others", output)
+    out,err,code = self.run_cmd("fim-desktop", "enable", "none,mimetype")
+    self.assertEqual(out, "")
+    self.assertIn("'none' option should not be used with others", err)
+    self.assertEqual(code, 125)
     # Invalid arguments
-    output = self.run_cmd("fim-desktop", "enable", "icon2")
-    self.assertIn("Could not determine enum entry from 'ICON2'", output)
+    out,err,code = self.run_cmd("fim-desktop", "enable", "icon2")
+    self.assertEqual(out, "")
+    self.assertIn("Could not determine enum entry from 'ICON2'", err)
+    self.assertEqual(code, 125)
 
   def test_path_change(self):
     name = "MyApp"
@@ -247,13 +355,33 @@ class TestFimDesktop(unittest.TestCase):
     # Setup integration
     self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
     os.environ["FIM_DEBUG"] = "1"
-    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertIn("""{\n"""
+      """  "categories": [\n"""
+      """    "Network",\n"""
+      """    "System"\n"""
+      """  ],\n"""
+      """  "integrations": [\n"""
+      """    "ENTRY",\n"""
+      """    "MIMETYPE",\n"""
+      """    "ICON"\n"""
+      """  ],\n"""
+      """  "name": "MyApp"\n"""
+      """}"""
+      , out
+    )
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     # First run integrates mime database
-    output = self.run_cmd("fim-exec", "echo")
-    self.assertIn("Updating mime database...", output)
+    out,err,code = self.run_cmd("fim-exec", "echo")
+    self.assertIn("Updating mime database...", out)
+    self.assertNotIn("Updating mime database...", err)
+    self.assertEqual(code, 0)
     # Second run detects it is already integrated
-    output = self.run_cmd("fim-exec", "echo")
-    self.assertIn("Skipping mime database update...", output)
+    out,err,code = self.run_cmd("fim-exec", "echo")
+    self.assertIn("Skipping mime database update...", out)
+    self.assertNotIn("Skipping mime database update...", err)
+    self.assertEqual(code, 0)
     # Check if entry has correct binary path
     self.check_entry(self.file_image, name, path_dir_xdg, self.assertTrue)
     # Copy file to another path
@@ -261,46 +389,113 @@ class TestFimDesktop(unittest.TestCase):
     shutil.copyfile(self.file_image, file_image)
     os.chmod(file_image, 0o755)
     # Run again
-    output = self.run_cmd2(file_image, "fim-exec", "echo")
-    self.assertIn("Updating mime database...", output)
+    out,err,code = self.run_cmd2(file_image, "fim-exec", "echo")
+    self.assertIn("Updating mime database...", out)
+    self.assertNotIn("Updating mime database...", err)
+    self.assertEqual(code, 0)
     self.check_entry(file_image, name, path_dir_xdg, self.assertTrue)
-    output = self.run_cmd2(file_image, "fim-exec", "echo")
-    self.assertIn("Skipping mime database update...", output)
+    out,err,code = self.run_cmd2(file_image, "fim-exec", "echo")
+    self.assertIn("Skipping mime database update...", out)
+    self.assertNotIn("Skipping mime database update...", err)
+    self.assertEqual(code, 0)
 
   def test_name_with_spaces(self):
     name = "My App"
-    path_dir_xdg, _ = self.setup_alt_home()
+    _ = self.setup_alt_home()
     # Setup integration
     self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
-    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.run_cmd("fim-exec", "echo")
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out,
+      """{\n"""
+      """  "categories": [\n"""
+      """    "Network",\n"""
+      """    "System"\n"""
+      """  ],\n"""
+      """  "integrations": [\n"""
+      """    "ENTRY",\n"""
+      """    "MIMETYPE",\n"""
+      """    "ICON"\n"""
+      """  ],\n"""
+      """  "name": "My App"\n"""
+      """}"""
+    )
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    out,err,code = self.run_cmd("fim-exec", "echo")
     # Check for the correct files paths
     self.check_enabled_options(name, self.assertTrue, self.assertTrue, self.assertTrue)
 
   def test_name_with_slash(self):
     name = "My/App"
-    path_dir_xdg, _ = self.setup_alt_home()
+    _ = self.setup_alt_home()
     # Setup integration
     self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
-    output = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.assertIn("Application name cannot contain the '/' character", output)
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out, "")
+    self.assertIn("Application name cannot contain the '/' character", err)
+    self.assertEqual(code, 125)
 
   def test_clean(self):
     # Clean without setup
-    output = self.run_cmd("fim-desktop", "clean")
-    self.assertIn("Could not parse json file", output)
+    out,err,code = self.run_cmd("fim-desktop", "clean")
+    self.assertEqual(out, "")
+    self.assertIn("Could not parse json file", err)
+    self.assertEqual(code, 125)
     # Setup integration
     name = "MyApp"
     path_dir_xdg, _ = self.setup_alt_home()
     self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''', name)
-    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.run_cmd("fim-exec", "echo")
+    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    self.assertEqual(out,
+      """{\n"""
+      """  "categories": [\n"""
+      """    "Network",\n"""
+      """    "System"\n"""
+      """  ],\n"""
+      """  "integrations": [\n"""
+      """    "ENTRY",\n"""
+      """    "MIMETYPE",\n"""
+      """    "ICON"\n"""
+      """  ],\n"""
+      """  "name": "MyApp"\n"""
+      """}"""
+    )
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    out,err,code = self.run_cmd("fim-exec", "echo")
+    self.assertEqual(out, "")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     # All enabled
+    self.maxDiff = None
     self.check_mime(name, path_dir_xdg, self.assertTrue)
     self.check_mime_generic(name, path_dir_xdg, self.assertTrue)
     self.check_entry(self.file_image, name, path_dir_xdg, self.assertTrue)
     self.check_icons(name, path_dir_xdg, 'png', self.assertTrue)
-    self.run_cmd("fim-desktop", "clean")
+    out,err,code = self.run_cmd("fim-desktop", "clean")
+    self.assertIn("""home_tmp/.local/share/applications/flatimage-MyApp.desktop'""", out)
+    self.assertIn("""home_tmp/.local/share/mime/packages/flatimage-MyApp.xml'""", out)
+    self.assertIn("""Updating mime database...""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/16x16/mimetypes/application-flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/16x16/apps/flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/22x22/mimetypes/application-flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/22x22/apps/flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/24x24/mimetypes/application-flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/24x24/apps/flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/32x32/mimetypes/application-flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/32x32/apps/flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/48x48/mimetypes/application-flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/48x48/apps/flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/64x64/mimetypes/application-flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/64x64/apps/flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/96x96/mimetypes/application-flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/96x96/apps/flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/128x128/mimetypes/application-flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/128x128/apps/flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/256x256/mimetypes/application-flatimage_MyApp.png'""", out)
+    self.assertIn("""home_tmp/.local/share/icons/hicolor/256x256/apps/flatimage_MyApp.png""", out)
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     # All removed
     self.check_mime(name, path_dir_xdg, self.assertFalse)
     self.check_mime_generic(name, path_dir_xdg, self.assertTrue)

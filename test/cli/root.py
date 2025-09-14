@@ -20,30 +20,36 @@ class TestFimRoot(unittest.TestCase):
     result = subprocess.run(
       [self.file_image] + list(args),
       stdout=subprocess.PIPE,
-      stderr=subprocess.STDOUT,
+      stderr=subprocess.PIPE,
       text=True,
       env=env or os.environ.copy()
     )
-    return result.stdout.strip()
+    return (result.stdout.strip(), result.stderr.strip(), result.returncode)
 
   def test_root(self):
     # Simple command
-    output = self.run_cmd("fim-root", "echo", "test")
-    self.assertEqual(output, "test")
+    out,err,code = self.run_cmd("fim-root", "echo", "test")
+    self.assertEqual(out, "test")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     # Check UID
-    output = self.run_cmd("fim-root", "id", "-u")
-    self.assertEqual(output, "0")
+    out,err,code = self.run_cmd("fim-root", "id", "-u")
+    self.assertEqual(out, "0")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     # Check package installation
-    output = self.run_cmd("fim-version-full")
+    out,err,code = self.run_cmd("fim-version-full")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
     self.run_cmd("fim-perms", "set", "network")
-    if "ALPINE" in output:
+    if "ALPINE" in out:
       print("Distribution is alpine")
-      output = self.run_cmd("fim-root", "apk", "add", "curl")
-      self.assertTrue("Installing curl" in output)
-    elif "ARCH" in output:
+      out,err,code = self.run_cmd("fim-root", "apk", "add", "curl")
+      self.assertTrue("Installing curl" in out)
+    elif "ARCH" in out:
       print("Distribution is arch")
-      output = self.run_cmd("fim-root", "pacman", "-Sy", "--noconfirm", "curl")
-      self.assertTrue("Overriding the desktop file MIME type cache..." in output)
+      out,err,code = self.run_cmd("fim-root", "pacman", "-Sy", "--noconfirm", "curl")
+      self.assertTrue("Overriding the desktop file MIME type cache..." in out)
     elif "BLUEPRINT":
       print("Distribution is blueprint")
     else:

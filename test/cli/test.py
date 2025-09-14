@@ -46,11 +46,11 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(desktop.TestFimDesktop))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(environment.TestFimEnv))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(exec.TestFimExec))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(instance.TestFimInstance))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(layer.TestFimLayer))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(permissions.TestFimPerms))
-  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(root.TestFimRoot))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(portal.TestFimPortal))
-  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(instance.TestFimInstance))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(root.TestFimRoot))
   return suite
   
 if __name__ == '__main__':
