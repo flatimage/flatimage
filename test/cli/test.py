@@ -31,6 +31,9 @@ class Suite(unittest.TestSuite):
     return result
 
   def global_setup(self):
+    os.environ["FIM_DEBUG"] = "0"
+    os.environ["FIM_FUSE_OVERLAYFS"] = "0"
+    os.environ["FIM_FUSE_UNIONFS"] = "0"
     shutil.copy(os.environ["FILE_IMAGE_SRC"], os.environ["FILE_IMAGE"])
 
   def global_teardown(self):

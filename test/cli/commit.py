@@ -56,7 +56,7 @@ class TestFimCommit(unittest.TestCase):
     os.environ["FIM_DEBUG"] = "1"
     dbg,err,code = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
     self.assertEqual(code, 0)
-    del os.environ["FIM_DEBUG"]
+    os.environ["FIM_DEBUG"] = "0"
     return (out, dbg.splitlines())
 
   def test_commit(self):
@@ -66,8 +66,9 @@ class TestFimCommit(unittest.TestCase):
       (output, debug) = self.commit(i)
       self.assertIn(i, output)
       # Count number of overlay layers in debug output
-      count = sum(1 for line in debug if "Overlay layer" in line)
-      self.assertEqual(count, count_layers+1)
+      overlays = set()
+      [overlays.add(line) for line in debug if "Overlay layer" in line]
+      self.assertEqual(len(overlays), count_layers+1)
       shutil.rmtree(self.dir_image, ignore_errors=True)
       count_layers += 1
 

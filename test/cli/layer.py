@@ -26,9 +26,11 @@ class TestFimLayer(unittest.TestCase):
     os.chmod(hello_script, 0o755)
     
   def setUp(self):
+    os.environ["FIM_DEBUG"] = "0"
     shutil.rmtree(self.dir_root, ignore_errors=True)
 
   def tearDown(self):
+    os.environ["FIM_DEBUG"] = "0"
     shutil.rmtree(self.dir_root, ignore_errors=True)
     if Path.exists(self.file_layer):
       os.unlink(self.file_layer)
@@ -62,7 +64,7 @@ class TestFimLayer(unittest.TestCase):
     os.environ["FIM_DEBUG"] = "1"
     debug,_,code = self.run_cmd("fim-exec", "sh", "-c", "hello-world.sh")
     self.assertEqual(code, 0)
-    del os.environ["FIM_DEBUG"]
+    os.environ["FIM_DEBUG"] = "0"
     return (out, debug.splitlines())
 
 
