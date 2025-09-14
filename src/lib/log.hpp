@@ -198,12 +198,14 @@ class Writer
     Location m_loc;
     Level m_level;
     std::string m_prefix;
+    std::reference_wrapper<std::ostream> ostream;
 
   public:
-    Writer(Location const& location, Level const& level, std::string prefix)
+    Writer(Location const& location, Level const& level, std::string prefix, std::ostream& ostream)
       : m_loc(location)
       , m_level(level)
       , m_prefix(prefix)
+      , ostream(ostream)
     {}
     template<ns_concept::StringRepresentable T, typename... Args>
     requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
@@ -219,7 +221,7 @@ class Writer
       }
       if(logger.get_level() >= m_level)
       {
-        std::cerr
+        ostream.get()
           << "{}::{}::"_fmt(m_prefix, m_loc.get())
           << vformat(ns_string::to_string(format), ns_string::to_string(args)...)
           << '\n';
@@ -234,7 +236,7 @@ class debug final : public Writer
     Location m_loc;
   public:
     debug(Location location = Location())
-      : Writer(location, Level::DEBUG, "D")
+      : Writer(location, Level::DEBUG, "D", std::cout)
       , m_loc(location)
     {}
 };
@@ -245,7 +247,7 @@ class info : public Writer
     Location m_loc;
   public:
     info(Location location = Location())
-      : Writer(location, Level::INFO, "I")
+      : Writer(location, Level::INFO, "I", std::cout)
       , m_loc(location)
     {}
 };
@@ -256,7 +258,7 @@ class warn : public Writer
     Location m_loc;
   public:
     warn(Location location = Location())
-      : Writer(location, Level::WARN, "W")
+      : Writer(location, Level::WARN, "W", std::cerr)
       , m_loc(location)
     {}
 };
@@ -267,7 +269,7 @@ class error : public Writer
     Location m_loc;
   public:
     error(Location location = Location())
-      : Writer(location, Level::ERROR, "E")
+      : Writer(location, Level::ERROR, "E", std::cerr)
       , m_loc(location)
     {}
 };
@@ -278,7 +280,7 @@ class critical : public Writer
     Location m_loc;
   public:
     critical(Location location = Location())
-      : Writer(location, Level::CRITICAL, "C")
+      : Writer(location, Level::CRITICAL, "C", std::cerr)
       , m_loc(location)
     {}
 };
