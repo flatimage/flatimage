@@ -18,6 +18,7 @@ import root
 import portal
 import instance
 import casefold
+import version
 
 class Suite(unittest.TestSuite):
 
@@ -56,6 +57,7 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(permissions.TestFimPerms))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(portal.TestFimPortal))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(root.TestFimRoot))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(version.TestFimVersion))
   return suite
   
 if __name__ == '__main__':
