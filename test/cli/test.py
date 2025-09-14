@@ -17,6 +17,7 @@ import permissions
 import root
 import portal
 import instance
+import casefold
 
 class Suite(unittest.TestSuite):
 
@@ -42,6 +43,7 @@ def suite():
   suite = Suite()
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(bindings.TestFimBind))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(boot.TestFimBoot))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(casefold.TestFimCasefold))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(commit.TestFimCommit))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(desktop.TestFimDesktop))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(environment.TestFimEnv))
