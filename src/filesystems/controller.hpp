@@ -76,6 +76,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
   // Use unionfs-fuse
   if ( config.overlay_type == ns_config::OverlayType::FUSE_UNIONFS )
   {
+    ns_log::debug()("Overlay type: UNIONFS_FUSE");
     mount_unionfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
       , config.path_dir_upper_overlayfs
       , config.path_dir_mount_overlayfs
@@ -84,11 +85,16 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
   // Use fuse-overlayfs
   else if ( config.overlay_type == ns_config::OverlayType::FUSE_OVERLAYFS )
   {
+    ns_log::debug()("Overlay type: FUSE_OVERLAYFS");
     mount_overlayfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
       , config.path_dir_upper_overlayfs
       , config.path_dir_mount_overlayfs
       , config.path_dir_work_overlayfs
     );
+  }
+  else
+  {
+    ns_log::debug()("Overlay type: BWRAP");
   }
   // Put casefold over overlayfs or unionfs
   if (config.is_casefold)
