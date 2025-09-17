@@ -100,6 +100,13 @@ struct CmdInstance
   std::vector<std::string> args;
 };
 
+ENUM(CmdOverlayOp,SET,SHOW);
+struct CmdOverlay
+{
+  CmdOverlayOp op;
+  ns_reserved::ns_overlay::OverlayType overlay;
+};
+
 struct CmdNone
 {
 };
@@ -120,6 +127,7 @@ using CmdType = std::variant<CmdRoot
   , CmdCaseFold
   , CmdBoot
   , CmdInstance
+  , CmdOverlay
   , CmdNone
   , CmdExit
 >;

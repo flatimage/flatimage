@@ -241,6 +241,24 @@ inline std::string notify_usage()
     .get();
 }
 
+inline std::string overlay_usage()
+{
+  return HelpEntry{"fim-overlay"}
+    .with_description("Show or select the default overlay filesystem")
+    .with_usage("fim-overlay <set> <overlayfs|unionfs|bwrap>")
+    .with_args({
+      { "set", "Sets the default overlay filesystem to use" },
+      { "overlayfs", "Uses 'fuse-overlayfs' as the overlay filesystem" },
+      { "unionfs", "Uses 'unionfs-fuse' as the overlay filesystem" },
+      { "bwrap", "Uses 'bubblewrap' native overlay options as the overlay filesystem" },
+    })
+    .with_usage("fim-overlay <show>")
+    .with_args({
+      { "show", "Shows the current overlay filesystem" },
+    })
+    .get();
+}
+
 inline std::string perms_usage()
 {
   return HelpEntry{"fim-perms"}

@@ -16,6 +16,7 @@ nav:
     - fim-exec: cmd/exec.md
     - fim-instance: cmd/instance.md
     - fim-layer: cmd/layer.md
+    - fim-overlay: cmd/overlay.md
     - fim-notify: cmd/notify.md
     - fim-perms: cmd/perms.md
     - fim-root: cmd/root.md

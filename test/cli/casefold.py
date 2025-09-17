@@ -38,7 +38,7 @@ class TestFimCasefold(unittest.TestCase):
     self.assertEqual(code, 1)
 
   def test_casefold_enabled(self):
-    os.environ["FIM_FUSE_UNIONFS"] = "1"
+    os.environ["FIM_OVERLAY"] = "unionfs"
     out,err,code = self.run_cmd("fim-casefold", "on")
     self.assertEqual(out, "")
     self.assertEqual(err, "")

@@ -22,6 +22,7 @@
 #include "../db/environment.hpp"
 #include "../lib/match.hpp"
 #include "../macro.hpp"
+#include "../reserved/overlay.hpp"
 #include "../reserved/notify.hpp"
 #include "../reserved/casefold.hpp"
 #include "../reserved/boot.hpp"
@@ -363,6 +364,37 @@ using namespace ns_parser::ns_interface;
       qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-instance: {}"_fmt(args.data())));
       return cmd_type;
     },
+    // Select or show the current overlay filesystem
+    ns_match::equal("fim-overlay") >>= [&] -> Expected<CmdType>
+    {
+      std::string msg = "Missing op for 'fim-overlay' (<set|show>)";
+      // Get op
+      CmdOverlayOp op = Expect(CmdOverlayOp::from_string(Expect(args.pop_front(msg))));
+      // Build command
+      CmdType cmd_type;
+      switch(op)
+      {
+        case CmdOverlayOp::SET:
+        {
+          ns_reserved::ns_overlay::OverlayType overlay = Expect(ns_reserved::ns_overlay::OverlayType::from_string(
+            Expect(args.pop_front("Missing argument for 'set'"))
+          ));
+          cmd_type = CmdOverlay(op, overlay);
+        }
+        break;
+        case CmdOverlayOp::SHOW:
+        {
+          cmd_type = CmdOverlay(op, ns_reserved::ns_overlay::OverlayType::NONE);
+        }
+        break;
+        case CmdOverlayOp::NONE:
+        {
+          return Unexpected("Invalid operation for fim-overlay");
+        }
+      }
+      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-overlay: {}"_fmt(args.data())));
+      return cmd_type;
+    },
     // Use the default startup command
     ns_match::equal("fim-help") >>= [&]
     {
@@ -382,6 +414,7 @@ using namespace ns_parser::ns_interface;
         ns_match::equal("instance") >>=  ns_cmd::ns_help::instance_usage(),
         ns_match::equal("layer")    >>=  ns_cmd::ns_help::layer_usage(),
         ns_match::equal("notify")   >>=  ns_cmd::ns_help::notify_usage(),
+        ns_match::equal("overlay")   >>=  ns_cmd::ns_help::overlay_usage(),
         ns_match::equal("perms")    >>=  ns_cmd::ns_help::perms_usage(),
         ns_match::equal("root")     >>=  ns_cmd::ns_help::root_usage(),
         ns_match::equal("version")  >>=  ns_cmd::ns_help::version_usage()
@@ -414,7 +447,7 @@ using namespace ns_parser::ns_interface;
     // Execute specified command
     auto environment = ExpectedOrDefault(ns_db::ns_environment::get(config.path_file_config_environment));
     // Check if should use bwrap native overlayfs
-    std::optional<ns_bwrap::Overlay> bwrap_overlay = ( config.overlay_type == ns_config::OverlayType::BWRAP )?
+    std::optional<ns_bwrap::Overlay> bwrap_overlay = ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP )?
         std::make_optional(ns_bwrap::Overlay
         {
             .vec_path_dir_layer = ns_config::get_mounted_layers(config.path_dir_mount_layers)
@@ -422,7 +455,7 @@ using namespace ns_parser::ns_interface;
           , .path_dir_work = config.path_dir_work_overlayfs
         })
       : std::nullopt;
-    fs::path path_dir_root = ( config.is_casefold and config.overlay_type != ns_config::OverlayType::BWRAP )?
+    fs::path path_dir_root = ( config.is_casefold and config.overlay_type != ns_reserved::ns_overlay::OverlayType::BWRAP )?
         config.path_dir_mount_ciopfs
       : config.path_dir_mount_overlayfs;
     // Create bwrap command
@@ -461,10 +494,10 @@ using namespace ns_parser::ns_interface;
       , "Bwrap failed syscall '{}' with errno '{}'"_fmt(bwrap_run_ret.syscall_nr, bwrap_run_ret.errno_nr)
     );
     // Retry with fallback if bwrap overlayfs failed
-    if ( config.overlay_type == ns_config::OverlayType::BWRAP and bwrap_run_ret.syscall_nr == SYS_mount )
+    if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP and bwrap_run_ret.syscall_nr == SYS_mount )
     {
       ns_log::error()("Bwrap failed SYS_mount, retrying with fuse-unionfs...");
-      config.overlay_type = ns_config::OverlayType::FUSE_UNIONFS;
+      config.overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
       bwrap_run_ret = Expect(f_bwrap_impl(program, args));
     } // if
     return bwrap_run_ret.code;
@@ -728,6 +761,27 @@ using namespace ns_parser::ns_interface;
       case CmdInstanceOp::NONE: return Unexpected("Invalid instance operation");
     }
   } // else if
+  else if ( auto cmd = std::get_if<ns_parser::CmdOverlay>(&variant_cmd) )
+  {
+    switch(cmd->op)
+    {
+      case ns_parser::CmdOverlayOp::SET:
+      {
+        Expect(ns_reserved::ns_overlay::write(config.path_file_binary, cmd->overlay));
+      }
+      break;
+      case ns_parser::CmdOverlayOp::SHOW:
+      {
+        std::println("{}", std::string{config.overlay_type});
+      }
+      break;
+      case ns_parser::CmdOverlayOp::NONE:
+      {
+        return Unexpected("Invalid operation for fim-overlay");
+      }
+      break;
+    }
+  }
   // Update default command on database
   else if ( std::get_if<ns_parser::CmdNone>(&variant_cmd) )
   {

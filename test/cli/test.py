@@ -13,6 +13,7 @@ import desktop
 import environment
 import exec
 import layer
+import overlay
 import permissions
 import root
 import portal
@@ -33,8 +34,7 @@ class Suite(unittest.TestSuite):
 
   def global_setup(self):
     os.environ["FIM_DEBUG"] = "0"
-    os.environ["FIM_FUSE_OVERLAYFS"] = "0"
-    os.environ["FIM_FUSE_UNIONFS"] = "0"
+    os.environ["FIM_OVERLAY"] = ""
     shutil.copy(os.environ["FILE_IMAGE_SRC"], os.environ["FILE_IMAGE"])
 
   def global_teardown(self):
@@ -54,6 +54,7 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(exec.TestFimExec))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(instance.TestFimInstance))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(layer.TestFimLayer))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(overlay.TestFimOverlay))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(permissions.TestFimPerms))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(portal.TestFimPortal))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(root.TestFimRoot))

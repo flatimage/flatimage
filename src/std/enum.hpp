@@ -161,6 +161,10 @@ struct NAME \
     { \
       return m_current; \
     } \
+    enum_t get() const \
+    { \
+      return m_current; \
+    } \
     operator std::string() const \
     { \
       switch(m_current) \

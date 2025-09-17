@@ -17,6 +17,7 @@
 #include "std/filesystem.hpp"
 #include "reserved/casefold.hpp"
 #include "reserved/notify.hpp"
+#include "reserved/overlay.hpp"
 
 // Version
 #ifndef FIM_VERSION
@@ -75,13 +76,6 @@ inline void search_stack(std::vector<fs::path> const& vec_path_dir_layer
 
 } // namespace
 
-enum class OverlayType
-{
-  BWRAP,
-  FUSE_OVERLAYFS,
-  FUSE_UNIONFS,
-};
-
 struct FlatimageConfig
 {
   std::string str_dist;
@@ -91,7 +85,7 @@ struct FlatimageConfig
   bool is_casefold;
   bool is_notify;
 
-  OverlayType overlay_type;
+  ns_reserved::ns_overlay::OverlayType overlay_type;
   uint64_t offset_reserved;
   fs::path path_dir_global;
   fs::path path_dir_mount;
@@ -184,9 +178,12 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
   config->is_casefold = ns_env::exists("FIM_CASEFOLD", "1")
     or Expect(ns_reserved::ns_casefold::read(config->path_file_binary));
   config->is_notify = Expect(ns_reserved::ns_notify::read(config->path_file_binary));
-  config->overlay_type = ns_env::exists("FIM_FUSE_UNIONFS", "1")? OverlayType::FUSE_UNIONFS
-    : ns_env::exists("FIM_FUSE_OVERLAYFS", "1")? OverlayType::FUSE_OVERLAYFS
-    : OverlayType::BWRAP;
+  config->overlay_type = ns_reserved::ns_overlay::read(config->path_file_binary)
+    .value_or(ns_reserved::ns_overlay::OverlayType::BWRAP);
+  config->overlay_type = ns_env::exists("FIM_OVERLAY", "unionfs")? ns_reserved::ns_overlay::OverlayType::UNIONFS
+    : ns_env::exists("FIM_OVERLAY", "overlayfs")? ns_reserved::ns_overlay::OverlayType::OVERLAYFS
+    : ns_env::exists("FIM_OVERLAY", "bwrap")? ns_reserved::ns_overlay::OverlayType::BWRAP
+    : config->overlay_type.get();
   // Paths only available inside the container (runtime)
   config->path_dir_runtime = "/tmp/fim/run";
   config->path_dir_runtime_host = config->path_dir_runtime / "host";

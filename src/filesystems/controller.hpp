@@ -13,6 +13,7 @@
 
 #include "../std/filesystem.hpp"
 #include "../config.hpp"
+#include "../reserved/overlay.hpp"
 #include "filesystem.hpp"
 #include "overlayfs.hpp"
 #include "unionfs.hpp"
@@ -74,7 +75,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
   // Push config files to upper directories if they do not exist in it
   ns_config::push_config_files(config.path_dir_mount_layers, config.path_dir_upper_overlayfs);
   // Use unionfs-fuse
-  if ( config.overlay_type == ns_config::OverlayType::FUSE_UNIONFS )
+  if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::UNIONFS )
   {
     ns_log::debug()("Overlay type: UNIONFS_FUSE");
     mount_unionfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
@@ -83,7 +84,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
     );
   }
   // Use fuse-overlayfs
-  else if ( config.overlay_type == ns_config::OverlayType::FUSE_OVERLAYFS )
+  else if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::OVERLAYFS )
   {
     ns_log::debug()("Overlay type: FUSE_OVERLAYFS");
     mount_overlayfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
@@ -99,7 +100,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
   // Put casefold over overlayfs or unionfs
   if (config.is_casefold)
   {
-    if(config.overlay_type == ns_config::OverlayType::BWRAP)
+    if(config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
     {
       ns_log::warn()("casefold cannot be used with bwrap overlays");
     }
