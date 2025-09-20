@@ -399,6 +399,7 @@ template<ns_concept::StringRepresentable S>
 Expected<Db> from_string(S&& s)
 {
   std::string str_json = ns_string::to_string(s);
+  qreturn_if(str_json.empty(), std::unexpected("Empty json data"));
   qreturn_if(not json_t::accept(str_json), std::unexpected("Could not parse json file"));
   return Db(json_t::parse(str_json));
 }
