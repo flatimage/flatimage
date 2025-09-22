@@ -592,15 +592,15 @@ template<typename T, typename... Args>
 {
   if ( not ret )
   {
-    ns_log::error()("{} was signalled"_fmt(msg));
+    ns_log::error()("{} exited abnormally", msg);
   }
   else if ( ret.value() == 0 )
   {
-    ns_log::debug()("{} exited with code 0"_fmt(msg));
+    ns_log::debug()("{} exited with code 0", msg);
   }
   else
   {
-    ns_log::error()("{} exited with non-zero exit code '{}'"_fmt(msg), ret.value());
+    ns_log::error()("{} exited with non-zero exit code '{}'", msg, ret.value());
   }
 }
 
