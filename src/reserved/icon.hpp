@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
 
 #include "../macro.hpp"
@@ -29,7 +30,12 @@ struct Icon
   char m_ext[4];
   char m_data[(1<<20) - 12];
   uint64_t m_size;
-  Icon() = default;
+  Icon()
+    : m_size(0)
+  {
+    std::fill_n(m_ext, std::size(m_ext), 0);
+    std::fill_n(m_data, std::size(m_data), 0);
+  }
   Icon(char* ext, char* data, uint64_t size)
     : m_size(size)
   {

@@ -118,13 +118,38 @@ namespace fs = std::filesystem;
 }
 
 /**
+ * @brief Generates the desktop entry
+ * 
+ * @param desktop Desktop integration class
+ * @param path_file_binary Path to the flatimage binary
+ * @param os The output stream in which to write the desktop entry
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+[[nodiscard]] Expected<void> generate_desktop_entry(ns_db::ns_desktop::Desktop const& desktop
+  , fs::path const& path_file_binary
+  , std::ostream& os)
+{
+  // Create desktop entry
+  os << "[Desktop Entry]" << '\n';
+  os << "Name={}"_fmt(desktop.get_name()) << '\n';
+  os << "Type=Application" << '\n';
+  os << "Comment=FlatImage distribution of \"{}\""_fmt(desktop.get_name()) << '\n';
+  os << R"(Exec="{}" %F)"_fmt(path_file_binary) << '\n';
+  os << "Icon=flatimage_{}"_fmt(desktop.get_name()) << '\n';
+  os << "MimeType=application/flatimage_{};"_fmt(desktop.get_name()) << '\n';
+  os << "Categories={};"_fmt(ns_string::from_container(desktop.get_categories(), ';'));
+  return{};
+}
+
+/**
  * @brief Integrates the desktop entry '.desktop'
  * 
  * @param desktop Desktop integration class
  * @param path_file_binary Path to the flatimage binary
- * @return Expected<void> 
+ * @return Expected<void> Nothing on success, or the respective error
  */
-[[nodiscard]] Expected<void> integrate_desktop_entry(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_binary)
+[[nodiscard]] Expected<void> integrate_desktop_entry(ns_db::ns_desktop::Desktop const& desktop
+  , fs::path const& path_file_binary)
 {
   std::error_code ec;
   // Create path to entry
@@ -132,19 +157,13 @@ namespace fs = std::filesystem;
   // Create parent directories for entry
   fs::create_directories(path_file_desktop.parent_path(), ec);
   qreturn_if(ec, Unexpected("Could not create directories {}"_fmt(ec.message())));
-  // Create desktop entry
+  ns_log::info()("Integrating desktop entry...");
   std::ofstream file_desktop(path_file_desktop, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_desktop.is_open(), Unexpected("Could not open desktop file {}"_fmt(path_file_desktop)));
-  file_desktop << "[Desktop Entry]" << '\n';
-  file_desktop << "Name={}"_fmt(desktop.get_name()) << '\n';
-  file_desktop << "Type=Application" << '\n';
-  file_desktop << "Comment=FlatImage distribution of \"{}\""_fmt(desktop.get_name()) << '\n';
-  file_desktop << R"(Exec="{}" %F)"_fmt(path_file_binary) << '\n';
-  file_desktop << "Icon=flatimage_{}"_fmt(desktop.get_name()) << '\n';
-  file_desktop << "MimeType=application/flatimage_{};"_fmt(desktop.get_name()) << '\n';
-  file_desktop << "Categories={};"_fmt(ns_string::from_container(desktop.get_categories(), ';')) << '\n';
-  file_desktop.close();
-  return{};
+  qreturn_if(not file_desktop.is_open()
+    , Unexpected("Could not open desktop file {}"_fmt(path_file_desktop))
+  );
+  Expect(generate_desktop_entry(desktop, path_file_binary, file_desktop));
+  return {};
 }
 
 /**
@@ -184,42 +203,11 @@ namespace fs = std::filesystem;
 }
 
 /**
- * @brief Integrates the flatimage mime package the mime package database
- * 
- * @param desktop The desktop object
- * @param path_file_binary The path to the flatimage binary
+ * @brief Generates the flatimage generic mime package
  */
-[[nodiscard]] inline Expected<void> integrate_mime_database(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_binary)
+[[nodiscard]] inline Expected<void> integrate_mime_database_generic()
 {
   std::error_code ec;
-  // Get application specific mimetype location
-  fs::path path_file_xml = Expect(get_path_file_mimetype(desktop));
-  // Create parent directories
-  fs::path path_dir_xml = path_file_xml.parent_path();
-  qreturn_if(not fs::exists(path_dir_xml, ec) and not fs::create_directories(path_dir_xml, ec),
-    (ec)? Unexpected("Could not create upper mimetype directories: {}"_fmt(path_dir_xml))
-        : Unexpected("Could not create upper mimetype directories '{}': {}"_fmt(path_dir_xml, ec.message()))
-  );
-  // Check if should update mime database
-  if(not is_update_mime_database(path_file_binary, path_file_xml) )
-  {
-    ns_log::debug()("Skipping mime database update...");
-    return {};
-  }
-  // Create application mimetype file
-  std::ofstream file_xml(path_file_xml, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_xml.is_open(), Unexpected("Could not open '{}'"_fmt(path_file_xml)));
-  file_xml << R"(<?xml version="1.0" encoding="UTF-8"?>)" << '\n';
-  file_xml << R"(<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">)" << '\n';
-  file_xml << R"(  <mime-type type="application/flatimage_{}">)"_fmt(desktop.get_name()) << '\n';
-  file_xml << R"(    <comment>FlatImage Application</comment>)" << '\n';
-  file_xml << R"(    <glob weight="100" pattern="{}"/>)"_fmt(path_file_binary.filename()) << '\n';
-  file_xml << R"(    <sub-class-of type="application/x-executable"/>)" << '\n';
-  file_xml << R"(    <generic-icon name="application-flatimage"/>)" << '\n';
-  file_xml << R"(  </mime-type>)" << '\n';
-  file_xml << R"(</mime-info>)" << '\n';
-  file_xml.close();
-  // Create flatimage mimetype file
   fs::path path_file_xml_generic = Expect(get_path_file_mimetype_generic());
   std::ofstream file_xml_generic(path_file_xml_generic, std::ios::out | std::ios::trunc);
   qreturn_if(not file_xml_generic.is_open(), Unexpected("Could not open '{}'"_fmt(path_file_xml_generic)));
@@ -242,7 +230,67 @@ namespace fs = std::filesystem;
   file_xml_generic << R"(  </mime-type>)" << '\n';
   file_xml_generic << R"(</mime-info>)" << '\n';
   file_xml_generic.close();
-  // Update mime database
+  return {};
+}
+
+/**
+ * @brief Generates the flatimage app specific mime package
+ * 
+ * @param desktop The desktop object
+ * @param path_file_binary The path to the flatimage binary
+ * @param os The output stream in which to write the mime package
+ */
+[[nodiscard]] inline Expected<void> generate_mime_database(ns_db::ns_desktop::Desktop const& desktop
+  , fs::path const& path_file_binary
+  , std::ostream& os
+)
+{
+  os << R"(<?xml version="1.0" encoding="UTF-8"?>)" << '\n';
+  os << R"(<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">)" << '\n';
+  os << R"(  <mime-type type="application/flatimage_{}">)"_fmt(desktop.get_name()) << '\n';
+  os << R"(    <comment>FlatImage Application</comment>)" << '\n';
+  os << R"(    <glob weight="100" pattern="{}"/>)"_fmt(path_file_binary.filename()) << '\n';
+  os << R"(    <sub-class-of type="application/x-executable"/>)" << '\n';
+  os << R"(    <generic-icon name="application-flatimage"/>)" << '\n';
+  os << R"(  </mime-type>)" << '\n';
+  os << R"(</mime-info>)";
+  return {};
+}
+
+/**
+ * @brief Generates the flatimage app specific mime package
+ * 
+ * @param desktop The desktop object
+ * @param path_file_binary The path to the flatimage binary
+ */
+[[nodiscard]] inline Expected<void> integrate_mime_database(ns_db::ns_desktop::Desktop const& desktop
+  , fs::path const& path_file_binary
+)
+{
+  std::error_code ec;
+  // Get application specific mimetype location
+  fs::path path_file_xml = Expect(get_path_file_mimetype(desktop));
+  // Create parent directories
+  fs::path path_dir_xml = path_file_xml.parent_path();
+  qreturn_if(not fs::exists(path_dir_xml, ec) and not fs::create_directories(path_dir_xml, ec),
+    (ec)? Unexpected("Could not create upper mimetype directories: {}"_fmt(path_dir_xml))
+        : Unexpected("Could not create upper mimetype directories '{}': {}"_fmt(path_dir_xml, ec.message()))
+  );
+  // Check if should update mime database
+  if(is_update_mime_database(path_file_binary, path_file_xml) )
+  {
+    ns_log::info()("Integrating mime database...");
+  }
+  else
+  {
+    ns_log::debug()("Skipping mime database update...");
+    return {};
+  }
+  // Create application mimetype file
+  std::ofstream file_xml(path_file_xml, std::ios::out | std::ios::trunc);
+  qreturn_if(not file_xml.is_open(), Unexpected("Could not open '{}'"_fmt(path_file_xml)));
+  Expect(generate_mime_database(desktop,  path_file_binary, file_xml));
+  Expect(integrate_mime_database_generic());
   Expect(update_mime_database());
   return {};
 }
@@ -549,6 +597,9 @@ namespace fs = std::filesystem;
   auto str_json = Expect(ns_reserved::ns_desktop::read(config.path_file_binary));
   // Deserialize json
   auto desktop = Expect(ns_db::ns_desktop::deserialize(str_json));
+  // Clear json data
+  Expect(ns_reserved::ns_desktop::write(config.path_file_binary, ""));
+  // Get integrations
   auto integrations = desktop.get_integrations();
   auto f_try_erase = [](fs::path const& path)
   {
@@ -556,11 +607,11 @@ namespace fs = std::filesystem;
     fs::remove(path, ec);
     if(ec)
     {
-      ns_log::error()("Could not remove '{}': {}"_fmt(path, ec.message()));
+      ns_log::error()("Could not remove '{}': {}", path, ec.message());
     }
     else
     {
-      ns_log::info()("Removed file '{}'"_fmt(path));
+      ns_log::info()("Removed file '{}'", path);
     }
   };
   // Remove entry
@@ -593,8 +644,84 @@ namespace fs = std::filesystem;
       f_try_erase(path_icon_mime);
       f_try_erase(path_icon_app);
     }
+    // Clear icon data
+    Expect(ns_reserved::ns_icon::write(config.path_file_binary, ns_reserved::ns_icon::Icon{}));
   }
   return {};
+}
+
+/**
+ * @brief Dumps the png or svg icon data to a file
+ * 
+ * @param config The FlatImage configuration object
+ * @param path_file_dst The destination file to write the icon to
+ * @return Expected<void> Nothing on success or the respective error
+ */
+[[nodiscard]] inline Expected<void> dump_icon(ns_config::FlatimageConfig const& config, fs::path path_file_dst)
+{
+  // Read icon data
+  ns_reserved::ns_icon::Icon icon = Expect(ns_reserved::ns_icon::read(config.path_file_binary));
+  // Make sure it has valid data
+  qreturn_if(std::all_of(icon.m_data, icon.m_data+sizeof(icon.m_data), [](char c){ return c == 0; })
+    , Unexpected("Empty icon data");
+  );
+  // Get extension
+  std::string_view ext = icon.m_ext;
+  // Check if extension is valid
+  qreturn_if(ext != "png" and ext != "svg", Unexpected("Invalid file extension saved in desktop configuration"));
+  // Append extension to output destination file
+  if(not path_file_dst.extension().string().ends_with(ext))
+  {
+    path_file_dst = path_file_dst.parent_path() / (path_file_dst.filename().string() + ".{}"_fmt(ext));
+  }
+  // Open output file
+  std::fstream file_dst(path_file_dst, std::ios::out | std::ios::trunc);
+  qreturn_if(not file_dst.is_open(), Unexpected("Could not open output file '{}'"_fmt(path_file_dst)));
+  // Write data to output file
+  file_dst.write(icon.m_data, icon.m_size);
+  // Check bytes written
+  qreturn_if(not file_dst
+    , Unexpected("Could not write all '{}' bytes to output file"_fmt(icon.m_size))
+  );
+  return {};
+}
+
+/**
+ * @brief Dumps the desktop entry if integration is configured
+ * 
+ * @param config The FlatImage configuration object
+ * @return Expected<std::string> The desktop entry or the respective error
+ */
+[[nodiscard]] inline Expected<std::string> dump_entry(ns_config::FlatimageConfig const& config)
+{
+  // Get desktop object
+  auto desktop = Expect(ns_db::ns_desktop::deserialize(
+    Expect(ns_reserved::ns_desktop::read(config.path_file_binary))
+  ));
+  // Generate desktop entry
+  std::stringstream ss;
+  Expect(generate_desktop_entry(desktop, config.path_file_binary, ss));
+  // Dump contents
+  return ss.str();
+}
+
+/**
+ * @brief Dumps the application mime type file if integration is configured
+ * 
+ * @param config The FlatImage configuration object
+ * @return Expected<std::string> The mime type data or the respective error
+ */
+[[nodiscard]] inline Expected<std::string> dump_mimetype(ns_config::FlatimageConfig const& config)
+{
+  // Get desktop object
+  auto desktop = Expect(ns_db::ns_desktop::deserialize(
+    Expect(ns_reserved::ns_desktop::read(config.path_file_binary))
+  ));
+  // Generate mime database
+  std::stringstream ss;
+  Expect(generate_mime_database(desktop, config.path_file_binary, ss));
+  // Dump contents
+  return ss.str();
 }
 
 } // namespace ns_desktop

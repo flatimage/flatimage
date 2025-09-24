@@ -25,7 +25,17 @@ Usage: fim-desktop <enable> [entry,mimetype,icon,none]
   <none> : Disables desktop integrations
 Usage: fim-desktop <clean>
   <clean> : Cleans the desktop integration files from XDG_DATA_HOME
+Usage: fim-desktop <dump> <icon> <file>
+  <dump> : Dumps the selected integration data
+  <icon> : Dumps the desktop icon to a file
+  <file> : Path to the icon file, the extension is appended automatically if not specified
+Usage: fim-desktop <dump> <entry|mimetype>
+  <dump> : Dumps the selected integration data
+  <entry> : The desktop entry of the application
+  <mimetype> : The mime type of the application
 ```
+
+**Setup the desktop integration**
 
 To setup the desktop integration for a flatimage package, the first step is to
 create a `json` file with the integration data, assume we create a file named
@@ -53,13 +63,63 @@ configure the desktop integration.
 $ ./app.flatimage fim-desktop setup ./desktop.json
 ```
 
-After the setup step, you can enable the integration selectively, `entry` refers
-to the desktop entry in the start menu, `mimetype` refers to the file type that
-appears in the file manager, `icon` is the application icon shown in the start
-menu and the file manager. Here's how to enable everything:
+**Enable/Disable integration files**
+
+After the setup step, you can enable the integration selectively; `entry` refers
+to the desktop entry in the start menu; `mimetype` refers to the mime package file
+that defines the application type, usually shown in file managers in the 'type' column;
+`icon` is the application icon shown in the start menu (entry) and the file manager (type).
+Here's how to enable everything:
 
 ```bash
 $ ./app.flatimage fim-desktop enable entry,mimetype,icon
+```
+
+To disable all desktop integrations, use:
+
+```bash
+$ ./app.flatimage fim-desktop enable none
+```
+
+**Dump integration files**
+
+To dump the desktop entry:
+
+```bash
+# For the desktop entry
+$ ./app.flatimage fim-desktop dump entry
+[Desktop Entry]
+Name=MyApp
+Type=Application
+Comment=FlatImage distribution of "MyApp"
+Exec="/path/to/app.flatimage" %F
+Icon=flatimage_MyApp
+MimeType=application/flatimage_MyApp;
+Categories=Network;System;
+```
+
+To dump the mime type `XML` file:
+
+```bash
+# For the mime type package file
+$ ./app.flatimage fim-desktop dump mimetype
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/flatimage_MyApp">
+    <comment>FlatImage Application</comment>
+    <glob weight="100" pattern="app.flatimage"/>
+    <sub-class-of type="application/x-executable"/>
+    <generic-icon name="application-flatimage"/>
+  </mime-type>
+</mime-info>
+```
+
+To dump the desktop application icon:
+
+```bash
+# This outputs the integrated icon to a file called out.[png or svg] depending on the icon format used
+# during the setup step.
+$ ./app.flatimage fim-desktop dump icon out
 ```
 
 **Erase entries**

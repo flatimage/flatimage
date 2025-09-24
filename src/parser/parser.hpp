@@ -173,15 +173,18 @@ using namespace ns_parser::ns_interface;
       // Check if is other command with valid args
       CmdDesktop cmd;
       // Get operation
-      cmd.op = Expect(CmdDesktopOp::from_string(
-        Expect(args.pop_front("Missing op for 'fim-desktop' (enable,setup,clean)"))
+      CmdDesktopOp op = Expect(CmdDesktopOp::from_string(
+        Expect(args.pop_front("Missing op for 'fim-desktop' (enable,setup,clean,dump)"))
       ));
       // Get operation specific arguments
-      switch(cmd.op)
+      switch(op)
       {
         case CmdDesktopOp::SETUP:
         {
-          cmd.arg = fs::path{Expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))};
+          cmd.sub_cmd = CmdDesktop::Setup
+          {
+            .path_file_setup = Expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))
+          };
         }
         break;
         case CmdDesktopOp::ENABLE:
@@ -192,26 +195,58 @@ using namespace ns_parser::ns_interface;
             | std::views::split(',')
             | std::ranges::to<std::vector<std::string>>();
           // Create items
-          std::set<ns_desktop::IntegrationItem> set_enum;
+          std::set<ns_desktop::IntegrationItem> set_enable;
           for(auto&& item : vec_items)
           {
-            set_enum.insert(Expect(ns_desktop::IntegrationItem::from_string(item)));
+            set_enable.insert(Expect(ns_desktop::IntegrationItem::from_string(item)));
           }
           // Check for 'none'
-          if(set_enum.size() > 1 and set_enum.contains(ns_desktop::IntegrationItem::NONE))
+          if(set_enable.size() > 1 and set_enable.contains(ns_desktop::IntegrationItem::NONE))
           {
             return Unexpected("'none' option should not be used with others");
           }
-          // Check for trailing arguments
-          cmd.arg = set_enum;
+          cmd.sub_cmd = CmdDesktop::Enable
+          {
+            .set_enable = set_enable
+          };
+        }
+        break;
+        case CmdDesktopOp::DUMP:
+        {
+          // Get dump operation
+          CmdDesktopDump op_dump = Expect(CmdDesktopDump::from_string(
+            Expect(args.pop_front("Missing arguments for 'dump' (desktop,icon)"))
+          ));
+          // Parse dump operation
+          switch(op_dump)
+          {
+            case CmdDesktopDump::ICON:
+            {
+              cmd.sub_cmd = CmdDesktop::Dump { CmdDesktop::Dump::Icon {
+                .path_file_icon = Expect(args.pop_front("Missing argument for 'icon' /path/to/dump/file"))
+              }};
+            }
+            break;
+            case CmdDesktopDump::ENTRY:
+            {
+              cmd.sub_cmd = CmdDesktop::Dump { CmdDesktop::Dump::Entry{} };
+            }
+            break;
+            case CmdDesktopDump::MIMETYPE:
+            {
+              cmd.sub_cmd = CmdDesktop::Dump { CmdDesktop::Dump::MimeType{} };
+            }
+            break;
+            case CmdDesktopDump::NONE: return Unexpected("Invalid desktop dump operation");
+          }
         }
         break;
         case CmdDesktopOp::CLEAN:
-        break;
-        case CmdDesktopOp::NONE:
         {
-          return Unexpected("Invalid desktop operation");
+          cmd.sub_cmd = CmdDesktop::Clean{};
         }
+        break;
+        case CmdDesktopOp::NONE: return Unexpected("Invalid desktop operation");
       }
       qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-desktop: {}"_fmt(args.data())));
       return CmdType(cmd);
@@ -558,35 +593,46 @@ using namespace ns_parser::ns_interface;
         break;
       case ns_parser::CmdEnvOp::NONE: return Unexpected("Invalid operation for environment");
     } // switch
-  } // if
+  }
   // Configure desktop integration
-  else if ( auto cmd = std::get_if<ns_parser::CmdDesktop>(&variant_cmd) )
+  else if (auto cmd = std::get_if<CmdDesktop>(&variant_cmd))
   {
-    // Determine open mode
-    switch( cmd->op )
+    if(auto cmd_desktop = std::get_if<CmdDesktop::Setup>(&(cmd->sub_cmd)))
     {
-      case ns_parser::CmdDesktopOp::ENABLE:
+      Expect(ns_desktop::setup(config, cmd_desktop->path_file_setup));
+    }
+    else if(auto cmd_desktop = std::get_if<CmdDesktop::Enable>(&(cmd->sub_cmd)))
+    {
+      Expect(ns_desktop::enable(config, cmd_desktop->set_enable));
+    }
+    else if(std::get_if<CmdDesktop::Clean>(&(cmd->sub_cmd)))
+    {
+      Expect(ns_desktop::clean(config));
+    }
+    else if(auto cmd_desktop = std::get_if<CmdDesktop::Dump>(&(cmd->sub_cmd)))
+    {
+      if(auto cmd_dump = std::get_if<CmdDesktop::Dump::Icon>(&(cmd_desktop->sub_cmd)))
       {
-        auto ptr_is_enable = std::get_if<std::set<ns_desktop::IntegrationItem>>(&cmd->arg);
-        qreturn_if(ptr_is_enable == nullptr, Unexpected("Could not get items to configure desktop integration"));
-        Expect(ns_desktop::enable(config,*ptr_is_enable));
+        Expect(ns_desktop::dump_icon(config, cmd_dump->path_file_icon));
       }
-      break;
-      case ns_parser::CmdDesktopOp::SETUP:
+      else if(std::get_if<CmdDesktop::Dump::Entry>(&(cmd_desktop->sub_cmd)))
       {
-        auto ptr_path_file_src_json = std::get_if<fs::path>(&cmd->arg);
-        qreturn_if(ptr_path_file_src_json == nullptr, Unexpected("Could not convert variant value to fs::path"));
-        Expect(ns_desktop::setup(config, *ptr_path_file_src_json));
+        std::println("{}", Expect(ns_desktop::dump_entry(config)));
       }
-      break;
-      case ns_parser::CmdDesktopOp::CLEAN:
+      else if(std::get_if<CmdDesktop::Dump::MimeType>(&(cmd_desktop->sub_cmd)))
       {
-        Expect(ns_desktop::clean(config));
+        std::println("{}", Expect(ns_desktop::dump_mimetype(config)));
       }
-      break;
-      case ns_parser::CmdDesktopOp::NONE: return Unexpected("Invalid desktop operation");
-    } // switch
-  } // if
+      else
+      {
+        return Unexpected("Invalid dump sub-command");
+      }
+    }
+    else
+    {
+      return Unexpected("Invalid desktop sub-command");
+    }
+  }
   // Manager layers
   else if ( auto cmd = std::get_if<ns_parser::CmdLayer>(&variant_cmd) )
   {

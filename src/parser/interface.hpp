@@ -16,6 +16,13 @@
 
 namespace ns_parser::ns_interface
 {
+  
+namespace
+{
+
+namespace fs = std::filesystem;
+
+}
 
 struct CmdRoot
 {
@@ -43,11 +50,36 @@ struct CmdEnv
   std::vector<std::string> environment;
 };
 
-ENUM(CmdDesktopOp,SETUP,ENABLE,CLEAN);
+ENUM(CmdDesktopOp,SETUP,ENABLE,CLEAN,DUMP);
+ENUM(CmdDesktopDump,ENTRY,ICON,MIMETYPE);
 struct CmdDesktop
 {
-  CmdDesktopOp op;
-  std::variant<std::filesystem::path,std::set<ns_desktop::IntegrationItem>> arg;
+  struct Setup
+  {
+    std::filesystem::path path_file_setup;
+  };
+  struct Enable
+  {
+    std::set<ns_desktop::IntegrationItem> set_enable;
+  };
+  struct Clean
+  {
+  };
+  struct Dump
+  {
+    struct Icon
+    {
+      fs::path path_file_icon;
+    };
+    struct Entry
+    {
+    };
+    struct MimeType
+    {
+    };
+    std::variant<Icon,Entry,MimeType> sub_cmd;
+  };
+  std::variant<Setup,Enable,Clean,Dump> sub_cmd;
 };
 
 ENUM(CmdBootOp,SET,SHOW,CLEAR);

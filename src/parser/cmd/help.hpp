@@ -155,6 +155,18 @@ inline std::string desktop_usage()
     .with_args({
       { "clean", "Cleans the desktop integration files from XDG_DATA_HOME" },
     })
+    .with_usage("fim-desktop <dump> <icon> <file>")
+    .with_args({
+      { "dump", "Dumps the selected integration data" },
+      { "icon", "Dumps the desktop icon to a file" },
+      { "file", "Path to the icon file, the extension is appended automatically if not specified" },
+    })
+    .with_usage("fim-desktop <dump> <entry|mimetype>")
+    .with_args({
+      { "dump", "Dumps the selected integration data" },
+      { "entry", "The desktop entry of the application" },
+      { "mimetype", "The mime type of the application" },
+    })
     .get();
 }
 

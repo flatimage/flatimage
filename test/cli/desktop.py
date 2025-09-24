@@ -18,18 +18,26 @@ class TestFimDesktop(unittest.TestCase):
     cls.file_desktop = cls.dir_script / "desktop.json"
     cls.home_host = os.environ["HOME"]
 
+  def setUp(self):
+    shutil.copy(os.environ["FILE_IMAGE_SRC"], os.environ["FILE_IMAGE"])
+
   def tearDown(self):
     os.environ["FIM_DEBUG"] = "0"
     os.environ["HOME"] = self.home_host
     shutil.rmtree(self.dir_script / "home_tmp", ignore_errors=True)
-    if Path.exists(self.file_desktop):
+    if self.file_desktop.exists():
       os.unlink(self.file_desktop)
     image_file = Path(self.file_image).parent / "temp.flatimage"
-    if Path.exists(image_file):
+    if image_file.exists():
       os.unlink(image_file)
     image_dir = Path(self.file_image).parent / ".temp.flatimage.config"
-    if Path.exists(image_dir):
-      shutil.rmtree(image_dir, )
+    if image_dir.exists():
+      shutil.rmtree(image_dir)
+    if self.dir_image.exists():
+      shutil.rmtree(self.dir_image)
+    file_png = self.dir_script / "out.png"
+    if file_png.exists():
+      os.unlink(file_png)
 
 
   def run_cmd(self, *args):
@@ -103,7 +111,7 @@ class TestFimDesktop(unittest.TestCase):
         r"""    <sub-class-of type="application/x-executable"/>""" "\n"
         r"""    <generic-icon name="application-flatimage"/>""" "\n"
         r"""  </mime-type>""" "\n"
-        r"""</mime-info>""" "\n"
+        r"""</mime-info>"""
       )
       with open(path_file_mime, 'r') as file:
         contents = file.read()
@@ -127,7 +135,7 @@ class TestFimDesktop(unittest.TestCase):
         rf"""Exec="{image}" %F""" "\n"
         rf"""Icon=flatimage_{name}""" "\n"
         rf"""MimeType=application/flatimage_{name};""" "\n"
-        """Categories=Network;System;""" "\n"
+        """Categories=Network;System;"""
       )
       with open(path_dir_entry, "r") as file:
         contents = file.read()
@@ -439,7 +447,7 @@ class TestFimDesktop(unittest.TestCase):
     # Clean without setup
     out,err,code = self.run_cmd("fim-desktop", "clean")
     self.assertEqual(out, "")
-    self.assertIn("Could not parse json file", err)
+    self.assertIn("Empty json data", err)
     self.assertEqual(code, 125)
     # Setup integration
     name = "MyApp"
@@ -467,7 +475,6 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
     # All enabled
-    self.maxDiff = None
     self.check_mime(name, path_dir_xdg, self.assertTrue)
     self.check_mime_generic(name, path_dir_xdg, self.assertTrue)
     self.check_entry(self.file_image, name, path_dir_xdg, self.assertTrue)
@@ -501,3 +508,131 @@ class TestFimDesktop(unittest.TestCase):
     self.check_mime_generic(name, path_dir_xdg, self.assertTrue)
     self.check_entry(self.file_image, name, path_dir_xdg, self.assertFalse)
     self.check_icons(name, path_dir_xdg, 'png', self.assertFalse)
+
+  def test_dump_nosetup(self):
+    self.setup_alt_home()
+    out,err,code = self.run_cmd("fim-desktop", "dump", "entry")
+    self.assertEqual(out, "")
+    self.assertIn("Empty json data", err)
+    self.assertEqual(code, 125)
+    out,err,code = self.run_cmd("fim-desktop", "dump", "mimetype")
+    self.assertEqual(out, "")
+    self.assertIn("Empty json data", err)
+    self.assertEqual(code, 125)
+    out,err,code = self.run_cmd("fim-desktop", "dump", "icon", self.dir_script / "out.png")
+    self.assertEqual(out, "")
+    self.assertIn("Empty icon data", err)
+    self.assertEqual(code, 125)
+
+  def test_dump_icon(self):
+    name = "MyApp"
+    # Setup desktop integration
+    self.make_json_setup(r'''"ICON"''', name)
+    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    # Dump icon
+    self.setup_alt_home()
+    file_png = self.dir_script / "out.png"
+    out,err,code = self.run_cmd("fim-desktop", "dump", "icon", str(file_png))
+    self.assertEqual(out, "")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    self.assertTrue(file_png.exists())
+    # Compare icon SHA with source
+    sha_base = subprocess.run(
+      ["sha256sum", str(self.dir_script / "icon.png")],
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      text=True
+    )
+    sha_target = subprocess.run(
+      ["sha256sum", str(file_png)],
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      text=True
+    )
+    self.assertEqual(sha_base.stdout[:64], sha_target.stdout[:64])
+    # Generate extension
+    os.remove(file_png)
+    out,err,code = self.run_cmd("fim-desktop", "dump", "icon", str(self.dir_script / "out"))
+    self.assertEqual(out, "")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    sha_target = subprocess.run(
+      ["sha256sum", file_png],
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      text=True
+    )
+    self.assertEqual(sha_base.stdout[:64], sha_target.stdout[:64])
+    # Test clean
+    out,err,code = self.run_cmd("fim-desktop", "clean")
+    self.assertIn("Removed file", out)
+    self.assertEqual(code, 0)
+    out,err,code = self.run_cmd("fim-desktop", "dump", "icon", file_png)
+    self.assertEqual(out, "")
+    self.assertIn("Empty icon data", err)
+    self.assertEqual(code, 125)
+
+  def test_dump_entry(self):
+    name = "MyApp"
+    self.setup_alt_home()
+    # Setup desktop integration
+    self.make_json_setup(r'''"ENTRY"''', name)
+    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    # Dump desktop entry
+    out,err,code = self.run_cmd("fim-desktop", "dump", "entry")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    # Check if entry matches expected output
+    expected: str = (
+      """[Desktop Entry]""" "\n"
+      rf"""Name={name}""" "\n"
+      """Type=Application""" "\n"
+      rf'''Comment=FlatImage distribution of "{name}"''' "\n"
+      rf"""Exec="{self.file_image}" %F""" "\n"
+      rf"""Icon=flatimage_{name}""" "\n"
+      rf"""MimeType=application/flatimage_{name};""" "\n"
+      """Categories=Network;System;"""
+    )
+    self.assertEqual(expected, out)
+    # Test clean
+    out,err,code = self.run_cmd("fim-desktop", "clean")
+    self.assertIn("Removed file", out)
+    self.assertEqual(code, 0)
+    out,err,code = self.run_cmd("fim-desktop", "dump", "entry")
+    self.assertEqual(out, "")
+    self.assertIn("Empty json data", err)
+    self.assertEqual(code, 125)
+
+  def test_dump_mimetype(self):
+    self.maxDiff = None
+    name = "MyApp"
+    # Setup desktop integration
+    self.make_json_setup(r'''"MIMETYPE"''', name)
+    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+    # Dump mime type
+    self.setup_alt_home()
+    out,err,code = self.run_cmd("fim-desktop", "dump", "mimetype")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    # Check if mime type matches expected output
+    expected = (
+      r"""<?xml version="1.0" encoding="UTF-8"?>""" "\n"
+      r"""<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">""" "\n"
+      rf"""  <mime-type type="application/flatimage_{name}">""" "\n"
+      r"""    <comment>FlatImage Application</comment>""" "\n"
+      rf"""    <glob weight="100" pattern="{Path(self.file_image).name}"/>""" "\n"
+      r"""    <sub-class-of type="application/x-executable"/>""" "\n"
+      r"""    <generic-icon name="application-flatimage"/>""" "\n"
+      r"""  </mime-type>""" "\n"
+      r"""</mime-info>"""
+    )
+    self.assertEqual(expected, out)
+    # Test clean
+    out,err,code = self.run_cmd("fim-desktop", "clean")
+    self.assertIn("Removed file", out)
+    self.assertEqual(code, 0)
+    out,err,code = self.run_cmd("fim-desktop", "dump", "mimetype")
+    self.assertEqual(out, "")
+    self.assertIn("Empty json data", err)
+    self.assertEqual(code, 125)
