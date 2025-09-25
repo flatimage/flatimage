@@ -11,17 +11,13 @@
 #include <filesystem>
 #include <algorithm>
 
-#include "../interface.hpp"
 #include "../../db/db.hpp"
 #include "../../db/bind.hpp"
 
 namespace ns_cmd::ns_bind
 {
 
-using CmdBind = ns_parser::ns_interface::CmdBind;
-using CmdBindType = ns_parser::ns_interface::CmdBindType;
-using index_t = ns_parser::ns_interface::CmdBind::cmd_bind_index_t;
-using bind_t = ns_parser::ns_interface::CmdBind::cmd_bind_t;
+ENUM(CmdBindType,DEV,RO,RW);
 
 namespace
 {
@@ -34,7 +30,7 @@ namespace fs = std::filesystem;
  * @param db The database to query
  * @return index_t The highest index element or -1 or error
  */
-[[nodiscard]] inline index_t get_highest_index(ns_db::Db const& db)
+[[nodiscard]] inline uint64_t get_highest_index(ns_db::Db const& db)
 {
   auto keys = db.keys();
   auto bindings = keys
@@ -84,7 +80,7 @@ namespace fs = std::filesystem;
  * @param cmd Structure with the index to remove from the database
  * @return Expected<void> 
  */
-[[nodiscard]] inline Expected<void> del(fs::path const& path_file_db_binding, ns_bind::index_t index)
+[[nodiscard]] inline Expected<void> del(fs::path const& path_file_db_binding, uint64_t index)
 {
   std::error_code ec;
   // Check if database exists
