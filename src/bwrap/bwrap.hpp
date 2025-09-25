@@ -98,6 +98,7 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_input();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_usb();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_network();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_dev();
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind(fs::path const& src, fs::path const& dst);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
@@ -630,6 +631,21 @@ inline Bwrap& Bwrap::bind_network()
 }
 
 /**
+ * @brief Binds the /dev directory to the containter
+ * 
+ * Superseeds all previous /dev related bindings
+ *
+ * @return Bwrap& A reference to *this
+ */
+inline Bwrap& Bwrap::bind_dev()
+{
+  ns_log::debug()("PERM(DEV)");
+  ns_vector::push_back(m_args, "--dev-bind-try", "/dev", "/dev");
+  return *this;
+}
+
+
+/**
  * @brief Binds the gpu device from the host to the guest
  * 
  * @param path_dir_root_guest Path to the root directory of the sandbox
@@ -667,6 +683,7 @@ inline Expected<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   if(permissions.contains(Permission::INPUT)){ std::ignore = bind_input(); };
   if(permissions.contains(Permission::USB)){ std::ignore = bind_usb(); };
   if(permissions.contains(Permission::NETWORK)){ std::ignore = bind_network(); };
+  if(permissions.contains(Permission::DEV)){ std::ignore = bind_dev(); };
 
   // Search for bash
   fs::path path_file_bash = Expect(ns_env::search_path("bash"));

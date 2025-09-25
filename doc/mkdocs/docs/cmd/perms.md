@@ -43,6 +43,8 @@ variable.
     * Binds `[ro]` `/etc/hosts -> /etc/hosts`
     * Binds `[ro]` `/etc/nsswitch.conf -> /etc/nsswitch.conf`
     * Binds `[ro]` `/etc/resolv.conf -> /etc/resolv.conf`
+* dev - Binds the host `/dev` directory to the container.
+    * Binds `[dev]` `/dev -> /dev`
 
 If `XDG_RUNTIME_DIR` is undefined it defaults to `/run/user/$(id -u)`. The tag
 after `Binds` indicates if the bind is `read-only [ro]`, `read-write [rw]` or a
@@ -54,7 +56,7 @@ You can use `./app.flatimage fim-help perms` to get the following usage details:
 
 ```txt
 fim-perms : Edit current permissions for the flatimage
-Note: Permissions: home,media,audio,wayland,xorg,dbus_user,dbus_system,udev,usb,input,gpu,network
+Note: Permissions: home,media,audio,wayland,xorg,dbus_user,dbus_system,udev,usb,input,gpu,network,dev
 Usage: fim-perms <add|del> <perms...>
   <add> : Allow one or more permissions
   <del> : Delete one or more permissions

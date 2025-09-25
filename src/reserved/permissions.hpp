@@ -30,7 +30,7 @@ namespace fs = std::filesystem;
 using Bits = uint64_t;
 
 // Permissions as fields
-ENUM(Permission,ALL,HOME,MEDIA,AUDIO,WAYLAND,XORG,DBUS_USER,DBUS_SYSTEM,UDEV,USB,INPUT,GPU,NETWORK);
+ENUM(Permission,ALL,HOME,MEDIA,AUDIO,WAYLAND,XORG,DBUS_USER,DBUS_SYSTEM,UDEV,USB,INPUT,GPU,NETWORK,DEV);
 
 // Corresponding bit position index
 inline std::map<Permission,Bits> const permission_mask =
@@ -47,6 +47,7 @@ inline std::map<Permission,Bits> const permission_mask =
   {Permission::INPUT, Bits{1} << 9},
   {Permission::GPU, Bits{1} << 10},
   {Permission::NETWORK, Bits{1} << 11},
+  {Permission::DEV, Bits{1} << 12},
 };
 
 /**

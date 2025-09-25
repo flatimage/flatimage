@@ -61,6 +61,25 @@ class TestFimPerms(unittest.TestCase):
     self.assertIn("You are not connected to Mullvad", out)
     self.run_cmd("fim-perms", "del", "network")
 
+  def test_bind_dev(self):
+    out,err,code = self.run_cmd("fim-perms", "add", "dev")
+    self.assertEqual(out, "")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    files_container,err,code = self.run_cmd("fim-exec", "sh", "-c", "ls -1 /dev | sort -d")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    result = subprocess.run(
+      ["sh", "-c", "ls -1 /dev | sort -d"],
+      stdout=subprocess.PIPE,
+      stderr=subprocess.PIPE,
+      text=True
+    )
+    files_host = result.stdout.strip()
+    self.assertEqual(result.stderr, "")
+    self.assertEqual(result.returncode, 0)
+    self.assertEqual(files_container, files_host)
+
   def test_multiple_permissions(self):
     self.run_cmd("fim-perms", "add", "home,network")
     out,err,code = self.run_cmd("fim-perms", "list")
@@ -144,7 +163,7 @@ class TestFimPerms(unittest.TestCase):
     self.assertEqual(code, 0)
     out,err,code = self.run_cmd("fim-perms", "list")
     self.assertEqual(
-      "audio\ndbus_system\ndbus_user\ngpu\nhome\n"
+      "audio\ndbus_system\ndbus_user\ndev\ngpu\nhome\n"
       "input\nmedia\nnetwork\nudev\nusb\nwayland\nxorg"
       , out
     )
@@ -280,7 +299,7 @@ class TestFimPerms(unittest.TestCase):
     self.assertEqual(code, 0)
     out,err,code = self.run_cmd("fim-perms", "list")
     self.assertEqual(
-      "audio\ndbus_system\ndbus_user\ngpu\nhome\n"
+      "audio\ndbus_system\ndbus_user\ndev\ngpu\nhome\n"
       "input\nmedia\nnetwork\nudev\nusb\nwayland\nxorg"
       , out
     )
