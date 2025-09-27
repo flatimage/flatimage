@@ -164,7 +164,7 @@ class TestFimPerms(unittest.TestCase):
     out,err,code = self.run_cmd("fim-perms", "list")
     self.assertEqual(
       "audio\ndbus_system\ndbus_user\ndev\ngpu\nhome\n"
-      "input\nmedia\nnetwork\nudev\nusb\nwayland\nxorg"
+      "input\nmedia\nnetwork\nshm\nudev\nusb\nwayland\nxorg"
       , out
     )
     self.assertEqual(err, "")
@@ -300,7 +300,7 @@ class TestFimPerms(unittest.TestCase):
     out,err,code = self.run_cmd("fim-perms", "list")
     self.assertEqual(
       "audio\ndbus_system\ndbus_user\ndev\ngpu\nhome\n"
-      "input\nmedia\nnetwork\nudev\nusb\nwayland\nxorg"
+      "input\nmedia\nnetwork\nshm\nudev\nusb\nwayland\nxorg"
       , out
     )
     self.assertEqual(err, "")

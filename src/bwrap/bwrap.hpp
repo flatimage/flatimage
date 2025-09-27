@@ -98,6 +98,7 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_input();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_usb();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_network();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_shm();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_dev();
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind(fs::path const& src, fs::path const& dst);
@@ -447,7 +448,6 @@ inline Bwrap& Bwrap::bind_audio()
   // Other paths required to sound
   ns_vector::push_back(m_args, "--dev-bind-try", "/dev/dsp", "/dev/dsp");
   ns_vector::push_back(m_args, "--bind-try", "/dev/snd", "/dev/snd");
-  ns_vector::push_back(m_args, "--bind-try", "/dev/shm", "/dev/shm");
   ns_vector::push_back(m_args, "--bind-try", "/proc/asound", "/proc/asound");
 
   return *this;
@@ -631,6 +631,20 @@ inline Bwrap& Bwrap::bind_network()
 }
 
 /**
+ * @brief Binds the /dev/shm directory to the containter
+ * 
+ * A tmpfs mount used for POSIX shared memory
+ *
+ * @return Bwrap& A reference to *this
+ */
+inline Bwrap& Bwrap::bind_shm()
+{
+  ns_log::debug()("PERM(SHM)");
+  ns_vector::push_back(m_args, "--dev-bind-try", "/dev/shm", "/dev/shm");
+  return *this;
+}
+
+/**
  * @brief Binds the /dev directory to the containter
  * 
  * Superseeds all previous /dev related bindings
@@ -683,6 +697,7 @@ inline Expected<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   if(permissions.contains(Permission::INPUT)){ std::ignore = bind_input(); };
   if(permissions.contains(Permission::USB)){ std::ignore = bind_usb(); };
   if(permissions.contains(Permission::NETWORK)){ std::ignore = bind_network(); };
+  if(permissions.contains(Permission::SHM)){ std::ignore = bind_shm(); };
   if(permissions.contains(Permission::DEV)){ std::ignore = bind_dev(); };
 
   // Search for bash

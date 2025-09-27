@@ -43,6 +43,8 @@ variable.
     * Binds `[ro]` `/etc/hosts -> /etc/hosts`
     * Binds `[ro]` `/etc/nsswitch.conf -> /etc/nsswitch.conf`
     * Binds `[ro]` `/etc/resolv.conf -> /etc/resolv.conf`
+* shm - A tmpfs mount used for POSIX shared memory
+    * Binds `[dev]` `/dev/shm -> /dev/shm`
 * dev - Binds the host `/dev` directory to the container.
     * Binds `[dev]` `/dev -> /dev`
 

@@ -275,7 +275,7 @@ inline std::string perms_usage()
 {
   return HelpEntry{"fim-perms"}
     .with_description("Edit current permissions for the flatimage")
-    .with_note("Permissions: home,media,audio,wayland,xorg,dbus_user,dbus_system,udev,usb,input,gpu,network,dev")
+    .with_note("Permissions: home,media,audio,wayland,xorg,dbus_user,dbus_system,udev,usb,input,gpu,shm,network,dev")
     .with_usage("fim-perms <add|del> <perms...>")
     .with_args({
       { "add", "Allow one or more permissions" },
