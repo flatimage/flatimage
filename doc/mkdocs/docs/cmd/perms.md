@@ -45,6 +45,9 @@ variable.
     * Binds `[ro]` `/etc/resolv.conf -> /etc/resolv.conf`
 * shm - A tmpfs mount used for POSIX shared memory
     * Binds `[dev]` `/dev/shm -> /dev/shm`
+* optical - Access to optical devices such as CD and DVD drives.
+    * Binds `[dev]` `/dev/sr[0-255] -> /dev/sr[0-255]`
+    * Binds `[dev]` `/dev/sg[0-255] -> /dev/sg[0-255]`
 * dev - Binds the host `/dev` directory to the container.
     * Binds `[dev]` `/dev -> /dev`
 
@@ -58,11 +61,11 @@ You can use `./app.flatimage fim-help perms` to get the following usage details:
 
 ```txt
 fim-perms : Edit current permissions for the flatimage
-Note: Permissions: home,media,audio,wayland,xorg,dbus_user,dbus_system,udev,usb,input,gpu,network,dev
+Note: Permissions: audio,dbus_system,dbus_user,dev,gpu,home,input,media,network,optical,shm,udev,usb,wayland,xorg
 Usage: fim-perms <add|del> <perms...>
   <add> : Allow one or more permissions
   <del> : Delete one or more permissions
-  <perms...> : One or more permissions
+  <perms...> : A comma-separated permission list
 Example: fim-perms add home,network,gpu
 Usage: fim-perms <list|clear>
   <list> : Lists the current permissions

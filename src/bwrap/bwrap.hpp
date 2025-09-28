@@ -10,6 +10,7 @@
 
 #include <fcntl.h>
 #include <filesystem>
+#include <ranges>
 #include <sys/types.h>
 #include <pwd.h>
 #include <regex>
@@ -99,6 +100,7 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_usb();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_network();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_shm();
+    [[maybe_unused]] [[nodiscard]] Bwrap& bind_optical();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_dev();
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind(fs::path const& src, fs::path const& dst);
@@ -645,6 +647,33 @@ inline Bwrap& Bwrap::bind_shm()
 }
 
 /**
+ * @brief Binds optical devices to the container
+ * 
+ * Grants access to optical devices such as CD and DVD drives.
+ * The maximum number of scsi devices is defined in the linux kernel
+ * as [#define SR_DISKS	256](https://github.com/torvalds/linux/blob/master/drivers/scsi/sr.c).
+ *
+ * @return Bwrap& A reference to *this
+ */
+inline Bwrap& Bwrap::bind_optical()
+{
+  ns_log::debug()("PERM(OPTICAL)");
+  auto f_bind = [this](fs::path const& path_device)
+  {
+    std::error_code ec; 
+    return fs::exists(path_device, ec)?
+        (ns_vector::push_back(m_args, "--dev-bind-try", path_device, path_device), true)
+      : (({elog_if(ec, "Error to check if file exists: {}"_fmt(ec.message()))}), false);
+  };
+  // Bind /dev/sr[0-255] and /dev/sg[0-255]
+  for(int i : std::views::iota(0,256))
+  {
+    qbreak_if(not f_bind("/dev/sr{}"_fmt(i)) and not f_bind("/dev/sg{}"_fmt(i)));
+  }
+  return *this;
+}
+
+/**
  * @brief Binds the /dev directory to the containter
  * 
  * Superseeds all previous /dev related bindings
@@ -698,6 +727,7 @@ inline Expected<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   if(permissions.contains(Permission::USB)){ std::ignore = bind_usb(); };
   if(permissions.contains(Permission::NETWORK)){ std::ignore = bind_network(); };
   if(permissions.contains(Permission::SHM)){ std::ignore = bind_shm(); };
+  if(permissions.contains(Permission::OPTICAL)){ std::ignore = bind_optical(); };
   if(permissions.contains(Permission::DEV)){ std::ignore = bind_dev(); };
 
   // Search for bash
