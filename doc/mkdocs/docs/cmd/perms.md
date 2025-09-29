@@ -5,8 +5,8 @@
 It is a functionally to allow granular access to the host's resources. The
 available permissions and their descriptions are as follows:
 
-* home - Access to the host `HOME` directory, defined by the `HOME` environment
-variable.
+* home - Access to the host `HOME` directory, defined by the `HOME` environment variable.
+    * Binds `[rw]` `$HOME -> $HOME`
 * media - Access to external storage devices.
     * Binds `[rw]` `/media -> /media`
     * Binds `[rw]` `/run/media -> /run/media`
@@ -30,13 +30,13 @@ variable.
 * udev - Monitor device events, detect new hardware / hardware changes.
     * Binds `[rw]` `/run/udev -> /run/udev`.
 * usb - Provides access to Universal Serial Bus `USB` devices.
-    * Binds `[rw]` `/dev/usb -> /dev/usb`
-    * Binds `[rw]` `/dev/bus/usb -> /dev/bus/usb`
+    * Binds `[dev]` `/dev/usb -> /dev/usb`
+    * Binds `[dev]` `/dev/bus/usb -> /dev/bus/usb`
 * input - Binds input devices (joysticks, mouse, keyboard, etc)
-    * Binds `[rw]` `/dev/input -> /dev/input`
+    * Binds `[dev]` `/dev/input -> /dev/input`
     * Binds `[dev]` `/dev/uinput -> /dev/uinput`
 * gpu - Allows access to GPU hardware
-    * Binds `[rw]` `/dev/dri -> /dev/dri`
+    * Binds `[dev]` `/dev/dri -> /dev/dri`
     * Symlinks nvidia drivers from the host to the container
 * network - Configures network access
     * Binds `[ro]` `/etc/host.conf -> /etc/host.conf`
