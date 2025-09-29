@@ -625,10 +625,10 @@ inline Bwrap& Bwrap::bind_usb()
 inline Bwrap& Bwrap::bind_network()
 {
   ns_log::debug()("PERM(NETWORK)");
-  ns_vector::push_back(m_args, "--bind-try", "/etc/host.conf", "/etc/host.conf");
-  ns_vector::push_back(m_args, "--bind-try", "/etc/hosts", "/etc/hosts");
-  ns_vector::push_back(m_args, "--bind-try", "/etc/nsswitch.conf", "/etc/nsswitch.conf");
-  ns_vector::push_back(m_args, "--bind-try", "/etc/resolv.conf", "/etc/resolv.conf");
+  ns_vector::push_back(m_args, "--ro-bind-try", "/etc/host.conf", "/etc/host.conf");
+  ns_vector::push_back(m_args, "--ro-bind-try", "/etc/hosts", "/etc/hosts");
+  ns_vector::push_back(m_args, "--ro-bind-try", "/etc/nsswitch.conf", "/etc/nsswitch.conf");
+  ns_vector::push_back(m_args, "--ro-bind-try", "/etc/resolv.conf", "/etc/resolv.conf");
   return *this;
 }
 
