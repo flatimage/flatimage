@@ -188,10 +188,8 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "bwrap", offset_end));
   std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "ciopfs", offset_end));
   std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_file_dwarfs_aio, offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "lsof", offset_end));
   std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "overlayfs", offset_end));
   std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "unionfs", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "proot", offset_end));
   file_binary.close();
   fs::create_symlink(path_file_dwarfs_aio, path_dir_app_bin / "dwarfs", ec);
   fs::create_symlink(path_file_dwarfs_aio, path_dir_app_bin / "mkdwarfs", ec);
