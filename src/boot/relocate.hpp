@@ -215,7 +215,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   if ( getenv("FIM_DEBUG") != nullptr )
   {
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    "Copy binaries finished in '{}' ms"_print(elapsed.count());
+    ns_log::debug()("Copy binaries finished in '{}' ms", elapsed.count());
   } // if
 
   // Launch Runner
