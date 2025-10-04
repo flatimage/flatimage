@@ -4,7 +4,6 @@ import os
 import subprocess
 import unittest
 import shutil
-import pathlib
 
 class TestFimCasefold(unittest.TestCase):
 
@@ -15,6 +14,7 @@ class TestFimCasefold(unittest.TestCase):
 
   def tearDown(self):
     shutil.rmtree(self.dir_image, ignore_errors=True)
+    os.environ["FIM_DEBUG"]="0"
     self.run_cmd("fim-casefold", "off")
     
   def run_cmd(self, *args, env=None):
@@ -38,15 +38,15 @@ class TestFimCasefold(unittest.TestCase):
     self.assertEqual(code, 1)
 
   def test_casefold_enabled(self):
-    os.environ["FIM_OVERLAY"] = "unionfs"
+    def success(out,err,code):
+      self.assertEqual(out, "")
+      self.assertEqual(err, "")
+      self.assertEqual(code, 0)
+      
     out,err,code = self.run_cmd("fim-casefold", "on")
-    self.assertEqual(out, "")
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
+    success(out,err,code)
     out,err,code = self.run_cmd("fim-exec", "mkdir", "-p", "/hElLo/WoRlD")
-    self.assertEqual(out, "")
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
+    success(out,err,code)
     out,err,code = self.run_cmd("fim-exec", "stat", "/hello/world")
     self.assertIn("File: /hello/world", out)
     self.assertEqual(err, "")
@@ -55,3 +55,26 @@ class TestFimCasefold(unittest.TestCase):
     self.assertIn("File: /hEllO/WorlD", out)
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
+    os.environ["FIM_DEBUG"]="1"
+    out,err,code = self.run_cmd("fim-exec", "echo", "-n", "")
+    self.assertIn("Overlay type: UNIONFS", out)
+    self.assertEqual([l for l in out.splitlines() if not l.startswith("D::") and not l.startswith("I::") and not len(l) == 0] , [])
+    self.assertIn("casefold cannot be used with bwrap overlayfs, falling back to unionfs", err)
+    self.assertEqual(code, 0)
+    os.environ["FIM_DEBUG"]="0"
+    out,err,code = self.run_cmd("fim-exec", "rmdir", "/hello/world")
+    success(out,err,code)
+    out,err,code = self.run_cmd("fim-casefold", "off")
+    self.assertEqual(out, "")
+    self.assertIn("casefold cannot be used with bwrap overlayfs, falling back to unionfs", err)
+    self.assertEqual(code, 0)
+    out,err,code = self.run_cmd("fim-exec", "mkdir", "-p", "/hElLo/WoRlD")
+    success(out,err,code)
+    out,err,code = self.run_cmd("fim-exec", "stat", "/hElLo/WoRlD")
+    self.assertIn("File: /hElLo/WoRlD", out)
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    out,err,code = self.run_cmd("fim-exec", "stat", "/hello/world")
+    self.assertEqual(out, "")
+    self.assertIn("stat: can't stat '/hello/world': No such file or directory", err)
+    self.assertEqual(code, 1)

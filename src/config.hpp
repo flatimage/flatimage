@@ -18,6 +18,7 @@
 #include "reserved/casefold.hpp"
 #include "reserved/notify.hpp"
 #include "reserved/overlay.hpp"
+#include "reserved/casefold.hpp"
 
 // Version
 #ifndef FIM_VERSION
@@ -189,6 +190,11 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
     : ns_env::exists("FIM_OVERLAY", "overlayfs")? ns_reserved::ns_overlay::OverlayType::OVERLAYFS
     : ns_env::exists("FIM_OVERLAY", "bwrap")? ns_reserved::ns_overlay::OverlayType::BWRAP
     : config->overlay_type.get();
+  if(config->is_casefold and config->overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
+  {
+    ns_log::warn()("casefold cannot be used with bwrap overlayfs, falling back to unionfs");
+    config->overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
+  }
   // Paths only available inside the container (runtime)
   config->path_dir_runtime = "/tmp/fim/run";
   config->path_dir_runtime_host = config->path_dir_runtime / "host";
