@@ -38,7 +38,7 @@ class TestFimRoot(unittest.TestCase):
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
     # Check package installation
-    out,err,code = self.run_cmd("fim-version-full")
+    out,err,code = self.run_cmd("fim-version", "full")
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
     self.run_cmd("fim-perms", "set", "network")

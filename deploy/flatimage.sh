@@ -10,7 +10,9 @@
 
 #shellcheck disable=2155
 
-set -e
+set -xe
+
+shopt -s nullglob extglob
 
 FIM_DIR_SCRIPT=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 FIM_DIR="$(dirname "$FIM_DIR_SCRIPT")"
@@ -23,30 +25,47 @@ source "${FIM_DIR_SCRIPT}/common.sh"
 
 function _fetch_static()
 {
-  mkdir -p bin
+  mkdir -p bin meta
 
   # Fetch bash
-  wget -nc -O ./bin/bash "https://github.com/flatimage/tools/releases/download/040f22e/bash-x86_64"
+  wget -nc -O ./bin/bash "https://github.com/flatimage/tools/releases/download/7c31ed8/bash-x86_64"
+  wget -nc -O ./meta/bash.json "https://github.com/flatimage/tools/releases/download/7c31ed8/bash-metadata.json"
 
   # Fetch busybox
-  wget -nc -O ./bin/busybox "https://github.com/flatimage/tools/releases/download/040f22e/busybox-x86_64"
+  wget -nc -O ./bin/busybox "https://github.com/flatimage/tools/releases/download/7c31ed8/busybox-x86_64"
+  wget -nc -O ./meta/busybox.json "https://github.com/flatimage/tools/releases/download/7c31ed8/busybox-metadata.json"
 
   # Fetch bwrap
-  wget -nc -O ./bin/bwrap "https://github.com/flatimage/tools/releases/download/040f22e/bwrap-x86_64"
+  wget -nc -O ./bin/bwrap "https://github.com/flatimage/tools/releases/download/7c31ed8/bwrap-x86_64"
+  wget -nc -O ./meta/bwrap.json "https://github.com/flatimage/tools/releases/download/7c31ed8/bwrap-metadata.json"
 
   # Fetch ciopfs
-  wget -nc -O ./bin/ciopfs "https://github.com/flatimage/tools/releases/download/040f22e/ciopfs-x86_64"
+  wget -nc -O ./bin/ciopfs "https://github.com/flatimage/tools/releases/download/7c31ed8/ciopfs-x86_64"
+  wget -nc -O ./meta/ciopfs.json "https://github.com/flatimage/tools/releases/download/7c31ed8/ciopfs-metadata.json"
 
   # Fetch dwarfs
-  wget -nc -O bin/dwarfs_aio "https://github.com/flatimage/tools/releases/download/040f22e/dwarfs_aio-x86_64"
+  wget -nc -O bin/dwarfs_aio "https://github.com/flatimage/tools/releases/download/7c31ed8/dwarfs_aio-x86_64"
+  wget -nc -O meta/dwarfs_aio.json "https://github.com/flatimage/tools/releases/download/7c31ed8/dwarfs_aio-metadata.json"
   ln -s dwarfs_aio bin/mkdwarfs
   ln -s dwarfs_aio bin/dwarfs
 
   # Fetch overlayfs
-  wget -nc -O ./bin/overlayfs "https://github.com/flatimage/tools/releases/download/040f22e/overlayfs-x86_64"
+  wget -nc -O ./bin/overlayfs "https://github.com/flatimage/tools/releases/download/7c31ed8/overlayfs-x86_64"
+  wget -nc -O ./meta/overlayfs.json "https://github.com/flatimage/tools/releases/download/7c31ed8/overlayfs-metadata.json"
 
   # Fetch unionfs
-  wget -nc -O ./bin/unionfs "https://github.com/flatimage/tools/releases/download/040f22e/unionfs-x86_64"
+  wget -nc -O ./bin/unionfs "https://github.com/flatimage/tools/releases/download/7c31ed8/unionfs-x86_64"
+  wget -nc -O ./meta/unionfs.json "https://github.com/flatimage/tools/releases/download/7c31ed8/unionfs-metadata.json"
+
+  FIM_METADATA_DEPS="$(jo bash="$(< ./meta/bash.json)" \
+    busybox="$(< ./meta/busybox.json)" \
+    bwrap="$(< ./meta/bwrap.json)" \
+    ciopfs="$(< ./meta/ciopfs.json)" \
+    dwarfs_aio="$(< ./meta/dwarfs_aio.json)" \
+    overlayfs="$(< ./meta/overlayfs.json)" \
+    unionfs="$(< ./meta/unionfs.json)" \
+    | tr -d '\n')"
+  echo "$FIM_METADATA_DEPS"
 
   # # Setup xdg scripts
   # cp "$FIM_DIR"/src/xdg/xdg-* ./bin
@@ -55,7 +74,7 @@ function _fetch_static()
   chmod 755 ./bin/*
 
   # Compress binaries
-  upx -6 --no-lzma bin/* || true
+  upx -6 --no-lzma ./bin/!(*dwarfs*)
 
   # Create symlinks
   (
@@ -152,6 +171,7 @@ function _create_subsystem_blueprint()
     cd "$FIM_DIR"
     docker build . \
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
+      --build-arg FIM_METADATA_DEPS="$FIM_METADATA_DEPS" \
       --build-arg FIM_DIST=BLUEPRINT \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/boot /host/bin
@@ -254,7 +274,7 @@ function _create_subsystem_alpine()
   mount --bind /etc/hosts "/tmp/$dist/etc/hosts"
   chroot "/tmp/$dist" /bin/sh -c 'apk update'
   chroot "/tmp/$dist" /bin/sh -c 'apk upgrade'
-  chroot -R "/tmp/$dist" /bin/sh -c 'apk add bash alsa-utils alsa-utils-doc alsa-lib alsaconf alsa-ucm-conf pulseaudio pulseaudio-alsa' || true
+  chroot "/tmp/$dist" /bin/sh -c 'apk add bash alsa-utils alsa-utils-doc alsa-lib alsaconf alsa-ucm-conf pulseaudio pulseaudio-alsa' || true
   umount "/tmp/$dist/etc/resolv.conf" "/tmp/$dist/etc/hosts"
 
   # Create fim dir
@@ -271,7 +291,9 @@ function _create_subsystem_alpine()
   (
     cd "$FIM_DIR"
     docker build . \
+      --no-cache \
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
+      --build-arg FIM_METADATA_DEPS="$FIM_METADATA_DEPS" \
       --build-arg FIM_DIST=ALPINE \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/boot /host/bin
@@ -494,6 +516,7 @@ function _create_subsystem_arch()
     cd "$FIM_DIR"
     docker build . \
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
+      --build-arg FIM_METADATA_DEPS="$FIM_METADATA_DEPS" \
       --build-arg FIM_DIST=ARCH \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/boot /host/bin

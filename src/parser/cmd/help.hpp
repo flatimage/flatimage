@@ -308,11 +308,12 @@ inline std::string version_usage()
 {
   return HelpEntry{"fim-version"}
     .with_description("Displays version information of FlatImage")
-    .with_usage("fim-version")
-    .with_usage("fim-version-full")
+    .with_usage("fim-version <short|full|deps>")
     .with_args({
       { "fim-version", "Displays the version information of the FlatImage distribution" },
-      { "fim-version-full", "Displays a detailed json output of the FlatImage distribution" },
+      { "short", "Displays the version as a string" },
+      { "full", "Displays the version and build information in json" },
+      { "deps", "Displays dependencies metadata in json" },
     })
     .get();
 }

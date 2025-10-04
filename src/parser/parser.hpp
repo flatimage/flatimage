@@ -54,7 +54,7 @@ using namespace ns_parser::ns_interface;
  * @param argv Argument vector
  * @return Expected<CmdType> The parsed command or the respective error
  */
-[[nodiscard]] inline Expected<CmdType> parse(int argc , char** argv) noexcept
+[[nodiscard]] inline Expected<CmdType> parse(int argc , char** argv)
 {
   if ( argc < 2 or not std::string_view{argv[1]}.starts_with("fim-"))
   {
@@ -513,6 +513,24 @@ using namespace ns_parser::ns_interface;
       qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-overlay: {}"_fmt(args.data())));
       return CmdType(cmd);
     },
+    // Select or show the current overlay filesystem
+    ns_match::equal("fim-version") >>= [&] -> Expected<CmdType>
+    {
+      std::string msg = "Missing op for 'fim-version' (<short|full|deps>)";
+      // Get op
+      CmdVersionOp op = Expect(CmdVersionOp::from_string(Expect(args.pop_front(msg))));
+      // Build command
+      CmdVersion cmd;
+      switch(op)
+      {
+        case CmdVersionOp::SHORT: cmd.sub_cmd = CmdVersion::Short{}; break;
+        case CmdVersionOp::FULL: cmd.sub_cmd = CmdVersion::Full{}; break;
+        case CmdVersionOp::DEPS: cmd.sub_cmd = CmdVersion::Deps{}; break;
+        case CmdVersionOp::NONE: return Unexpected("Invalid operation for fim-overlay");
+      }
+      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-overlay: {}"_fmt(args.data())));
+      return CmdType(cmd);
+    },
     // Use the default startup command
     ns_match::equal("fim-help") >>= [&]
     {
@@ -551,7 +569,7 @@ using namespace ns_parser::ns_interface;
  * @param argv Argument vector
  * @return Expected<int> The exit code on success or the respective error
  */
-[[nodiscard]] inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, char** argv) noexcept
+[[nodiscard]] inline Expected<int> parse_cmds(ns_config::FlatimageConfig& config, int argc, char** argv)
 {
   // Parse args
   CmdType variant_cmd = Expect(ns_parser::parse(argc, argv));
@@ -914,6 +932,25 @@ using namespace ns_parser::ns_interface;
     else
     {
       return Unexpected("Invalid operation for fim-overlay");
+    }    
+  }
+  else if ( auto cmd = std::get_if<ns_parser::CmdVersion>(&variant_cmd) )
+  {
+    if(auto cmd_short = std::get_if<CmdVersion::Short>(&(cmd->sub_cmd)))
+    {
+      std::println("{}", cmd_short->dump());
+    }
+    else if(auto cmd_full = std::get_if<CmdVersion::Full>(&(cmd->sub_cmd)))
+    {
+      std::println("{}", cmd_full->dump());
+    }
+    else if(auto cmd_deps = std::get_if<CmdVersion::Deps>(&(cmd->sub_cmd)))
+    {
+      std::println("{}", Expect(cmd_deps->dump()));
+    }
+    else
+    {
+      return Unexpected("Invalid operation for fim-version");
     }    
   }
   // Update default command on database

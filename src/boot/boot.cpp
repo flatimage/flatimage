@@ -92,30 +92,6 @@ int main(int argc, char** argv)
   // Configure logger
   set_logger_level(argc, argv);
 
-  // Check for version queries
-  if(argc > 1)
-  {
-    std::string_view arg{argv[1]};
-    // Print version and exit
-    if ( arg == "fim-version" )
-    {
-      std::println(FIM_VERSION);
-      return EXIT_SUCCESS;
-    }
-    
-    // Print version-full and exit
-    if ( arg == "fim-version-full" )
-    {
-      ns_db::Db db;
-      db("VERSION") = FIM_VERSION;
-      db("COMMIT") = FIM_COMMIT;
-      db("DISTRIBUTION") = FIM_DIST;
-      db("TIMESTAMP") = FIM_TIMESTAMP;
-      std::println("{}", db.dump());
-      return EXIT_SUCCESS;
-    }
-  }
-  
   // Make variables available in environment
   ns_env::set("FIM_VERSION", FIM_VERSION, ns_env::Replace::Y);
   ns_env::set("FIM_COMMIT", FIM_COMMIT, ns_env::Replace::Y);

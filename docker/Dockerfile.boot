@@ -10,7 +10,7 @@ RUN apk update && apk upgrade
 RUN apk add --no-cache build-base git libbsd-dev cmake clang clang-dev \
   make e2fsprogs-dev e2fsprogs-libs e2fsprogs-static libcom_err musl musl-dev \
   bash pcre-tools boost-dev libjpeg-turbo-dev libjpeg-turbo-static libpng-dev \
-  libpng-static zlib-static upx nlohmann-json doxygen graphviz pipx
+  libpng-static zlib-static upx nlohmann-json doxygen graphviz pipx jo
 
 # Copy boot directory
 ARG FIM_DIR
@@ -23,12 +23,15 @@ ENV FIM_DIST=$FIM_DIST
 ARG FIM_RESERVED_SIZE
 ENV FIM_RESERVED_SIZE=$FIM_RESERVED_SIZE
 
+ARG FIM_METADATA_DEPS
+ENV FIM_METADATA_DEPS=$FIM_METADATA_DEPS
+
 # Setup MkDocs
 RUN pipx install mkdocs
 ENV PATH="${PATH}:/root/.local/bin"
 
 # Setup CMake
-RUN cmake -H. -Bbuild -DFIM_RESERVED_SIZE="$FIM_RESERVED_SIZE"
+RUN cmake -H. -Bbuild -DFIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" -DFIM_METADATA_DEPS="$FIM_METADATA_DEPS"
 
 # Compile boot
 RUN cmake --build build --target boot

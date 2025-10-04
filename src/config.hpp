@@ -39,6 +39,11 @@
 #error "FIM_TIMESTAMP is undefined"
 #endif
 
+// Dependencies metadata
+#ifndef FIM_METADATA_DEPS
+#error "FIM_METADATA_DEPS is undefined"
+#endif
+
 // Size for the configuration reserved space in the flatimage
 #ifndef FIM_RESERVED_SIZE
   #error "FIM_RESERVED_SIZE is undefined"

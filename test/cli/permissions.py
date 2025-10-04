@@ -47,7 +47,7 @@ class TestFimPerms(unittest.TestCase):
     self.assertEqual(code, 1)
 
   def test_bind_network(self):
-    out,err,code = self.run_cmd("fim-version-full")
+    out,err,code = self.run_cmd("fim-version", "full")
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
     self.run_cmd("fim-perms", "add", "network")

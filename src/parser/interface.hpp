@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <set>
 #include <string>
 #include <vector>
@@ -214,6 +215,39 @@ struct CmdOverlay
   std::variant<Set,Show> sub_cmd;
 };
 
+ENUM(CmdVersionOp,SHORT,FULL,DEPS);
+struct CmdVersion
+{
+  struct Short
+  {
+    std::string dump()
+    {
+      return FIM_VERSION;
+    }
+  };
+  struct Full
+  {
+    std::string dump()
+    {
+      ns_db::Db db;
+      db("VERSION") = FIM_VERSION;
+      db("COMMIT") = FIM_COMMIT;
+      db("DISTRIBUTION") = FIM_DIST;
+      db("TIMESTAMP") = FIM_TIMESTAMP;
+      return db.dump();
+    }
+  };
+  struct Deps
+  {
+    // This placeholder is replaced before compiling
+    Expected<std::string> dump()
+    {
+      return Expect(ns_db::from_string(FIM_METADATA_DEPS)).dump();
+    }
+  };
+  std::variant<Short,Full,Deps> sub_cmd;
+};
+
 struct CmdNone
 {
 };
@@ -237,6 +271,7 @@ using CmdType = std::variant<CmdRoot
   , CmdOverlay
   , CmdNone
   , CmdExit
+  , CmdVersion
 >;
 
 }
