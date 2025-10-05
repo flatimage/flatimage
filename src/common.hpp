@@ -59,4 +59,26 @@ inline decltype(auto) operator ""_fmt(const char* format, size_t) noexcept
   };
 }
 
+/**
+ * @brief Multiplies the value by 1 kibibyte
+ * 
+ * @param value The value to multiply with
+ * @return The result of the operation
+ */
+constexpr inline decltype(auto) operator ""_kib(unsigned long long value) noexcept
+{
+  return value * (1 << 10);
+}
+
+/**
+ * @brief Multiplies the value by 1 mebibyte
+ * 
+ * @param value The value to multiply with
+ * @return The result of the operation
+ */
+constexpr inline decltype(auto) operator ""_mib(unsigned long long value) noexcept
+{
+  return value * (1 << 20);
+}
+
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

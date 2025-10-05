@@ -49,8 +49,6 @@
 #ifndef FIM_RESERVED_SIZE
   #error "FIM_RESERVED_SIZE is undefined"
 #endif
-constexpr int64_t const SIZE_RESERVED_IMAGE = 1048576;
-
 
 namespace ns_config
 {

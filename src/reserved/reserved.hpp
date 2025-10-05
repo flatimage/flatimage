@@ -21,32 +21,65 @@ namespace ns_reserved
 
 extern "C" uint32_t FIM_RESERVED_OFFSET;
 
-// Permissions
-uint64_t const FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN = FIM_RESERVED_OFFSET;
-uint64_t const FIM_RESERVED_OFFSET_PERMISSIONS_END = FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN + 8;
-// Notify
-uint64_t const FIM_RESERVED_OFFSET_NOTIFY_BEGIN = FIM_RESERVED_OFFSET_PERMISSIONS_END;
-uint64_t const FIM_RESERVED_OFFSET_NOTIFY_END = FIM_RESERVED_OFFSET_NOTIFY_BEGIN + 1; 
-// Overlay
-uint64_t const FIM_RESERVED_OFFSET_OVERLAY_BEGIN = FIM_RESERVED_OFFSET_NOTIFY_END;
-uint64_t const FIM_RESERVED_OFFSET_OVERLAY_END = FIM_RESERVED_OFFSET_OVERLAY_BEGIN + 1; 
-// Casefold
-uint64_t const FIM_RESERVED_OFFSET_CASEFOLD_BEGIN = FIM_RESERVED_OFFSET_OVERLAY_END;
-uint64_t const FIM_RESERVED_OFFSET_CASEFOLD_END = FIM_RESERVED_OFFSET_CASEFOLD_BEGIN + 1; 
-// Desktop
-uint64_t const FIM_RESERVED_OFFSET_DESKTOP_BEGIN = FIM_RESERVED_OFFSET_CASEFOLD_END;
-uint64_t const FIM_RESERVED_OFFSET_DESKTOP_END = FIM_RESERVED_OFFSET_DESKTOP_BEGIN + (4*(1<<10)); 
-// Boot
-uint64_t const FIM_RESERVED_OFFSET_BOOT_BEGIN = FIM_RESERVED_OFFSET_DESKTOP_END;
-uint64_t const FIM_RESERVED_OFFSET_BOOT_END = FIM_RESERVED_OFFSET_BOOT_BEGIN + (8*(1<<10)); 
-// Icon
-uint64_t const FIM_RESERVED_OFFSET_ICON_BEGIN = FIM_RESERVED_OFFSET_BOOT_END;
-uint64_t const FIM_RESERVED_OFFSET_ICON_END = FIM_RESERVED_OFFSET_ICON_BEGIN + (1<<20);
-
 namespace
 {
 namespace fs = std::filesystem;
+
+// Check if there is enough reserved space at compile-time
+struct Reserved
+{
+  // Permissions
+  constexpr static uint64_t const fim_reserved_offset_permissions_begin = 0;
+  constexpr static uint64_t const fim_reserved_offset_permissions_end = fim_reserved_offset_permissions_begin + 8;
+  // notify
+  constexpr static uint64_t const fim_reserved_offset_notify_begin = fim_reserved_offset_permissions_end;
+  constexpr static uint64_t const fim_reserved_offset_notify_end = fim_reserved_offset_notify_begin + 1; 
+  // overlay
+  constexpr static uint64_t const fim_reserved_offset_overlay_begin = fim_reserved_offset_notify_end;
+  constexpr static uint64_t const fim_reserved_offset_overlay_end = fim_reserved_offset_overlay_begin + 1; 
+  // casefold
+  constexpr static uint64_t const fim_reserved_offset_casefold_begin = fim_reserved_offset_overlay_end;
+  constexpr static uint64_t const fim_reserved_offset_casefold_end = fim_reserved_offset_casefold_begin + 1; 
+  // desktop
+  constexpr static uint64_t const fim_reserved_offset_desktop_begin = fim_reserved_offset_casefold_end;
+  constexpr static uint64_t const fim_reserved_offset_desktop_end = fim_reserved_offset_desktop_begin + 4_kib;
+  // boot
+  constexpr static uint64_t const fim_reserved_offset_boot_begin = fim_reserved_offset_desktop_end;
+  constexpr static uint64_t const fim_reserved_offset_boot_end = fim_reserved_offset_boot_begin + 8_kib;
+  // icon
+  constexpr static uint64_t const fim_reserved_offset_icon_begin = fim_reserved_offset_boot_end;
+  constexpr static uint64_t const fim_reserved_offset_icon_end = fim_reserved_offset_icon_begin + 1_mib;
+  constexpr Reserved()
+  {
+    static_assert(fim_reserved_offset_icon_end < FIM_RESERVED_SIZE, "Insufficient reserved space");
+  }
+};
+
+constexpr Reserved reserved;
 }
+
+// Permissions
+uint64_t const FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_permissions_begin;
+uint64_t const FIM_RESERVED_OFFSET_PERMISSIONS_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_permissions_end;
+// Notify
+uint64_t const FIM_RESERVED_OFFSET_NOTIFY_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_notify_begin;
+uint64_t const FIM_RESERVED_OFFSET_NOTIFY_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_notify_end;
+// Overlay
+uint64_t const FIM_RESERVED_OFFSET_OVERLAY_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_overlay_begin;
+uint64_t const FIM_RESERVED_OFFSET_OVERLAY_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_overlay_end;
+// Casefold
+uint64_t const FIM_RESERVED_OFFSET_CASEFOLD_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_casefold_begin;
+uint64_t const FIM_RESERVED_OFFSET_CASEFOLD_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_casefold_end;
+// Desktop
+uint64_t const FIM_RESERVED_OFFSET_DESKTOP_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_desktop_begin;
+uint64_t const FIM_RESERVED_OFFSET_DESKTOP_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_desktop_end;
+// Boot
+uint64_t const FIM_RESERVED_OFFSET_BOOT_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_boot_begin;
+uint64_t const FIM_RESERVED_OFFSET_BOOT_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_boot_end;
+// Icon
+uint64_t const FIM_RESERVED_OFFSET_ICON_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_icon_begin;
+uint64_t const FIM_RESERVED_OFFSET_ICON_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_icon_end;
+
 
 
 /**
