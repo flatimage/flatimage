@@ -448,6 +448,12 @@ namespace fs = std::filesystem;
   auto str_raw_json = Expect(ns_reserved::ns_desktop::read(config.path_file_binary)
     , "Could not read desktop json from binary: {}", __expected_ret.error()
   );
+  // Check if json is not empty
+  if(str_raw_json.empty())
+  {
+    ns_log::warn()("Desktop integration is not setup");
+    return {};
+  }
   auto desktop = Expect(ns_db::ns_desktop::deserialize(str_raw_json)
     , "Could not parse json data: {}", __expected_ret.error()
   );
