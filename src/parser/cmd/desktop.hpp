@@ -603,8 +603,6 @@ namespace fs = std::filesystem;
   auto str_json = Expect(ns_reserved::ns_desktop::read(config.path_file_binary));
   // Deserialize json
   auto desktop = Expect(ns_db::ns_desktop::deserialize(str_json));
-  // Clear json data
-  Expect(ns_reserved::ns_desktop::write(config.path_file_binary, ""));
   // Get integrations
   auto integrations = desktop.get_integrations();
   auto f_try_erase = [](fs::path const& path)
@@ -650,8 +648,6 @@ namespace fs = std::filesystem;
       f_try_erase(path_icon_mime);
       f_try_erase(path_icon_app);
     }
-    // Clear icon data
-    Expect(ns_reserved::ns_icon::write(config.path_file_binary, ns_reserved::ns_icon::Icon{}));
   }
   return {};
 }

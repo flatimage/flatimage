@@ -570,8 +570,8 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(code, 0)
     out,err,code = self.run_cmd("fim-desktop", "dump", "icon", file_png)
     self.assertEqual(out, "")
-    self.assertIn("Empty icon data", err)
-    self.assertEqual(code, 125)
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
 
   def test_dump_entry(self):
     name = "MyApp"
@@ -600,9 +600,9 @@ class TestFimDesktop(unittest.TestCase):
     self.assertIn("Removed file", out)
     self.assertEqual(code, 0)
     out,err,code = self.run_cmd("fim-desktop", "dump", "entry")
-    self.assertEqual(out, "")
-    self.assertIn("Empty json data", err)
-    self.assertEqual(code, 125)
+    self.assertEqual(out, expected)
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
 
   def test_dump_mimetype(self):
     self.maxDiff = None
@@ -633,6 +633,6 @@ class TestFimDesktop(unittest.TestCase):
     self.assertIn("Removed file", out)
     self.assertEqual(code, 0)
     out,err,code = self.run_cmd("fim-desktop", "dump", "mimetype")
-    self.assertEqual(out, "")
-    self.assertIn("Empty json data", err)
-    self.assertEqual(code, 125)
+    self.assertEqual(out, expected)
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
