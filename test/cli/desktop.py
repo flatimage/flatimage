@@ -38,6 +38,9 @@ class TestFimDesktop(unittest.TestCase):
     file_png = self.dir_script / "out.png"
     if file_png.exists():
       os.unlink(file_png)
+    file_svg = self.dir_script / "out.svg"
+    if file_svg.exists():
+      os.unlink(file_svg)
 
 
   def run_cmd(self, *args):
@@ -59,13 +62,13 @@ class TestFimDesktop(unittest.TestCase):
     return (result.stdout.strip(), result.stderr.strip(), result.returncode)
 
   
-  def make_json_setup(self, integrations, name):
+  def make_json_setup(self, integrations, name, ext_icon='png'):
     with open(self.file_desktop, "w") as file:
       file.write(
       """{""" "\n"
       rf"""  "integrations": [{integrations}],""" "\n"
       rf"""  "name": "{name}",""" "\n"
-      rf"""  "icon": "{self.dir_script}/icon.png",""" "\n"
+      rf"""  "icon": "{self.dir_script}/icon.{ext_icon}",""" "\n"
       """  "categories": ["System", "Network"]""" "\n"
       """}""" "\n"
     )
@@ -118,8 +121,11 @@ class TestFimDesktop(unittest.TestCase):
         self.assertEqual(expected, contents)
 
   def check_icons(self, name, path_dir_xdg, ext, fun):
-    for i in [16,22,24,32,48,64,96,128,256]:
-      fun((path_dir_xdg / "icons" / "hicolor" / f"{i}x{i}" / "apps" / f"flatimage_{name}.{ext}").exists())
+    if ext == 'png':
+      for i in [16,22,24,32,48,64,96,128,256]:
+        fun((path_dir_xdg / "icons" / "hicolor" / f"{i}x{i}" / "apps" / f"flatimage_{name}.png").exists())
+    else:
+      fun((path_dir_xdg / "icons" / "hicolor" / "scalable" / "apps" / f"flatimage_{name}.svg").exists())
 
   def check_entry(self, image, name, path_dir_xdg, fun):
     path_dir_entry = path_dir_xdg / "applications" / f"flatimage-{name}.desktop"
@@ -444,70 +450,81 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(code, 125)
 
   def test_clean(self):
-    # Clean without setup
-    out,err,code = self.run_cmd("fim-desktop", "clean")
-    self.assertEqual(out, "")
-    self.assertIn("Empty json data", err)
-    self.assertEqual(code, 125)
-    # Setup integration
-    name = "MyApp"
-    path_dir_xdg, _ = self.setup_alt_home()
-    self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''', name)
-    out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    self.assertEqual(out,
-      """{\n"""
-      """  "categories": [\n"""
-      """    "Network",\n"""
-      """    "System"\n"""
-      """  ],\n"""
-      """  "integrations": [\n"""
-      """    "ENTRY",\n"""
-      """    "MIMETYPE",\n"""
-      """    "ICON"\n"""
-      """  ],\n"""
-      """  "name": "MyApp"\n"""
-      """}"""
-    )
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
-    out,err,code = self.run_cmd("fim-exec", "echo")
-    self.assertEqual(out, "")
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
-    # All enabled
-    self.check_mime(name, path_dir_xdg, self.assertTrue)
-    self.check_mime_generic(name, path_dir_xdg, self.assertTrue)
-    self.check_entry(self.file_image, name, path_dir_xdg, self.assertTrue)
-    self.check_icons(name, path_dir_xdg, 'png', self.assertTrue)
-    out,err,code = self.run_cmd("fim-desktop", "clean")
-    self.assertIn("""home_tmp/.local/share/applications/flatimage-MyApp.desktop'""", out)
-    self.assertIn("""home_tmp/.local/share/mime/packages/flatimage-MyApp.xml'""", out)
-    self.assertIn("""Updating mime database...""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/16x16/mimetypes/application-flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/16x16/apps/flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/22x22/mimetypes/application-flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/22x22/apps/flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/24x24/mimetypes/application-flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/24x24/apps/flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/32x32/mimetypes/application-flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/32x32/apps/flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/48x48/mimetypes/application-flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/48x48/apps/flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/64x64/mimetypes/application-flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/64x64/apps/flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/96x96/mimetypes/application-flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/96x96/apps/flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/128x128/mimetypes/application-flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/128x128/apps/flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/256x256/mimetypes/application-flatimage_MyApp.png'""", out)
-    self.assertIn("""home_tmp/.local/share/icons/hicolor/256x256/apps/flatimage_MyApp.png""", out)
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
-    # All removed
-    self.check_mime(name, path_dir_xdg, self.assertFalse)
-    self.check_mime_generic(name, path_dir_xdg, self.assertTrue)
-    self.check_entry(self.file_image, name, path_dir_xdg, self.assertFalse)
-    self.check_icons(name, path_dir_xdg, 'png', self.assertFalse)
+    def clean(ext_icon):
+      # Clean without setup
+      out,err,code = self.run_cmd("fim-desktop", "clean")
+      self.assertEqual(out, "")
+      self.assertIn("Empty json data", err)
+      self.assertEqual(code, 125)
+      # Setup integration
+      name = "MyApp"
+      path_dir_xdg, _ = self.setup_alt_home()
+      self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''', name, ext_icon)
+      out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+      self.assertEqual(out,
+        """{\n"""
+        """  "categories": [\n"""
+        """    "Network",\n"""
+        """    "System"\n"""
+        """  ],\n"""
+        """  "integrations": [\n"""
+        """    "ENTRY",\n"""
+        """    "MIMETYPE",\n"""
+        """    "ICON"\n"""
+        """  ],\n"""
+        """  "name": "MyApp"\n"""
+        """}"""
+      )
+      self.assertEqual(err, "")
+      self.assertEqual(code, 0)
+      out,err,code = self.run_cmd("fim-exec", "echo")
+      self.assertEqual(out, "")
+      self.assertEqual(err, "")
+      self.assertEqual(code, 0)
+      # All enabled
+      self.check_mime(name, path_dir_xdg, self.assertTrue)
+      self.check_mime_generic(name, path_dir_xdg, self.assertTrue)
+      self.check_entry(self.file_image, name, path_dir_xdg, self.assertTrue)
+      self.check_icons(name, path_dir_xdg, ext_icon, self.assertTrue)
+      out,err,code = self.run_cmd("fim-desktop", "clean")
+      self.assertIn("""home_tmp/.local/share/applications/flatimage-MyApp.desktop'""", out)
+      self.assertIn("""home_tmp/.local/share/mime/packages/flatimage-MyApp.xml'""", out)
+      self.assertIn("""Updating mime database...""", out)
+      if ext_icon == 'png':
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/16x16/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/16x16/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/22x22/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/22x22/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/24x24/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/24x24/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/32x32/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/32x32/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/48x48/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/48x48/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/64x64/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/64x64/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/96x96/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/96x96/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/128x128/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/128x128/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/256x256/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/256x256/apps/flatimage_MyApp.png""", out)
+      else:
+        self.assertIn("""home_tmp/.local/share/icons/hicolor/scalable/apps/flatimage_MyApp.svg""", out)
+      self.assertEqual(err, "")
+      self.assertEqual(code, 0)
+      # All removed
+      self.check_mime(name, path_dir_xdg, self.assertFalse)
+      self.check_mime_generic(name, path_dir_xdg, self.assertTrue)
+      self.check_entry(self.file_image, name, path_dir_xdg, self.assertFalse)
+      self.check_icons(name, path_dir_xdg, ext_icon, self.assertFalse)
+      # Remove temporary xdg directory
+      shutil.rmtree(path_dir_xdg)
+      # Reset image
+      shutil.copy(os.environ["FILE_IMAGE_SRC"], os.environ["FILE_IMAGE"])
+    # Check for png and svg
+    clean('png')
+    clean('svg')
 
   def test_dump_nosetup(self):
     self.setup_alt_home()
@@ -525,53 +542,57 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(code, 125)
 
   def test_dump_icon(self):
-    name = "MyApp"
-    # Setup desktop integration
-    self.make_json_setup(r'''"ICON"''', name)
-    self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
-    # Dump icon
-    self.setup_alt_home()
-    file_png = self.dir_script / "out.png"
-    out,err,code = self.run_cmd("fim-desktop", "dump", "icon", str(file_png))
-    self.assertEqual(out, "")
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
-    self.assertTrue(file_png.exists())
-    # Compare icon SHA with source
-    sha_base = subprocess.run(
-      ["sha256sum", str(self.dir_script / "icon.png")],
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      text=True
-    )
-    sha_target = subprocess.run(
-      ["sha256sum", str(file_png)],
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      text=True
-    )
-    self.assertEqual(sha_base.stdout[:64], sha_target.stdout[:64])
-    # Generate extension
-    os.remove(file_png)
-    out,err,code = self.run_cmd("fim-desktop", "dump", "icon", str(self.dir_script / "out"))
-    self.assertEqual(out, "")
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
-    sha_target = subprocess.run(
-      ["sha256sum", file_png],
-      stdout=subprocess.PIPE,
-      stderr=subprocess.PIPE,
-      text=True
-    )
-    self.assertEqual(sha_base.stdout[:64], sha_target.stdout[:64])
-    # Test clean
-    out,err,code = self.run_cmd("fim-desktop", "clean")
-    self.assertIn("Removed file", out)
-    self.assertEqual(code, 0)
-    out,err,code = self.run_cmd("fim-desktop", "dump", "icon", file_png)
-    self.assertEqual(out, "")
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
+    def dump_icon(ext_icon):
+      name = "MyApp"
+      # Setup desktop integration
+      self.make_json_setup(r'''"ICON"''', name, ext_icon)
+      self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
+      # Dump icon
+      self.setup_alt_home()
+      file_icon = self.dir_script / f"out.{ext_icon}"
+      out,err,code = self.run_cmd("fim-desktop", "dump", "icon", str(file_icon))
+      self.assertEqual(out, "")
+      self.assertEqual(err, "")
+      self.assertEqual(code, 0)
+      self.assertTrue(file_icon.exists())
+      # Compare icon SHA with source
+      sha_base = subprocess.run(
+        ["sha256sum", str(self.dir_script / f"icon.{ext_icon}")],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+      )
+      sha_target = subprocess.run(
+        ["sha256sum", str(file_icon)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+      )
+      self.assertEqual(sha_base.stdout[:64], sha_target.stdout[:64])
+      # Generate extension
+      os.remove(file_icon)
+      out,err,code = self.run_cmd("fim-desktop", "dump", "icon", str(self.dir_script / "out"))
+      self.assertEqual(out, "")
+      self.assertEqual(err, "")
+      self.assertEqual(code, 0)
+      sha_target = subprocess.run(
+        ["sha256sum", file_icon],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True
+      )
+      self.assertEqual(sha_base.stdout[:64], sha_target.stdout[:64])
+      # Test clean
+      out,err,code = self.run_cmd("fim-desktop", "clean")
+      self.assertIn("Removed file", out)
+      self.assertEqual(code, 0)
+      out,err,code = self.run_cmd("fim-desktop", "dump", "icon", file_icon)
+      self.assertEqual(out, "")
+      self.assertEqual(err, "")
+      self.assertEqual(code, 0)
+    # Test for PNG and SVG
+    dump_icon('png')
+    dump_icon('svg')
 
   def test_dump_entry(self):
     name = "MyApp"
