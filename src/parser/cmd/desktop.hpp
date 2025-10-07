@@ -496,7 +496,7 @@ namespace fs = std::filesystem;
     std::ignore = ns_subprocess::Subprocess(path_file_binary_bash)
       .with_piped_outputs()
       .with_args("-c", R"(notify-send "$@")", "--")
-      .with_args("-i", path_file_icon, "Started '{}' flatimage"_fmt(desktop.get_name()))
+      .with_args("-i", path_file_icon, "Started '{}' FlatImage"_fmt(desktop.get_name()))
       .spawn()
       .wait();
   }
