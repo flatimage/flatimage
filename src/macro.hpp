@@ -16,6 +16,7 @@
   auto __expected_ret = (expr);                      \
   if (!__expected_ret)                               \
   {                                                  \
+    ns_log::error()(__expected_ret.error());         \
     __VA_OPT__(ns_log::error()(__VA_ARGS__));        \
     return std::unexpected(__expected_ret.error());  \
   }                                                  \
