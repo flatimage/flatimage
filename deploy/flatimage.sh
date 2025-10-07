@@ -168,10 +168,6 @@ function _create_subsystem_blueprint()
   # Create config dir
   mkdir -p "/tmp/$dist/fim/config"
 
-  # Embed static binaries
-  mkdir -p "/tmp/$dist/fim/static"
-  cp -r ./bin/* "/tmp/$dist/fim/static"
-
   # Compile and include runner
   (
     cd "$FIM_DIR"
@@ -198,10 +194,6 @@ function _create_subsystem_blueprint()
     docker build . -t flatimage-bwrap-apparmor -f docker/Dockerfile.bwrap_apparmor
     docker run --rm -v "$FIM_DIR_BUILD":/host "flatimage-bwrap-apparmor" cp /fim/dist/fim_bwrap_apparmor /host/bin
   )
-
-  cp ./bin/fim_portal ./bin/fim_portal_daemon           /tmp/"$dist"/fim/static
-  cp ./bin/boot       /tmp/"$dist"/fim/static/boot
-  cp ./bin/fim_janitor    /tmp/"$dist"/fim/static/fim_janitor
 
   # Set permissions
   chown -R 1000:1000 "/tmp/$dist"
@@ -289,10 +281,6 @@ function _create_subsystem_alpine()
   # Create config dir
   mkdir -p "/tmp/$dist/fim/config"
 
-  # Embed static binaries
-  mkdir -p "/tmp/$dist/fim/static"
-  cp -r ./bin/* "/tmp/$dist/fim/static"
-
   # Compile and include runner
   (
     cd "$FIM_DIR"
@@ -320,10 +308,6 @@ function _create_subsystem_alpine()
     docker build . -t flatimage-bwrap-apparmor -f docker/Dockerfile.bwrap_apparmor
     docker run --rm -v "$FIM_DIR_BUILD":/host "flatimage-bwrap-apparmor" cp /fim/dist/fim_bwrap_apparmor /host/bin
   )
-
-  cp ./bin/fim_portal ./bin/fim_portal_daemon           /tmp/"$dist"/fim/static
-  cp ./bin/boot       /tmp/"$dist"/fim/static/boot
-  cp ./bin/fim_janitor    /tmp/"$dist"/fim/static/fim_janitor
 
   # Set permissions
   chown -R 1000:1000 "/tmp/$dist"
@@ -543,10 +527,6 @@ function _create_subsystem_arch()
     docker build . -t flatimage-bwrap-apparmor -f docker/Dockerfile.bwrap_apparmor
     docker run --rm -v "$FIM_DIR_BUILD":/host "flatimage-bwrap-apparmor" cp /fim/dist/fim_bwrap_apparmor /host/bin
   )
-
-  # Embed static binaries
-  mkdir -p "./arch/fim/static"
-  cp -r "$FIM_DIR_BUILD"/bin/* "./arch/fim/static"
 
   # Remove mount dirs that may have leftover files
   rm -rf arch/{tmp,proc,sys,dev,run}
