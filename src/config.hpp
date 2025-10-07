@@ -40,9 +40,14 @@
 #error "FIM_TIMESTAMP is undefined"
 #endif
 
+// Json file with binary tools
+#ifndef FIM_FILE_TOOLS
+#error "FIM_FILE_TOOLS is undefined"
+#endif
+
 // Dependencies metadata
-#ifndef FIM_METADATA_DEPS
-#error "FIM_METADATA_DEPS is undefined"
+#ifndef FIM_FILE_META
+#error "FIM_FILE_META is undefined"
 #endif
 
 // Size for the configuration reserved space in the flatimage

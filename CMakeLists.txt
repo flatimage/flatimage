@@ -43,7 +43,9 @@ require_variable_env(FIM_DIST)
 ## Reserved size for persistent flatimage configuration
 require_variable_env(FIM_RESERVED_SIZE)
 ## Metadata information about binary dependencies
-require_variable_env(FIM_METADATA_DEPS)
+require_variable_env(FIM_FILE_META)
+## File with json tools included in the final FlatImage
+require_variable_env(FIM_FILE_TOOLS)
 ## Version
 execute_process(
   COMMAND ${GIT_EXECUTABLE} -c safe.directory=${CMAKE_SOURCE_DIR} describe --tags --abbrev=0
@@ -90,8 +92,9 @@ target_compile_options(boot PRIVATE --std=gnu++23 -static -Wall -Os -Wextra
 target_link_options(boot PRIVATE -static)
 target_compile_definitions(boot PRIVATE
   FIM_DIST="$ENV{FIM_DIST}"
-  FIM_RESERVED_SIZE=$ENV{FIM_RESERVED_SIZE}
-  FIM_METADATA_DEPS=R\"\($ENV{FIM_METADATA_DEPS}\)\"
+  FIM_RESERVED_SIZE=${FIM_RESERVED_SIZE}
+  FIM_FILE_TOOLS="${FIM_FILE_TOOLS}"
+  FIM_FILE_META="${FIM_FILE_META}"
   FIM_VERSION="${FIM_VERSION}"
   FIM_TIMESTAMP="${FIM_TIMESTAMP}"
   FIM_COMMIT="${FIM_GIT_COMMIT_HASH}"

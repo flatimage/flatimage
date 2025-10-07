@@ -5,6 +5,8 @@ test/
 
 # Except the Dockerfile and the necessary directories/files
 !build/meta
+!build/tools.json
+!build/meta.json
 !doc
 !cmake
 !CMakeLists.txt

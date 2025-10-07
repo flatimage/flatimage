@@ -242,7 +242,11 @@ struct CmdVersion
     // This placeholder is replaced before compiling
     Expected<std::string> dump()
     {
-      return Expect(ns_db::from_string(FIM_METADATA_DEPS)).dump();
+      constexpr static char str_raw_json[] =
+      {
+        #embed FIM_FILE_META
+      };
+      return Expect(ns_db::from_string(str_raw_json)).dump();
     }
   };
   std::variant<Short,Full,Deps> sub_cmd;

@@ -15,6 +15,7 @@
 #include "../macro.hpp"
 #include "../lib/env.hpp"
 #include "../lib/elf.hpp"
+#include "../db/db.hpp"
 #include "../std/filesystem.hpp"
 
 namespace ns_relocate
@@ -175,23 +176,21 @@ constexpr std::array<const char*,403> const arr_busybox_applet
 
   // Write binaries
   auto start = std::chrono::high_resolution_clock::now();
-  fs::path path_file_dwarfs_aio = path_dir_app_bin / "dwarfs_aio";
   std::ifstream file_binary{path_absolute, std::ios::in | std::ios::binary};
   qreturn_if(not file_binary.is_open(), Unexpected("Could not open flatimage binary file"));
+  constexpr static char const str_raw_json[] =
+  {
+    #embed FIM_FILE_TOOLS
+  };
   std::tie(offset_beg, offset_end) = Expect(f_write_from_header(path_dir_instance / "fim_boot" , 0));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_portal", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_portal_daemon", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_bwrap_apparmor", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "fim_janitor", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "bash", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_busybox / "busybox", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "bwrap", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "ciopfs", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_file_dwarfs_aio, offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "overlayfs", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "unionfs", offset_end));
-  std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / "magick", offset_end));
+  // TODO: Make this compile-time with C++26 reflection features
+  for(auto&& tool : Expect(Expect(ns_db::from_string(str_raw_json)).template value<std::vector<std::string>>()))
+  {
+    std::tie(offset_beg, offset_end) = Expect(f_write_from_offset(file_binary, path_dir_app_bin / tool, offset_end));
+  }
   file_binary.close();
+  // Create symlinks
+  fs::path path_file_dwarfs_aio = path_dir_app_bin / "dwarfs_aio";
   fs::create_symlink(path_file_dwarfs_aio, path_dir_app_bin / "dwarfs", ec);
   fs::create_symlink(path_file_dwarfs_aio, path_dir_app_bin / "mkdwarfs", ec);
   auto end = std::chrono::high_resolution_clock::now();

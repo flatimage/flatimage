@@ -13,9 +13,8 @@ RUN apk add --no-cache build-base git libbsd-dev cmake clang clang-dev \
   libpng-static zlib-static upx nlohmann-json doxygen graphviz pipx jo
 
 # Copy boot directory
-ARG FIM_DIR
-COPY . $FIM_DIR
-WORKDIR $FIM_DIR
+COPY . /flatimage
+WORKDIR /flatimage
 
 ARG FIM_DIST
 ENV FIM_DIST=$FIM_DIST
@@ -23,15 +22,21 @@ ENV FIM_DIST=$FIM_DIST
 ARG FIM_RESERVED_SIZE
 ENV FIM_RESERVED_SIZE=$FIM_RESERVED_SIZE
 
-ARG FIM_METADATA_DEPS
-ENV FIM_METADATA_DEPS=$FIM_METADATA_DEPS
+ARG FIM_FILE_TOOLS
+ENV FIM_FILE_TOOLS=$FIM_FILE_TOOLS
+
+ARG FIM_FILE_META
+ENV FIM_FILE_META=$FIM_FILE_META
 
 # Setup MkDocs
 RUN pipx install mkdocs
 ENV PATH="${PATH}:/root/.local/bin"
 
 # Setup CMake
-RUN cmake -H. -Bbuild -DFIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" -DFIM_METADATA_DEPS="$FIM_METADATA_DEPS"
+RUN cmake -H. -Bbuild \
+  -DFIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
+  -DFIM_FILE_META="$FIM_FILE_META" \
+  -DFIM_FILE_TOOLS="$FIM_FILE_TOOLS"
 
 # Compile boot
 RUN cmake --build build --target boot

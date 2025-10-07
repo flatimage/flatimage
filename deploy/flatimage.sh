@@ -19,6 +19,22 @@ FIM_DIR="$(dirname "$FIM_DIR_SCRIPT")"
 FIM_DIR_BUILD="$FIM_DIR"/build
 # 2MB of reserved space
 FIM_RESERVED_SIZE="$(echo "2 * (2^20)" | bc)"
+BINARIES=(
+  fim_portal
+  fim_portal_daemon
+  fim_bwrap_apparmor
+  fim_janitor
+  bash
+  busybox
+  bwrap
+  ciopfs
+  dwarfs_aio
+  overlayfs
+  unionfs
+  magick
+)
+FIM_FILE_TOOLS="/flatimage/build/tools.json"
+FIM_FILE_META="/flatimage/build/meta.json"
 
 # shellcheck source=/dev/null
 source "${FIM_DIR_SCRIPT}/common.sh"
@@ -27,41 +43,20 @@ function _fetch_static()
 {
   mkdir -p bin meta
 
-  # Fetch bash
-  wget -nc -O ./bin/bash "https://github.com/flatimage/tools/releases/download/7c31ed8/bash-x86_64"
-  wget -nc -O ./meta/bash.json "https://github.com/flatimage/tools/releases/download/7c31ed8/bash-metadata.json"
+  # Fetch tools
+  for binary in "${BINARIES[@]}"; do
+    [[ ! -f ./bin/"$binary" ]] || continue
+    [[ ! "$binary" =~ fim_ ]] || continue
+    wget -nc -O ./bin/"$binary" "https://github.com/flatimage/tools/releases/download/7c31ed8/$binary-x86_64"
+    wget -nc -O ./meta/"$binary".json "https://github.com/flatimage/tools/releases/download/7c31ed8/$binary-metadata.json"
+    chmod 755 ./bin/"$binary"
+  done
 
-  # Fetch busybox
-  wget -nc -O ./bin/busybox "https://github.com/flatimage/tools/releases/download/7c31ed8/busybox-x86_64"
-  wget -nc -O ./meta/busybox.json "https://github.com/flatimage/tools/releases/download/7c31ed8/busybox-metadata.json"
-
-  # Fetch bwrap
-  wget -nc -O ./bin/bwrap "https://github.com/flatimage/tools/releases/download/7c31ed8/bwrap-x86_64"
-  wget -nc -O ./meta/bwrap.json "https://github.com/flatimage/tools/releases/download/7c31ed8/bwrap-metadata.json"
-
-  # Fetch ciopfs
-  wget -nc -O ./bin/ciopfs "https://github.com/flatimage/tools/releases/download/7c31ed8/ciopfs-x86_64"
-  wget -nc -O ./meta/ciopfs.json "https://github.com/flatimage/tools/releases/download/7c31ed8/ciopfs-metadata.json"
-
-  # Fetch dwarfs
-  wget -nc -O bin/dwarfs_aio "https://github.com/flatimage/tools/releases/download/7c31ed8/dwarfs_aio-x86_64"
-  wget -nc -O meta/dwarfs_aio.json "https://github.com/flatimage/tools/releases/download/7c31ed8/dwarfs_aio-metadata.json"
+  # Dwarfs symlinks
   ln -s dwarfs_aio bin/mkdwarfs
   ln -s dwarfs_aio bin/dwarfs
 
-  # Fetch overlayfs
-  wget -nc -O ./bin/overlayfs "https://github.com/flatimage/tools/releases/download/7c31ed8/overlayfs-x86_64"
-  wget -nc -O ./meta/overlayfs.json "https://github.com/flatimage/tools/releases/download/7c31ed8/overlayfs-metadata.json"
-
-  # Fetch unionfs
-  wget -nc -O ./bin/unionfs "https://github.com/flatimage/tools/releases/download/7c31ed8/unionfs-x86_64"
-  wget -nc -O ./meta/unionfs.json "https://github.com/flatimage/tools/releases/download/7c31ed8/unionfs-metadata.json"
-
-  # Fetch magick
-  wget -nc -O ./bin/magick "https://github.com/flatimage/tools/releases/download/7c31ed8/magick-x86_64"
-  wget -nc -O ./meta/magick.json "https://github.com/flatimage/tools/releases/download/7c31ed8/magick-metadata.json"
-
-  FIM_METADATA_DEPS="$(jo bash="$(< ./meta/bash.json)" \
+  jo bash="$(< ./meta/bash.json)" \
     busybox="$(< ./meta/busybox.json)" \
     bwrap="$(< ./meta/bwrap.json)" \
     ciopfs="$(< ./meta/ciopfs.json)" \
@@ -69,14 +64,13 @@ function _fetch_static()
     overlayfs="$(< ./meta/overlayfs.json)" \
     unionfs="$(< ./meta/unionfs.json)" \
     magick="$(< ./meta/magick.json)" \
-    | tr -d '\n')"
-  echo "$FIM_METADATA_DEPS"
+    | tr -d '\n' > "$FIM_DIR_BUILD/meta.json"
+
+  # Tools to include in the source with #embed
+  jo -a "${BINARIES[@]}" > "$FIM_DIR_BUILD"/tools.json
 
   # # Setup xdg scripts
   # cp "$FIM_DIR"/src/xdg/xdg-* ./bin
-
-  # Make binaries executable
-  chmod 755 ./bin/*
 
   # Compress binaries
   upx -6 --no-lzma ./bin/!(*dwarfs*)
@@ -100,27 +94,13 @@ function _create_elf()
   local img="$1"
   local out="$2"
 
-  declare -a BINARIES=(
-    bin/fim_portal
-    bin/fim_portal_daemon
-    bin/fim_bwrap_apparmor
-    bin/fim_janitor
-    bin/bash
-    bin/busybox
-    bin/bwrap
-    bin/ciopfs
-    bin/dwarfs_aio
-    bin/overlayfs
-    bin/unionfs
-    bin/magick
-  )
   # Boot is the program on top of the image
   cp bin/boot "$out"
   size_boot=$(du -b "$out" | awk '{print $1}')
   # Patch offset size to filesystems
   FIM_RESERVED_OFFSET=$((FIM_RESERVED_OFFSET + size_boot))
   for binary in "${BINARIES[@]}"; do
-    size_binary="$(du -b "$binary" | awk '{print $1}')"
+    size_binary="$(du -b "bin/$binary" | awk '{print $1}')"
     FIM_RESERVED_OFFSET=$((FIM_RESERVED_OFFSET + size_binary + 8))
   done
   echo "FIM_RESERVED_OFFSET: $FIM_RESERVED_OFFSET"
@@ -129,7 +109,7 @@ function _create_elf()
   "$FIM_DIR_BUILD"/magic "$out"
   # Append binaries
   for binary in "${BINARIES[@]}"; do
-    size_binary="$(du -b "$binary" | awk '{print $1}')"
+    size_binary="$(du -b "bin/$binary" | awk '{print $1}')"
     size_hex_binary="$(echo "$size_binary" | xargs -I{} printf "%016x\n" {})"
     # Write binary size
     # uint64_t = 8 bytes
@@ -137,7 +117,7 @@ function _create_elf()
       local byte="${size_hex_binary:$(( byte_index * 2)):2}"
       echo -ne "\\x$byte" >> "$out"
     done
-    cat "$binary" >> "$out"
+    cat "bin/$binary" >> "$out"
   done
   # Create reserved space
   dd if=/dev/zero of="$out" bs=1 count="$FIM_RESERVED_SIZE" oflag=append conv=notrunc
@@ -173,12 +153,13 @@ function _create_subsystem_blueprint()
     cd "$FIM_DIR"
     docker build . \
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
-      --build-arg FIM_METADATA_DEPS="$FIM_METADATA_DEPS" \
+      --build-arg FIM_FILE_TOOLS="$FIM_FILE_TOOLS" \
+      --build-arg FIM_FILE_META="$FIM_FILE_META" \
       --build-arg FIM_DIST=BLUEPRINT \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/boot /host/bin
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/magic /host/magic
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/fim_janitor /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/magic /host/magic
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/src/fim_janitor /host/bin
   )
 
   # Compile and include portal
@@ -285,14 +266,14 @@ function _create_subsystem_alpine()
   (
     cd "$FIM_DIR"
     docker build . \
-      --no-cache \
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
-      --build-arg FIM_METADATA_DEPS="$FIM_METADATA_DEPS" \
+      --build-arg FIM_FILE_TOOLS="$FIM_FILE_TOOLS" \
+      --build-arg FIM_FILE_META="$FIM_FILE_META" \
       --build-arg FIM_DIST=ALPINE \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/boot /host/bin
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/magic /host/magic
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/janitor/fim_janitor /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/magic /host/magic
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/src/janitor/fim_janitor /host/bin
   )
 
   # Compile and include portal
@@ -506,12 +487,13 @@ function _create_subsystem_arch()
     cd "$FIM_DIR"
     docker build . \
       --build-arg FIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
-      --build-arg FIM_METADATA_DEPS="$FIM_METADATA_DEPS" \
+      --build-arg FIM_FILE_TOOLS="$FIM_FILE_TOOLS" \
+      --build-arg FIM_FILE_META="$FIM_FILE_META" \
       --build-arg FIM_DIST=ARCH \
       --build-arg FIM_DIR="$(pwd)" -t flatimage-boot -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/boot /host/bin
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/build/magic /host/magic
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp "$FIM_DIR"/src/janitor/fim_janitor /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/magic /host/magic
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/src/janitor/fim_janitor /host/bin
   )
 
   # Compile and include portal
