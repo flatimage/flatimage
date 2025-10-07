@@ -57,6 +57,10 @@ function _fetch_static()
   wget -nc -O ./bin/unionfs "https://github.com/flatimage/tools/releases/download/7c31ed8/unionfs-x86_64"
   wget -nc -O ./meta/unionfs.json "https://github.com/flatimage/tools/releases/download/7c31ed8/unionfs-metadata.json"
 
+  # Fetch magick
+  wget -nc -O ./bin/magick "https://github.com/flatimage/tools/releases/download/7c31ed8/magick-x86_64"
+  wget -nc -O ./meta/magick.json "https://github.com/flatimage/tools/releases/download/7c31ed8/magick-metadata.json"
+
   FIM_METADATA_DEPS="$(jo bash="$(< ./meta/bash.json)" \
     busybox="$(< ./meta/busybox.json)" \
     bwrap="$(< ./meta/bwrap.json)" \
@@ -64,6 +68,7 @@ function _fetch_static()
     dwarfs_aio="$(< ./meta/dwarfs_aio.json)" \
     overlayfs="$(< ./meta/overlayfs.json)" \
     unionfs="$(< ./meta/unionfs.json)" \
+    magick="$(< ./meta/magick.json)" \
     | tr -d '\n')"
   echo "$FIM_METADATA_DEPS"
 
@@ -107,6 +112,7 @@ function _create_elf()
     bin/dwarfs_aio
     bin/overlayfs
     bin/unionfs
+    bin/magick
   )
   # Boot is the program on top of the image
   cp bin/boot "$out"

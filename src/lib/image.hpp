@@ -16,8 +16,10 @@
 #include <boost/gil/extension/numeric/resample.hpp>
 #include <format>
 
+#include "env.hpp"
 #include "log.hpp"
 #include "match.hpp"
+#include "subprocess.hpp"
 
 namespace ns_image
 {
@@ -30,8 +32,7 @@ namespace fs = std::filesystem;
 inline Expected<void> resize_impl(fs::path const& path_file_src
   , fs::path const& path_file_dst
   , uint32_t width
-  , uint32_t height
-  , bool is_preserve_aspect_ratio)
+  , uint32_t height)
 {
   namespace gil = boost::gil;
 
@@ -46,39 +47,18 @@ inline Expected<void> resize_impl(fs::path const& path_file_src
     ).transform_error([](auto&& e){ return std::vformat("Input image of invalid format '{}': '{}'", std::make_format_args(e)); })
   );
   ns_log::info()("Image size is {}x{}", std::to_string(img.width()), std::to_string(img.height()));
-  // Wether or not to preserve the aspect ratio
-  if ( is_preserve_aspect_ratio )
-  {
-    // Calculate desired and current aspected ratios
-    double src_aspect = static_cast<double>(img.width()) / img.height();
-    double dst_aspect = static_cast<double>(width) / height;
-
-    // Calculate novel dimensions that preserve the aspect ratio
-    int width_new  = (src_aspect >  dst_aspect)? static_cast<int>(src_aspect * height) : width;
-    int height_new = (src_aspect <= dst_aspect)? static_cast<int>(width / src_aspect ) : height;
-
-    // Resize
-    gil::rgba8_image_t img_resized(width_new, height_new);
-    ns_log::info()("Image  aspect ratio is {}", std::to_string(src_aspect));
-    ns_log::info()("Target aspect ratio is {}", std::to_string(dst_aspect));
-    ns_log::info()("Resizing image to {}x{}", std::to_string(width_new), std::to_string(height_new));
-    gil::resize_view(gil::const_view(img), gil::view(img_resized), gil::bilinear_sampler());
-
-    // Write to disk
-    ns_log::info()("Saving image to {}", path_file_dst);
-    gil::write_view(path_file_dst, gil::const_view(img_resized), gil::png_tag());
-  }
-  else
-  {
-    // Resize
-    gil::rgba8_image_t img_resized(width, height);
-    ns_log::info()("Resizing image to {}x{}", std::to_string(width), std::to_string(height));
-    gil::resize_view(gil::const_view(img), gil::view(img_resized), gil::bilinear_sampler());
-    // Write to disk
-    ns_log::info()("Saving image to {}", path_file_dst);
-    gil::write_view(path_file_dst, gil::const_view(img_resized), gil::png_tag());
-
-  }
+  ns_log::info()("Saving image to {}", path_file_dst);
+  // Search for imagemagick
+  fs::path path_bin_magick = Expect(ns_env::search_path("magick"));
+  // Resize
+  int code = Expect(ns_subprocess::Subprocess(path_bin_magick)
+    .with_args(path_file_src)
+    .with_args("-resize", (img.width() > img.height())? "{}x"_fmt(width) : "x{}"_fmt(height))
+    .with_args(path_file_dst)
+    .spawn()
+    .wait()
+  );
+  qreturn_if(code != 0, std::unexpected("Failure to resize image with code {}"_fmt(code)))
   return {};
 }
 
@@ -100,10 +80,9 @@ inline Expected<void> resize_impl(fs::path const& path_file_src
 inline Expected<void> resize(fs::path const& path_file_src
   , fs::path const& path_file_dst
   , uint32_t width
-  , uint32_t height
-  , bool is_preserve_aspect_ratio = false)
+  , uint32_t height)
 {
-  return resize_impl(path_file_src, path_file_dst, width, height, is_preserve_aspect_ratio);
+  return resize_impl(path_file_src, path_file_dst, width, height);
 }
 
 } // namespace ns_image

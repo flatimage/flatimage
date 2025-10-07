@@ -350,7 +350,7 @@ namespace fs = std::filesystem;
     // Avoid overwrite
     qcontinue_if (fs::exists(path_icon_mimetype, ec));
     // Copy icon with target widthXheight
-    Expect(ns_image::resize(path_file_icon, path_icon_mimetype, size, size, true));
+    Expect(ns_image::resize(path_file_icon, path_icon_mimetype, size, size));
     // Duplicate icon to app directory
     if (not fs::copy_file(path_icon_mimetype, path_icon_app, fs::copy_options::skip_existing, ec))
     {
