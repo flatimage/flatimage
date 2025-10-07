@@ -59,19 +59,6 @@ T ExpectedOrDefault(Expected<T> expected)
   __expected_ret.value();                            \
 })
 
-// Throw
-#define qthrow_if(cond, msg) \
-  if (cond) { throw std::runtime_error(msg); }
-
-#define dthrow_if(cond, msg) \
-  if (cond) { ns_log::debug()(msg); throw std::runtime_error(msg); }
-
-#define ithrow_if(cond, msg) \
-  if (cond) { ns_log::info()(msg); throw std::runtime_error(msg); }
-
-#define ethrow_if(cond, msg) \
-  if (cond) { ns_log::error()(msg); throw std::runtime_error(msg); }
-
 // Exit
 #define qexit_if(cond, ret) \
   if (cond) { exit(ret); }

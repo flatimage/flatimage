@@ -47,20 +47,6 @@ void set(T&& name, U&& value, Replace replace)
 }
 
 /**
- * @brief Get the value of an environment variable or throw if undefined
- * 
- * @param name The name of the environment variable
- * @return T The value of the environment variable or the respective error
- */
-template<typename T = const char*>
-inline T get_or_throw(const char* name)
-{
-  const char* value = std::getenv(name);
-  ethrow_if(not value, "Variable '{}' is undefined"_fmt(name));
-  return value;
-}
-
-/**
  * @brief Get the value of an environment variable
  * 
  * @tparam T The output type of the function
