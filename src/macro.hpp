@@ -34,7 +34,7 @@ using Expected = std::expected<T, std::string>;
     if constexpr (sizeof...(_args) > 0) {                               \
       _msg = std::vformat(                                              \
         std::forward<decltype(_fmt)>(_fmt),                             \
-        std::make_format_args(std::forward<decltype(_args)>(_args)...)  \
+        std::make_format_args(_args...)  \
       );                                                                \
     } else {                                                            \
       _msg = std::string(std::forward<decltype(_fmt)>(_fmt));           \
