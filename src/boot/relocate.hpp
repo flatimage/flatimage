@@ -97,13 +97,13 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   fs::path path_dir_app = Expect(f_dir_create_if_not_exists(path_dir_base / "app" / "{}_{}"_fmt(FIM_COMMIT, FIM_TIMESTAMP)));
   // Create bin dir
   fs::path path_dir_app_bin = Expect(f_dir_create_if_not_exists(path_dir_app / "bin"));
-  // Create busybox dir
-  fs::path path_dir_busybox = Expect(f_dir_create_if_not_exists(path_dir_app_bin / "busybox"));
+  // Create sbin dir
+  fs::path path_dir_app_sbin = Expect(f_dir_create_if_not_exists(path_dir_app / "sbin"));
   // Set variables
   ns_env::set("FIM_DIR_GLOBAL", path_dir_base.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_DIR_APP", path_dir_app.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_DIR_APP_BIN", path_dir_app_bin.c_str(), ns_env::Replace::Y);
-  ns_env::set("FIM_DIR_BUSYBOX", path_dir_busybox.c_str(), ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_APP_SBIN", path_dir_app_sbin.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_FILE_BINARY", path_absolute.c_str(), ns_env::Replace::Y);
   // Create instance directory
   fs::path path_dir_instance = Expect(f_dir_create_if_not_exists("{}/{}/{}"_fmt(path_dir_app, "instance", std::to_string(getpid()))));
@@ -198,7 +198,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   // Create busybox symlinks, allow (symlinks exists) errors
   for(auto const& busybox_applet : arr_busybox_applet)
   {
-    fs::create_symlink(path_dir_busybox / "busybox", path_dir_busybox / busybox_applet, ec);
+    fs::create_symlink(path_dir_app_bin / "busybox", path_dir_app_sbin / busybox_applet, ec);
   } // for
 
   // Filesystem starts here

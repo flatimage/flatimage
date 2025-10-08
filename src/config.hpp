@@ -100,7 +100,7 @@ struct FlatimageConfig
   fs::path path_dir_mount;
   fs::path path_dir_app;
   fs::path path_dir_app_bin;
-  fs::path path_dir_busybox;
+  fs::path path_dir_app_sbin;
   fs::path path_dir_instance;
   fs::path path_file_binary;
   fs::path path_dir_binary;
@@ -173,7 +173,7 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
   config->path_dir_binary          = config->path_file_binary.parent_path();
   config->path_dir_app             = Expect(ns_env::get_expected("FIM_DIR_APP"));
   config->path_dir_app_bin         = Expect(ns_env::get_expected("FIM_DIR_APP_BIN"));
-  config->path_dir_busybox         = Expect(ns_env::get_expected("FIM_DIR_BUSYBOX"));
+  config->path_dir_app_sbin        = Expect(ns_env::get_expected("FIM_DIR_APP_SBIN"));
   config->path_dir_instance        = Expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
   config->path_dir_mount           = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
   config->path_file_bashrc         = config->path_dir_app / ".bashrc";
@@ -225,7 +225,7 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
   // Environment
   config->env_path = config->path_dir_app_bin.string() + ":" + ns_env::get_expected("PATH").value_or("");
   config->env_path += ":/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin";
-  config->env_path += ":{}"_fmt(config->path_dir_busybox.string());
+  config->env_path += ":{}"_fmt(config->path_dir_app_sbin.string());
   ns_env::set("PATH", config->env_path, ns_env::Replace::Y);
   // Compression level configuration (goes from 0 to 10, default is 7)
   config->layer_compression_level  = ({
