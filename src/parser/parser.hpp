@@ -19,7 +19,7 @@
 
 
 #include "../filesystems/controller.hpp"
-#include "../db/environment.hpp"
+#include "../db/env.hpp"
 #include "../lib/match.hpp"
 #include "../macro.hpp"
 #include "../reserved/overlay.hpp"
@@ -356,7 +356,7 @@ using namespace ns_parser::ns_interface;
           std::string msg = "Incorrect number of arguments for 'add' (<ro,rw,dev> <src> <dst>)";
           cmd.sub_cmd = CmdBind::Add
           {
-            .type =  Expect(ns_cmd::ns_bind::CmdBindType::from_string(Expect(args.pop_front(msg)))),
+            .type =  Expect(ns_db::ns_bind::Type::from_string(Expect(args.pop_front(msg)))),
             .path_src = Expect(args.pop_front(msg)),
             .path_dst = Expect(args.pop_front(msg))
           };
@@ -581,7 +581,7 @@ using namespace ns_parser::ns_interface;
     // Mount filesystems
     [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config);
     // Execute specified command
-    auto environment = ExpectedOrDefault(ns_db::ns_environment::get(config.path_file_config_environment));
+    auto environment = ExpectedOrDefault(ns_db::ns_env::get(config.path_file_binary));
     // Check if should use bwrap native overlayfs
     std::optional<ns_bwrap::Overlay> bwrap_overlay = ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP )?
         std::make_optional(ns_bwrap::Overlay
@@ -605,7 +605,7 @@ using namespace ns_parser::ns_interface;
     // Include root binding and custom user-defined bindings
     std::ignore = bwrap
       .with_bind_ro("/", config.path_dir_runtime_host)
-      .with_binds_from_file(config.path_file_config_bindings);
+      .with_binds(Expect(ns_cmd::ns_bind::db_read(config.path_file_binary)));
     // Check if should enable GPU
     if (permissions.contains(ns_reserved::ns_permissions::Permission::GPU))
     {
@@ -688,25 +688,25 @@ using namespace ns_parser::ns_interface;
   {
     if(auto cmd_add = std::get_if<CmdEnv::Add>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_environment::add(config.path_file_config_environment, cmd_add->variables));
+      Expect(ns_db::ns_env::add(config.path_file_binary, cmd_add->variables));
     }
     else if(std::get_if<CmdEnv::Clear>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_environment::set(config.path_file_config_environment, std::vector<std::string>()));
+      Expect(ns_db::ns_env::set(config.path_file_binary, std::vector<std::string>()));
     }
     else if(auto cmd_del = std::get_if<CmdEnv::Del>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_environment::del(config.path_file_config_environment, cmd_del->variables));
+      Expect(ns_db::ns_env::del(config.path_file_binary, cmd_del->variables));
     }
     else if(std::get_if<CmdEnv::List>(&(cmd->sub_cmd)))
     {
-      std::ranges::copy(Expect(ns_db::ns_environment::get(config.path_file_config_environment))
+      std::ranges::copy(Expect(ns_db::ns_env::get(config.path_file_binary))
         , std::ostream_iterator<std::string>(std::cout, "\n")
       );
     }
     else if(auto cmd_set = std::get_if<CmdEnv::Set>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_environment::set(config.path_file_config_environment, cmd_set->variables));
+      Expect(ns_db::ns_env::set(config.path_file_binary, cmd_set->variables));
     }
     else
     {
@@ -777,7 +777,7 @@ using namespace ns_parser::ns_interface;
   {
     if(auto cmd_add = std::get_if<CmdBind::Add>(&(cmd->sub_cmd)))
     {
-      Expect(ns_cmd::ns_bind::add(config.path_file_config_bindings
+      Expect(ns_cmd::ns_bind::add(config.path_file_binary
         , cmd_add->type
         , cmd_add->path_src
         , cmd_add->path_dst)
@@ -785,11 +785,11 @@ using namespace ns_parser::ns_interface;
     }
     else if(auto cmd_del = std::get_if<CmdBind::Del>(&(cmd->sub_cmd)))
     {
-      Expect(ns_cmd::ns_bind::del(config.path_file_config_bindings, cmd_del->index));
+      Expect(ns_cmd::ns_bind::del(config.path_file_binary, cmd_del->index));
     }
     else if(std::get_if<CmdBind::List>(&(cmd->sub_cmd)))
     {
-      Expect(ns_cmd::ns_bind::list(config.path_file_config_bindings));
+      Expect(ns_cmd::ns_bind::list(config.path_file_binary));
     }
     else
     {

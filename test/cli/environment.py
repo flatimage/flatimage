@@ -15,6 +15,7 @@ class TestFimEnv(unittest.TestCase):
 
   def setUp(self):
     shutil.rmtree(self.dir_image, ignore_errors=True)
+    shutil.copy(os.environ["FILE_IMAGE_SRC"], os.environ["FILE_IMAGE"])
 
   def tearDown(self):
     self.assertTrue(pathlib.Path(self.dir_image).exists())

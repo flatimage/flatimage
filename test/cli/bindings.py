@@ -17,6 +17,7 @@ class TestFimBind(unittest.TestCase):
 
   def setUp(self):
     shutil.rmtree(self.dir_image, ignore_errors=True)
+    shutil.copy(os.environ["FILE_IMAGE_SRC"], os.environ["FILE_IMAGE"])
 
   def tearDown(self):
     shutil.rmtree(self.binding_dir, ignore_errors=True)

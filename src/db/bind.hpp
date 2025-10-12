@@ -34,11 +34,13 @@ struct Binds
 {
   private:
     std::vector<Bind> m_binds;
-    Binds() = default;
   public:
+    Binds() = default;
     std::vector<Bind> const& get() const;
+    void push_back(Bind const& bind);
     void erase(size_t index);
-    friend Expected<Binds> create(std::string_view raw_json);
+    bool empty() const noexcept;
+    friend Expected<Binds> deserialize(std::string_view raw_json);
 };
 
 /**
@@ -49,6 +51,16 @@ struct Binds
 [[nodiscard]] inline std::vector<Bind> const& Binds::get() const
 {
   return this->m_binds;
+}
+
+/**
+ * @brief Pushes a novel binding into the binding vector
+ * 
+ * @param index The index of the binding to erase
+ */
+inline void Binds::push_back(Bind const& bind)
+{
+  m_binds.push_back(bind);
 }
 
 /**
@@ -70,12 +82,22 @@ inline void Binds::erase(size_t index)
 }
 
 /**
+ * @brief Checks if the bindings are empty
+ * 
+ * @return The boolean result
+ */
+inline bool Binds::empty() const noexcept
+{
+  return m_binds.empty();
+}
+
+/**
  * @brief Factory method that creates a `Binds` object from a json database
  * 
  * @param raw_json The json string
  * @return The `Binds` class or the respective error
  */
-[[nodiscard]] inline Expected<Binds> create(std::string_view raw_json)
+[[nodiscard]] inline Expected<Binds> deserialize(std::string_view raw_json)
 {
   Binds binds;
 
@@ -108,7 +130,7 @@ inline void Binds::erase(size_t index)
 {
   std::stringstream ss;
   ss << stream_raw_json.rdbuf();
-  return create(ss.str());
+  return deserialize(ss.str());
 }
 
 /**

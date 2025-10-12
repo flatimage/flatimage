@@ -15,12 +15,11 @@
 #include <pwd.h>
 #include <regex>
 
-#include "../db/db.hpp"
+#include "../db/bind.hpp"
 #include "../reserved/permissions.hpp"
 #include "../std/vector.hpp"
 #include "../std/filesystem.hpp"
 #include "../lib/log.hpp"
-#include "../lib/match.hpp"
 #include "../lib/subprocess.hpp"
 #include "../lib/env.hpp"
 #include "../macro.hpp"
@@ -87,7 +86,7 @@ class Bwrap
     Bwrap& operator=(Bwrap const&) = delete;
     Bwrap& operator=(Bwrap&&) = delete;
     [[maybe_unused]] [[nodiscard]] Bwrap& symlink_nvidia(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
-    [[maybe_unused]] [[nodiscard]] Bwrap& with_binds_from_file(fs::path const& path_file_bindings);
+    [[maybe_unused]] [[nodiscard]] Bwrap& with_binds(ns_db::ns_bind::Binds const& binds);
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_home();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_media();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_audio();
@@ -344,25 +343,20 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
  * @param path_file_bindings Path to the json file which contains the bindings
  * @return Bwrap& A reference to *this
  */
-inline Bwrap& Bwrap::with_binds_from_file(fs::path const& path_file_bindings)
+inline Bwrap& Bwrap::with_binds(ns_db::ns_bind::Binds const& binds)
 {
+  using TypeBind = ns_db::ns_bind::Type;
   // Load bindings from the filesystem if any
-  auto db = ns_db::read_file(path_file_bindings).value_or(ns_db::Db());
-  for(auto&& [key,binding] : db.items())
+  for(auto&& bind : binds.get())
   {
-    auto type = binding("type").template value<std::string>();
-    auto src = binding("src").template value<std::string>();
-    auto dst = binding("dst").template value<std::string>();
-    econtinue_if(not type or not src or not dst, "Missing field in binding database");
-    auto type_value = ns_match::match(type.value()
-      , ns_match::equal("ro") >>= std::string{"--ro-bind-try"}
-      , ns_match::equal("rw") >>= std::string{"--bind-try"}
-      , ns_match::equal("dev") >>= std::string{"--dev-bind-try"}
-    );
-    econtinue_if(not type_value, "Invalid value '{}' for binding type"_fmt(type.value()));
-    m_args.push_back(type_value.value());
-    m_args.push_back(ns_env::expand(src.value()).value_or(src.value()));
-    m_args.push_back(ns_env::expand(dst.value()).value_or(dst.value()));
+    std::string src = bind.path_src;
+    std::string dst = bind.path_dst;
+    std::string type = (bind.type == TypeBind::DEV)? "--dev-bind-try"
+      : (bind.type == TypeBind::RO)? "--ro-bind-try"
+      : "--bind-try";
+    m_args.push_back(type);
+    m_args.push_back(ns_env::expand(src).value_or(src));
+    m_args.push_back(ns_env::expand(dst).value_or(dst));
   } // for
   return *this;
 }

@@ -13,11 +13,10 @@
 
 #include "../../db/db.hpp"
 #include "../../db/bind.hpp"
+#include "../../reserved/bind.hpp"
 
 namespace ns_cmd::ns_bind
 {
-
-ENUM(CmdBindType,DEV,RO,RW);
 
 namespace
 {
@@ -30,85 +29,106 @@ namespace fs = std::filesystem;
  * @param db The database to query
  * @return index_t The highest index element or -1 or error
  */
-[[nodiscard]] inline uint64_t get_highest_index(ns_db::Db const& db)
+[[nodiscard]] inline uint64_t get_highest_index(ns_db::ns_bind::Binds const& binds)
 {
-  auto keys = db.keys();
-  auto bindings = keys
-    | std::views::filter([](auto&& e){ return not e.empty() and std::ranges::all_of(e, ::isdigit); })
-    | std::views::transform([](auto&& e){ return std::stoi(e); })
-    | std::ranges::to<std::vector<int>>();
-  elog_if(keys.size() != bindings.size(), "Invalid indices in bindings database");
-  auto it = std::ranges::max_element(bindings, std::less<>{});
-  return ( it == bindings.end() )? -1 : *it;
+  auto it = std::ranges::max_element(binds.get(), {}, [](ns_db::ns_bind::Bind const& bind)
+  {
+    return bind.index;
+  });
+  return (it == std::ranges::end(binds.get()))? -1 : it->index;
 }
 
 } // namespace
 
 /**
+ * @brief Reads data from the reserved space
+ * 
+ * @param path_file_binary Path to the flatimage binary
+ * @return Expected<ns_db::ns_bind::Binds> The structured data or the respective error
+ */
+inline Expected<ns_db::ns_bind::Binds> db_read(fs::path const& path_file_binary)
+{
+  auto reserved_data = Expect(ns_reserved::bind::read(path_file_binary));
+  return ns_db::ns_bind::deserialize(
+    reserved_data.empty()? "{}" : reserved_data
+  ).value_or(ns_db::ns_bind::Binds{});
+}
+
+/**
+ * @brief Writes data to the reserved space
+ * 
+ * @param path_file_binary Path to the flatimage binary
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+inline Expected<void> db_write(fs::path const& path_file_binary, ns_db::ns_bind::Binds const& binds)
+{
+  Expect(ns_reserved::bind::write(path_file_binary
+    , Expect(ns_db::ns_bind::serialize(binds)).dump()
+  ));
+  return {};
+}
+
+/**
  * @brief Adds a binding instruction to the binding database
  * 
- * @param path_file_db_binding Path to the bindings database file
+ * @param path_file_binary Path to the flatimage binary
  * @param cmd Binding instructions
  * @return Expected<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Expected<void> add(fs::path const& path_file_db_binding
-  , CmdBindType bind_type
+[[nodiscard]] inline Expected<void> add(fs::path const& path_file_binary
+  , ns_db::ns_bind::Type bind_type
   , fs::path const& path_src
   , fs::path const& path_dst
 )
 {
-  // Open database or reset if doesnt exist or is corrupted
-  ns_db::Db db = Expect(ns_db::read_file(path_file_db_binding));
+  // Deserialize bindings
+  ns_db::ns_bind::Binds binds = Expect(db_read(path_file_binary));
   // Find out the highest bind index
-  std::string idx = std::to_string(get_highest_index(db) + 1);
-  ns_log::info()("Binding index is '{}'", idx);
-  // Include bindings
-  db(idx)("type") = (bind_type == CmdBindType::RO)? "ro"
-    : (bind_type == CmdBindType::RW)? "rw"
-    : "dev";
-  db(idx)("src") = path_src;
-  db(idx)("dst") =  path_dst;
+  ns_db::ns_bind::Bind bind
+  {
+    .index = get_highest_index(binds) + 1,
+    .path_src = path_src,
+    .path_dst = path_dst,
+    .type = bind_type,
+  };
+  binds.push_back(bind);
+  ns_log::info()("Binding index is '{}'", bind.index);
   // Write database
-  Expect(ns_db::write_file(path_file_db_binding, db));
+  Expect(db_write(path_file_binary, binds));
   return {};
 }
 
 /**
  * @brief Deletes a binding from the database
  * 
- * @param path_file_db_binding Path to the bindings database file
- * @param cmd Structure with the index to remove from the database
- * @return Expected<void> 
+ * @param path_file_binary Path to the flatimage binary
+ * @param index Index of the binding to erase
+ * @return Expected<void> Returns nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> del(fs::path const& path_file_db_binding, uint64_t index)
+[[nodiscard]] inline Expected<void> del(fs::path const& path_file_binary, uint64_t index)
 {
   std::error_code ec;
-  // Check if database exists
-  qreturn_if(not fs::exists(path_file_db_binding, ec), Unexpected("Empty binding database"));
-  //  Open file
-  std::ifstream file{path_file_db_binding};
-  qreturn_if(not file.is_open(), Unexpected("Failed to open binding database to delete entry"));
   // Deserialize bindings
-  ns_db::ns_bind::Binds binds = Expect(ns_db::ns_bind::deserialize(file));
+  ns_db::ns_bind::Binds binds = Expect(db_read(path_file_binary));
   // Erase index if exists
   binds.erase(index);
-  // Write back to file
-  auto serialized = Expect(ns_db::ns_bind::serialize(binds));
-  Expect(ns_db::write_file(path_file_db_binding, serialized));
+  // Write database
+  Expect(db_write(path_file_binary, binds));
   return {};
 }
 
 /**
  * @brief List bindings from the given bindings database
  * 
- * @param path_file_db_binding Path to the bindings database file
+ * @param path_file_binary Path to the flatimage binary
  */
-[[nodiscard]] inline Expected<void> list(fs::path const& path_file_db_binding)
+[[nodiscard]] inline Expected<void> list(fs::path const& path_file_binary)
 {
-  auto db = Expect(ns_db::read_file(path_file_db_binding));
-  if(not db.empty())
+  // Deserialize bindings
+  ns_db::ns_bind::Binds binds = Expect(db_read(path_file_binary));
+  if(not binds.empty())
   {
-    std::println("{}", db.dump());
+    std::println("{}", Expect(ns_db::ns_bind::serialize(binds)).dump());
   }
   return {};
 }

@@ -49,6 +49,12 @@ struct Reserved
   // icon
   constexpr static uint64_t const fim_reserved_offset_icon_begin = fim_reserved_offset_boot_end;
   constexpr static uint64_t const fim_reserved_offset_icon_end = fim_reserved_offset_icon_begin + 1_mib;
+  // environment
+  constexpr static uint64_t const fim_reserved_offset_environment_begin = fim_reserved_offset_icon_end;
+  constexpr static uint64_t const fim_reserved_offset_environment_end = fim_reserved_offset_environment_begin + 1_mib;
+  // bindings
+  constexpr static uint64_t const fim_reserved_offset_bindings_begin = fim_reserved_offset_environment_end;
+  constexpr static uint64_t const fim_reserved_offset_bindings_end = fim_reserved_offset_bindings_begin + 1_mib;
   constexpr Reserved()
   {
     static_assert(fim_reserved_offset_icon_end < FIM_RESERVED_SIZE, "Insufficient reserved space");
@@ -79,6 +85,12 @@ uint64_t const FIM_RESERVED_OFFSET_BOOT_END = FIM_RESERVED_OFFSET + reserved.fim
 // Icon
 uint64_t const FIM_RESERVED_OFFSET_ICON_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_icon_begin;
 uint64_t const FIM_RESERVED_OFFSET_ICON_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_icon_end;
+// Environment
+uint64_t const FIM_RESERVED_OFFSET_ENVIRONMENT_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_environment_begin;
+uint64_t const FIM_RESERVED_OFFSET_ENVIRONMENT_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_environment_end;
+// Bindings
+uint64_t const FIM_RESERVED_OFFSET_BINDINGS_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_bindings_begin;
+uint64_t const FIM_RESERVED_OFFSET_BINDINGS_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_bindings_end;
 
 
 

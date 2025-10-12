@@ -87,15 +87,19 @@ inline void search_stack(std::vector<fs::path> const& vec_path_dir_layer
 
 struct FlatimageConfig
 {
+  // Distribution name
   std::string str_dist;
+  // Feature flags
   bool is_root;
   bool is_readonly;
   bool is_debug;
   bool is_casefold;
   bool is_notify;
-
+  // Type of overlay filesystem (bwrap,overlayfs,unionfs)  
   ns_reserved::ns_overlay::OverlayType overlay_type;
+  // Offset 
   uint64_t offset_reserved;
+  // Useful directories
   fs::path path_dir_global;
   fs::path path_dir_mount;
   fs::path path_dir_app;
@@ -117,13 +121,9 @@ struct FlatimageConfig
   fs::path path_dir_upper_overlayfs;
   fs::path path_dir_work_overlayfs;
   fs::path path_dir_mount_overlayfs;
-
-  fs::path path_dir_config;
-  fs::path path_file_config_environment;
-  fs::path path_file_config_bindings;
-
+  //Compression level
   uint32_t layer_compression_level;
-
+  // PATH environment variable
   std::string env_path;
 
   FlatimageConfig() = default;
@@ -217,9 +217,6 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
   config->path_dir_work_overlayfs = config->path_dir_data_overlayfs / "workdir" / std::to_string(getpid());
   Expect(ns_filesystem::ns_path::create_if_not_exists(config->path_dir_upper_overlayfs));
   Expect(ns_filesystem::ns_path::create_if_not_exists(config->path_dir_work_overlayfs));
-  // Configuration files directory
-  config->path_dir_config = config->path_dir_upper_overlayfs / "fim/config";
-  Expect(ns_filesystem::ns_path::create_if_not_exists(config->path_dir_config));
   // Bwrap
   ns_env::set("BWRAP_LOG", config->path_dir_mount.string() + ".bwrap.log", ns_env::Replace::Y);
   // Environment
@@ -233,25 +230,6 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
    uint32_t compression_level = std::ranges::all_of(str_compression_level, ::isdigit) ? std::stoi(str_compression_level) : 7;
    std::clamp(compression_level, uint32_t{0}, uint32_t{10});
   });
-  // Paths to the configuration files
-  config->path_file_config_environment = config->path_dir_config / "environment.json";
-  config->path_file_config_bindings    = config->path_dir_config / "bindings.json";
-  // Create files if they do not exist
-  auto f_touch_json = [](fs::path const& path_file)
-  {
-    if(std::error_code ec; fs::exists(path_file, ec)) { return; }
-    if(std::ofstream file{path_file}; file.is_open())
-    {
-      file << "{}";
-    }
-    else
-    {
-      ns_log::error()("Could not create file '{}'", path_file);
-    }
-  };
-  f_touch_json(config->path_file_config_environment);
-  f_touch_json(config->path_file_config_bindings);
-
   // LD_LIBRARY_PATH
   if ( auto ret = ns_env::get_expected("LD_LIBRARY_PATH") )
   {
@@ -279,20 +257,6 @@ inline std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers)
     | std::ranges::to<std::vector<fs::path>>();
   std::ranges::sort(vec_path_dir_layer);
   return vec_path_dir_layer;
-}
-
-/**
- * @brief Push configuration files up the filesystem stack
- * 
- * @param path_dir_layers Path to the layers directory
- * @param path_dir_upper Path to the upper directory
- */
-inline void push_config_files(fs::path const& path_dir_layers, fs::path const& path_dir_upper)
-{
-  auto vec_path_dir_layer = get_mounted_layers(path_dir_layers);
-  // Write configuration files to upper directory
-  search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/environment.json");
-  search_stack(vec_path_dir_layer, path_dir_upper, "fim/config/bindings.json");
 }
 
 } // namespace ns_config

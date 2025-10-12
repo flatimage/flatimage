@@ -158,7 +158,7 @@ struct CmdBind
 {
   struct Add
   {
-    ns_cmd::ns_bind::CmdBindType type;
+    ns_db::ns_bind::Type type;
     fs::path path_src;
     fs::path path_dst; 
   };
