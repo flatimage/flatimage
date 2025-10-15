@@ -17,8 +17,8 @@ shopt -s nullglob extglob
 FIM_DIR_SCRIPT=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 FIM_DIR="$(dirname "$FIM_DIR_SCRIPT")"
 FIM_DIR_BUILD="$FIM_DIR"/build
-# 2MB of reserved space
-FIM_RESERVED_SIZE="$(echo "2 * (2^20)" | bc)"
+# 4MB of reserved space
+FIM_RESERVED_SIZE="$(echo "4 * (2^20)" | bc)"
 BINARIES=(
   fim_portal
   fim_portal_daemon
