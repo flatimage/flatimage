@@ -138,19 +138,22 @@ struct CmdBoot
   std::variant<Clear,Set,Show> sub_cmd;
 };
 
-ENUM(CmdLayerOp,ADD,CREATE);
+ENUM(CmdLayerOp,ADD,COMMIT,CREATE);
 struct CmdLayer
 {
   struct Add
   {
     fs::path path_file_src;
   };
+  struct Commit
+  {
+  };
   struct Create
   {
     fs::path path_dir_src;
     fs::path path_file_target;
   };
-  std::variant<Add,Create> sub_cmd;
+  std::variant<Add,Commit,Create> sub_cmd;
 };
 
 ENUM(CmdBindOp,ADD,DEL,LIST);
@@ -170,10 +173,6 @@ struct CmdBind
   {
   };
   std::variant<Add,Del,List> sub_cmd;
-};
-
-struct CmdCommit
-{
 };
 
 ENUM(CmdNotifySwitch,ON,OFF);
@@ -267,7 +266,6 @@ using CmdType = std::variant<CmdRoot
   , CmdDesktop
   , CmdLayer
   , CmdBind
-  , CmdCommit
   , CmdNotify
   , CmdCaseFold
   , CmdBoot

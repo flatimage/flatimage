@@ -335,6 +335,11 @@ using namespace ns_parser::ns_interface;
           qreturn_if(not args.empty(), Unexpected(error_msg));
         }
         break;
+        case CmdLayerOp::COMMIT:
+        {
+          cmd.sub_cmd = CmdLayer::Commit{};
+        }
+        break;
         case CmdLayerOp::NONE: return Unexpected("Invalid layer operation");
       }
       return CmdType(cmd);
@@ -385,12 +390,6 @@ using namespace ns_parser::ns_interface;
         case CmdBindOp::NONE: return Unexpected("Invalid operation for bind");
       }
       return CmdType(cmd);
-    },
-    // Commit current files to a novel compressed layer
-    ns_match::equal("fim-commit") >>= [&] -> Expected<CmdType>
-    {
-      qreturn_if(not args.empty(), Unexpected("'fim-commit' does not take arguments"));
-      return CmdType(CmdCommit{});
     },
     // Notifies with notify-send when the program starts
     ns_match::equal("fim-notify") >>= [&] -> Expected<CmdType>
@@ -543,7 +542,6 @@ using namespace ns_parser::ns_interface;
         ns_match::equal("bind")     >>=  ns_cmd::ns_help::bind_usage(),
         ns_match::equal("boot")     >>=  ns_cmd::ns_help::boot_usage(),
         ns_match::equal("casefold") >>=  ns_cmd::ns_help::casefold_usage(),
-        ns_match::equal("commit")   >>=  ns_cmd::ns_help::commit_usage(),
         ns_match::equal("desktop")  >>=  ns_cmd::ns_help::desktop_usage(),
         ns_match::equal("env")      >>=  ns_cmd::ns_help::env_usage(),
         ns_match::equal("exec")     >>=  ns_cmd::ns_help::exec_usage(),
@@ -759,6 +757,15 @@ using namespace ns_parser::ns_interface;
     {
       Expect(ns_layers::add(config.path_file_binary, cmd_add->path_file_src));
     }
+    else if(std::get_if<CmdLayer::Commit>(&(cmd->sub_cmd)))
+    {
+      Expect(ns_layers::commit(config.path_file_binary
+        , config.path_dir_upper_overlayfs
+        , config.path_dir_host_config_tmp / "layer.tmp"
+        , config.path_dir_host_config_tmp / "compression.list"
+        , config.layer_compression_level
+      ));
+    }
     else if(auto cmd_create = std::get_if<CmdLayer::Create>(&(cmd->sub_cmd)))
     {
       Expect(ns_layers::create(cmd_create->path_dir_src
@@ -796,46 +803,6 @@ using namespace ns_parser::ns_interface;
       return Unexpected("Invalid bind operation");
     }
   }
-  // Commit changes as a novel layer into the flatimage
-  else if ( std::get_if<ns_parser::CmdCommit>(&variant_cmd) )
-  {
-    // Set source directory and target compressed file
-    fs::path path_file_layer_tmp = config.path_dir_host_config_tmp / "layer.tmp";
-    fs::path path_file_list_tmp = config.path_dir_host_config_tmp / "compression.list";
-    // Create filesystem based on the contents of src
-    Expect(ns_layers::create(config.path_dir_upper_overlayfs
-      , path_file_layer_tmp
-      , path_file_list_tmp
-      , config.layer_compression_level
-    ));
-    // Include filesystem in the image
-    Expect(ns_layers::add(config.path_file_binary, path_file_layer_tmp));
-    // Remove layer file
-    std::error_code ec;
-    if(not fs::remove(path_file_layer_tmp))
-    {
-      ns_log::error()("Could not erase layer file '{}'", path_file_layer_tmp.string());
-    }
-    // Remove files from the compression list
-    std::ifstream file_list(path_file_list_tmp);
-    qreturn_if(not file_list.is_open(), Unexpected("Could not open file list for erasing files..."));
-    std::string line;
-    while(std::getline(file_list, line))
-    {
-      fs::path path_file_target = config.path_dir_upper_overlayfs / line;
-      fs::path path_dir_parent = path_file_target.parent_path();
-      // Remove target file
-      if(not fs::remove(path_file_target, ec))
-      {
-        ns_log::error()("Could not remove file {}"_fmt(path_file_target));
-      }
-      // Remove empty directory
-      if(fs::is_empty(path_dir_parent, ec) and not fs::remove(path_dir_parent, ec))
-      {
-        ns_log::error()("Could not remove directory {}"_fmt(path_dir_parent));
-      }
-    }
-  } // else if
   else if ( auto cmd = std::get_if<ns_parser::CmdNotify>(&variant_cmd) )
   {
     Expect(ns_reserved::ns_notify::write(config.path_file_binary, cmd->status == CmdNotifySwitch::ON));

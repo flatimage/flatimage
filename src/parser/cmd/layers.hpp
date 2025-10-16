@@ -134,6 +134,59 @@ namespace ns_layers
   return {};
 }
 
+/**
+ * @brief Commit changes into a novel layer and appends it to the FlatImage
+ * 
+ * @param path_file_binary
+ * @param path_dir_src
+ * @param path_file_layer_tmp
+ * @param path_file_list_tmp
+ * @param layer_compression_level
+ * @return Expected<void> Nothing on success, or the respective error
+ */
+[[nodiscard]] inline Expected<void> commit(
+    fs::path const& path_file_binary
+  , fs::path const& path_dir_src
+  , fs::path const& path_file_layer_tmp
+  , fs::path const& path_file_list_tmp
+  , uint32_t layer_compression_level)
+{
+  // Create filesystem based on the contents of src
+  Expect(ns_layers::create(path_dir_src
+    , path_file_layer_tmp
+    , path_file_list_tmp
+    , layer_compression_level
+  ));
+  // Include filesystem in the image
+  Expect(add(path_file_binary, path_file_layer_tmp));
+  // Remove layer file
+  std::error_code ec;
+  if(not fs::remove(path_file_layer_tmp))
+  {
+    ns_log::error()("Could not erase layer file '{}'", path_file_layer_tmp.string());
+  }
+  // Remove files from the compression list
+  std::ifstream file_list(path_file_list_tmp);
+  qreturn_if(not file_list.is_open(), Unexpected("Could not open file list for erasing files..."));
+  std::string line;
+  while(std::getline(file_list, line))
+  {
+    fs::path path_file_target = path_dir_src / line;
+    fs::path path_dir_parent = path_file_target.parent_path();
+    // Remove target file
+    if(not fs::remove(path_file_target, ec))
+    {
+      ns_log::error()("Could not remove file {}"_fmt(path_file_target));
+    }
+    // Remove empty directory
+    if(fs::is_empty(path_dir_parent, ec) and not fs::remove(path_dir_parent, ec))
+    {
+      ns_log::error()("Could not remove directory {}"_fmt(path_dir_parent));
+    }
+  }
+  return {};
+}
+
 } // namespace ns_layers
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

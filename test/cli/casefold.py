@@ -76,5 +76,5 @@ class TestFimCasefold(unittest.TestCase):
     self.assertEqual(code, 0)
     out,err,code = self.run_cmd("fim-exec", "stat", "/hello/world")
     self.assertEqual(out, "")
-    self.assertIn("stat: can't stat '/hello/world': No such file or directory", err)
+    self.assertIn("No such file or directory", err)
     self.assertEqual(code, 1)

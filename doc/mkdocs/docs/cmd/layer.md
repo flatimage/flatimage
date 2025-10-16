@@ -1,8 +1,8 @@
-# Manager FlatImage layers
+# Manage FlatImage Layers
 
 ## What is it?
 
-`fim-layer` is a command to manage the layers of a FlatImage.
+`fim-layer` is a command to manage the filesystem layers of a FlatImage. Layers allow you to incrementally add software and configurations to your FlatImage without rebuilding from scratch. Each layer stacks on top of the previous ones, with newer layers taking precedence over older ones.
 
 ## How to Use
 
@@ -17,58 +17,106 @@ Usage: fim-layer <create> <in-dir> <out-file>
 Usage: fim-layer <add> <in-file>
   <add> : Includes the novel layer <in-file> in the image in the top of the layer stack
   <in-file> : Path to the layer file to include in the FlatImage
+Usage: fim-layer <commit>
+  <commit> : Compresses current changes and inserts them into the FlatImage
 ```
 
-In this example, lets create a new layer that includes an executable to print
-`hello world` on the terminal. The first step is to create the directory
-structure for the layer, e.g.:
+### Commit Changes into a New Layer
+
+The `fim-layer commit` command is the quickest way to save your changes. It compresses the current filesystem modifications into a new layer and appends it to the FlatImage binary.
+
+**Example: Installing and committing Firefox**
 
 ```bash
-$ mkdir -p ./root/usr/bin
+# Allow network access
+./app.flatimage fim-perms add network,wayland,xorg,audio
+
+# Install Firefox
+./app.flatimage fim-root pacman -Syu
+./app.flatimage fim-root pacman -S firefox
+
+# Compress Firefox and its dependencies into a new layer
+./app.flatimage fim-layer commit
 ```
 
-The root directory will overlay the root directory of the FlatImage, now lets
-create our script and make it executable:
+After committing, the Firefox installation is permanently saved in your FlatImage. The changes persist across restarts without needing to reinstall.
+
+---
+
+### Create a Custom Layer
+
+For more control, you can create a layer from a specific directory structure. This is useful when you want to add custom files, scripts, or configurations without installing packages.
+
+**Example: Adding a custom script**
+
+First, create the directory structure that mirrors where files should go in the FlatImage filesystem:
 
 ```bash
-# Use bash to run the script
-$ echo '#!/bin/bash' > ./root/usr/bin/hello-world.sh
-# Print hello world with the script
-$ echo 'echo "hello world"' >> ./root/usr/bin/hello-world.sh
+# Create the directory structure
+mkdir -p ./root/usr/bin
+```
+
+The `root` directory represents the root filesystem of the FlatImage. Any files you place here will overlay the existing filesystem.
+
+Create your custom script:
+
+```bash
+# Create a hello-world script
+cat > ./root/usr/bin/hello-world.sh << 'EOF'
+#!/bin/bash
+echo "hello world"
+EOF
+
 # Make the script executable
-$ chmod +x ./root/usr/bin/hello-world.sh
+chmod +x ./root/usr/bin/hello-world.sh
 ```
 
-Now with the root directory configured, we can create the novel layer with:
+Now create the layer from your directory:
 
 ```bash
-# This command creates a layer from the 'root' folder and saves
-# it to a file names 'layer'
-$ ./app.flatimage fim-layer create ./root ./layer
+# Create a layer file from the 'root' directory
+./app.flatimage fim-layer create ./root ./layer
 ```
 
-The last step is to include the created layer in the FlatImage:
+This command compresses the contents of `./root` into a layer file named `./layer`.
+
+---
+
+### Add a Layer to FlatImage
+
+Once you have a layer file (either created manually or received from another source), add it to your FlatImage:
 
 ```bash
-$ ./app.flatimage fim-layer add ./layer
+# Add the layer to the FlatImage
+./app.flatimage fim-layer add ./layer
 ```
 
-Now we can test if the process succeeded with:
+The layer is now part of your FlatImage. Test that it works:
 
 ```bash
-$ ./app.flatimage fim-exec hello-world.sh
+# Run the script
+./app.flatimage fim-exec hello-world.sh
 hello world
-$ ./app.flatimage fim-exec command -v hello-world.sh
+
+# Verify the script location
+./app.flatimage fim-exec command -v hello-world.sh
 /usr/bin/hello-world.sh
 ```
 
-
 ## How it Works
 
-The `create` and `add` commands  demonstrated above are similar to the
-`fim-commit` command, but allow the user to specify a specific directory to
-create the novel layer from.
+FlatImage uses a layered filesystem architecture where each layer is a compressed filesystem that overlays the previous ones.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/flatimage/docs/master/docs/image/commit.png"/>
 </p>
+
+**Layer Stacking:**
+- Layers are stacked from oldest to newest
+- Files in newer layers override files in older layers
+- The topmost layer always contains uncommitted changes (your working directory)
+- Each `fim-layer commit` or `fim-layer add` creates a new layer on top of the stack
+
+**Commands Comparison:**
+- `fim-layer commit` - Automatically creates and adds a layer from your current uncommitted changes
+- `fim-layer create` + `fim-layer add` - Manually create a layer from a specific directory, then add it. This gives you precise control over what goes into each layer

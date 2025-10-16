@@ -24,7 +24,7 @@ class TestFimPortal(unittest.TestCase):
 
   def test_portal(self):
     # FlatImage should not contain Jq
-    out,err,code = self.run_cmd(str(self.file_image), "fim-exec", "which", "jq")
+    out,err,code = self.run_cmd(str(self.file_image), "fim-exec", "command", "-v", "jq")
     self.assertEqual(out, "")
     self.assertEqual(err, "")
     self.assertEqual(code, 1)

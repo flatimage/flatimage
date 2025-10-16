@@ -126,14 +126,6 @@ inline std::string casefold_usage()
     .get();
 }
 
-inline std::string commit_usage()
-{
-  return HelpEntry{"fim-commit"}
-    .with_description("Compresses current changes and inserts them into the FlatImage")
-    .with_usage("fim-commit")
-    .get();
-}
-
 inline std::string desktop_usage()
 {
   return HelpEntry{"fim-desktop"}
@@ -237,6 +229,10 @@ inline std::string layer_usage()
     .with_args({
       { "add", "Includes the novel layer <in-file> in the image in the top of the layer stack" },
       { "in-file", "Path to the layer file to include in the FlatImage"},
+    })
+    .with_usage("fim-layer <commit>")
+    .with_args({
+      { "commit", "Compresses current changes and inserts them into the FlatImage" },
     })
     .get();
 }

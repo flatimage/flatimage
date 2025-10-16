@@ -1,6 +1,7 @@
 site_name: FlatImage Documentation
 nav:
-  - FlatImage: index.md
+  - FlatImage: 
+    - Getting Started: index.md
   - Comparison:
     - comparison.md
   - Examples:
@@ -10,7 +11,6 @@ nav:
     - fim-bind: cmd/bind.md
     - fim-boot: cmd/boot.md
     - fim-casefold: cmd/casefold.md
-    - fim-commit: cmd/commit.md
     - fim-desktop: cmd/desktop.md
     - fim-env: cmd/env.md
     - fim-exec: cmd/exec.md

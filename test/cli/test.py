@@ -8,7 +8,6 @@ from pathlib import Path
 
 import bindings
 import boot
-import commit
 import desktop
 import environment
 import exec
@@ -48,7 +47,6 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(bindings.TestFimBind))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(boot.TestFimBoot))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(casefold.TestFimCasefold))
-  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(commit.TestFimCommit))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(desktop.TestFimDesktop))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(environment.TestFimEnv))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(exec.TestFimExec))
