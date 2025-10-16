@@ -43,7 +43,7 @@ function _system_alpine()
 
 function _system_arch()
 {
-  local dir_root="${1:?dist is undefined}"
+  local dir_root="${1:?dir_root is undefined}"
   local dist="${2:?dist is undefined}"
   # Fetch bootstrap
   git clone "https://github.com/ruanformigoni/arch-bootstrap.git"
@@ -55,7 +55,7 @@ function _system_arch()
   cp "$FIM_DIR/sources/arch.list" "$dir_root"/etc/pacman.d/mirrorlist
   # Enable multilib
   gawk -i inplace '/#\[multilib\]/,/#Include = (.*)/ { sub("#", ""); } 1' "$dir_root"/etc/pacman.conf
-  chroot "$dir_root" /bin/bash -c "pacman -Sy"
+  chroot "$dir_root" /bin/bash -c "pacman -Syu"
   # Audio & video
   pkgs_va+=("alsa-lib lib32-alsa-lib alsa-plugins lib32-alsa-plugins libpulse")
   pkgs_va+=("lib32-libpulse alsa-tools alsa-utils")
