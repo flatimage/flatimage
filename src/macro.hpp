@@ -8,57 +8,6 @@
 
 #pragma once
 
-#include "lib/log.hpp"
-
-// Pop rust-style for std::expected
-#define Expect(expr,...)                             \
-({                                                   \
-  auto __expected_ret = (expr);                      \
-  if (!__expected_ret)                               \
-  {                                                  \
-    ns_log::error()(__expected_ret.error());         \
-    __VA_OPT__(ns_log::error()(__VA_ARGS__));        \
-    return std::unexpected(__expected_ret.error());  \
-  }                                                  \
-  __expected_ret.value();                            \
-})
-
-// Expected wrapper
-template<typename T>
-using Expected = std::expected<T, std::string>;
-
-// Unexpect logs before creating std::unexpected
-#define Unexpected(...)                                                 \
-  ([&](auto&& _fmt, auto&&... _args) {                                  \
-    std::string _msg;                                                   \
-    if constexpr (sizeof...(_args) > 0) {                               \
-      _msg = std::vformat(                                              \
-        std::forward<decltype(_fmt)>(_fmt),                             \
-        std::make_format_args(_args...)  \
-      );                                                                \
-    } else {                                                            \
-      _msg = std::string(std::forward<decltype(_fmt)>(_fmt));           \
-    }                                                                   \
-    ns_log::error()(_msg);                                              \
-    return std::unexpected(std::move(_msg));                            \
-  }(__VA_ARGS__))
-
-// Expected or default-constructed
-template<typename T>
-T ExpectedOrDefault(Expected<T> expected)
-{
-  if(expected) { return expected.value(); }
-  return T{};
-}
-
-#define expect_map_error(expr, fun)                  \
-({                                                   \
-  auto __expected_ret = (expr);                      \
-  if (!__expected_ret)                               \
-    return fun(__expected_ret.error());              \
-  __expected_ret.value();                            \
-})
-
 // Exit
 #define qexit_if(cond, ret) \
   if (cond) { exit(ret); }
@@ -130,13 +79,3 @@ T ExpectedOrDefault(Expected<T> expected)
 
 #define dlog_if(cond, msg) \
   if (cond) { ns_log::debug()(msg); }
-
-// Log expected error
-template<typename U>
-void elog_expected(std::string_view msg, Expected<U> const& expected)
-{
-  if (not expected)
-  {
-    ns_log::error()(msg, expected.error());
-  }
-}

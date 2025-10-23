@@ -45,7 +45,7 @@ class Logger
     Logger& operator=(Logger&&) = delete;
     void set_level(Level level);
     [[nodiscard]] Level get_level() const;
-    [[nodiscard]] inline std::expected<void,std::string> set_sink_file(fs::path path_file_sink);
+    void set_sink_file(fs::path const& path_file_sink);
     void flush();
     [[nodiscard]] std::optional<std::ofstream>& get_sink_file();
 };
@@ -65,7 +65,7 @@ inline Logger::Logger()
  * 
  * @param path_file_sink The path to the logger sink file 
  */
-[[nodiscard]] inline std::expected<void,std::string> Logger::set_sink_file(fs::path path_file_sink)
+inline void Logger::set_sink_file(fs::path const& path_file_sink)
 {
   // File to save logs into
   if ( const char* var = std::getenv("FIM_DEBUG"); var && std::string_view{var} == "1" )
@@ -77,9 +77,8 @@ inline Logger::Logger()
   // Check if file was opened successfully  
   if(not m_opt_os->is_open())
   {
-    return std::unexpected("Could not open file '{}'"_fmt(path_file_sink));
+    std::cerr << ("Could not open file '{}'\n"_fmt(path_file_sink));
   }
-  return {};
 }
 
 /**
@@ -152,30 +151,26 @@ inline Level get_level()
  * 
  * @param path_file_sink The path to the logger sink file 
  */
-inline std::expected<void,std::string> set_sink_file(fs::path path_file_sink)
+inline void set_sink_file(fs::path const& path_file_sink)
 {
-  return logger.set_sink_file(path_file_sink);
+  logger.set_sink_file(path_file_sink);
 }
 
-class Location
+struct Location
 {
-  private:
-    fs::path m_str_file;
-    uint32_t m_line;
+  std::string_view m_str_file;
+  uint32_t m_line;
+  consteval Location(const char* str_file = __builtin_FILE() , uint32_t str_line = __builtin_LINE())
+    : m_str_file(str_file)
+    , m_line(str_line)
+  {
+    m_str_file = m_str_file.substr(m_str_file.find_last_of("/")+1);
+  }
 
-  public:
-    explicit Location(
-        char const* str_file = __builtin_FILE()
-      , uint32_t line = __builtin_LINE()
-    )
-      : m_str_file(fs::path(str_file).filename())
-      , m_line(line)
-    {}
-
-    auto get() const
-    {
-      return "{}::{}"_fmt(m_str_file, m_line);
-    }
+  constexpr auto get() const
+  {
+    return "{}::{}"_fmt(m_str_file, m_line);
+  }
 };
 
 /**
@@ -284,6 +279,50 @@ class critical : public Writer
       , m_loc(location)
     {}
 };
+
+#define logger(fmt, ...) ns_log::impl_log<fmt>(ns_log::Location{})(__VA_ARGS__);
+#define logger_loc(loc, fmt, ...) ns_log::impl_log<fmt>(loc)(__VA_ARGS__);
+
+template<ns_string::static_string str>
+constexpr decltype(auto) impl_log(Location loc)
+{
+  return [=]<typename... Ts>(Ts&&... ts)
+  {
+    constexpr std::string_view sv = str.data;
+    if constexpr (sv.starts_with("I::"))
+    {
+      info{loc}(sv.substr(3), std::forward<Ts>(ts)...);
+    }
+    else if constexpr (sv.starts_with("W::"))
+    {
+      warn{loc}(sv.substr(3), std::forward<Ts>(ts)...);
+    }
+    else if constexpr (sv.starts_with("E::"))
+    {
+      error{loc}(sv.substr(3), std::forward<Ts>(ts)...);
+    }
+    else if constexpr (sv.starts_with("C::"))
+    {
+      critical{loc}(sv.substr(3), std::forward<Ts>(ts)...);
+    }
+    else if constexpr (sv.starts_with("Q::"))
+    {
+      // Discard
+    }
+    else
+    {
+      // It is necessary to repeat all conditions here due to how the compile-time language works
+      static_assert(sv.starts_with("D::")
+        or sv.starts_with("I::")
+        or sv.starts_with("W::")
+        or sv.starts_with("E::")
+        or sv.starts_with("C::")
+        or sv.starts_with("Q::")
+      );
+      ns_log::debug{loc}(sv.substr(3), std::forward<Ts>(ts)...);
+    }
+  };
+}
 
 } // namespace ns_log
 

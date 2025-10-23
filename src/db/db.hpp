@@ -13,6 +13,7 @@
 #include <nlohmann/json.hpp>
 #include <variant>
 
+#include "../std/expected.hpp"
 #include "../std/concept.hpp"
 #include "../common.hpp"
 #include "../macro.hpp"

@@ -13,6 +13,7 @@
 #include <wordexp.h>
 #include <ranges>
 
+#include "../std/expected.hpp"
 #include "../std/string.hpp"
 #include "../common.hpp"
 #include "../macro.hpp"
@@ -109,7 +110,7 @@ inline Expected<std::string> expand(ns_concept::StringRepresentable auto&& var)
       case WRDE_SYNTAX: error = "WRDE_SYNTAX"; break;
       default: error = "unknown";
     } // switch
-    return Unexpected(error);
+    return Unexpected("E::{}", error);
   } // else
 
   return expanded;
@@ -127,7 +128,7 @@ inline Expected<T> xdg_data_home() noexcept
   const char* var = std::getenv("XDG_DATA_HOME");
   qreturn_if(var, var);
   const char* home = std::getenv("HOME");
-  qreturn_if(not home, Unexpected("HOME is undefined"));
+  qreturn_if(not home, Unexpected("E::HOME is undefined"));
   return std::string{home} + "/.local/share";
 }
 
@@ -146,7 +147,7 @@ inline Expected<T> xdg_data_home() noexcept
   // Query should be a file name
   if ( fs::path{query}.is_absolute() )
   {
-    return Unexpected("Query should be a file name, not an absolute path");
+    return Unexpected("E::Query should be a file name, not an absolute path");
   }
   // Search directories in PATH
   for(fs::path directory : env_path
@@ -158,7 +159,7 @@ inline Expected<T> xdg_data_home() noexcept
     fs::path path_full = directory / query;
     qreturn_if(fs::exists(path_full), path_full);
   }
-  return Unexpected("File not found in PATH");
+  return Unexpected("E::File not found in PATH");
 }
 
 } // namespace ns_env

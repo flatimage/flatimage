@@ -19,6 +19,7 @@
 #include <cassert>
 
 #include "../macro.hpp"
+#include "../std/expected.hpp"
 
 namespace ns_linux
 {
@@ -205,7 +206,7 @@ template<typename Data>
 [[nodiscard]] inline Expected<bool> module_check(std::string_view str_name)
 {
   std::ifstream file_modules("/proc/modules");
-  qreturn_if(not file_modules.is_open(), Unexpected("Could not open modules file"));
+  qreturn_if(not file_modules.is_open(), std::unexpected("Could not open modules file"));
 
   std::string line;
   while ( std::getline(file_modules, line) )

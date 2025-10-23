@@ -12,7 +12,7 @@
 #include <expected>
 
 #include "../std/concept.hpp"
-#include "../macro.hpp"
+#include "../std/expected.hpp"
 
 namespace ns_match
 {
@@ -85,7 +85,7 @@ template<typename... T, typename U>
 template<typename T, typename... Args>
 requires ( sizeof...(Args) > 0 )
 and ( std::is_invocable_v<Args,T> and ... )
-and ( ns_concept::IsInstanceOf<std::invoke_result_t<Args,T>, std::expected> and ... )
+and ( ns_concept::IsInstanceOf<std::invoke_result_t<Args,T>, Expected> and ... )
 [[nodiscard]] auto match(T&& t, Args&&... args) noexcept
   -> Expected<typename std::invoke_result_t<std::tuple_element_t<0,std::tuple<Args...>>, T>::value_type>
 {
@@ -117,7 +117,7 @@ and ( ns_concept::IsInstanceOf<std::invoke_result_t<Args,T>, std::expected> and 
     {
       return result;
     }
-    return Unexpected(msg_error);
+    return Unexpected("E::{}", msg_error);
   }
 }
 

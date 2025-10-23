@@ -10,6 +10,7 @@
 
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <iterator>
 #include <ranges>
 #include <set>
@@ -46,6 +47,54 @@ namespace fs = std::filesystem;
 
 using namespace ns_parser::ns_interface;
 
+class VecArgs
+{
+  private:
+    std::vector<std::string> m_data;
+  public:
+    VecArgs(char** begin, char** end)
+    {
+      if(begin != end)
+      {
+        m_data = std::vector<std::string>(begin,end);
+      }
+    }
+    template<ns_string::static_string Format, typename... Ts>
+    Expected<std::string> pop_front(Ts&&... ts)
+    {
+      if(m_data.empty())
+      {
+        if constexpr (sizeof...(Ts) > 0)
+        {
+          return Unexpected(Format, ns_string::to_string(ts)...);
+        }
+        else
+        {
+          return Unexpected(Format.data);
+        }
+      }
+      std::string item = m_data.front();
+      m_data.erase(m_data.begin());
+      return item;
+    }
+    std::vector<std::string> const& data()
+    {
+      return m_data;
+    }
+    size_t size()
+    {
+      return m_data.size();
+    }
+    bool empty()
+    {
+      return m_data.empty();
+    }
+    void clear()
+    {
+      m_data.clear();
+    }
+};
+
 
 /**
  * @brief Parses FlatImage commands
@@ -61,55 +110,18 @@ using namespace ns_parser::ns_interface;
     return CmdNone{};
   }
 
-  class VecArgs
-  {
-    private:
-      std::vector<std::string> m_data;
-    public:
-      VecArgs(char** begin, char** end)
-      {
-        if(begin != end)
-        {
-          m_data = std::vector<std::string>(begin,end);
-        }
-      }
-      Expected<std::string> pop_front(std::string const& msg)
-      {
-        if(m_data.empty()) { return Unexpected(msg); }
-        std::string item = m_data.front();
-        m_data.erase(m_data.begin());
-        return item;
-      }
-      std::vector<std::string> const& data()
-      {
-        return m_data;
-      }
-      size_t size()
-      {
-        return m_data.size();
-      }
-      bool empty()
-      {
-        return m_data.empty();
-      }
-      void clear()
-      {
-        m_data.clear();
-      }
-  };
-  
   VecArgs args(argv+1, argv+argc);
 
-  return Expect(ns_match::match(Expect(args.pop_front("Missing fim- command")),
+  return Expect(ns_match::match(Expect(args.pop_front<"C::Missing fim- command">()),
     ns_match::equal("fim-exec") >>= [&] -> Expected<CmdType>
     {
-      return CmdType(CmdExec(Expect(args.pop_front("Incorrect number of arguments for fim-exec"))
+      return CmdType(CmdExec(Expect(args.pop_front<"C::Incorrect number of arguments for fim-exec">())
         ,  args.data()
       ));
     },
     ns_match::equal("fim-root") >>= [&] -> Expected<CmdType>
     {
-      return CmdType(CmdRoot(Expect(args.pop_front("Incorrect number of arguments for fim-root"))
+      return CmdType(CmdRoot(Expect(args.pop_front<"C::Incorrect number of arguments for fim-root">())
         , args.data())
       );
     },
@@ -118,12 +130,12 @@ using namespace ns_parser::ns_interface;
     {
       // Get op
       CmdPermsOp op = Expect(
-        CmdPermsOp::from_string(Expect(args.pop_front("Missing op for fim-perms (add,del,list,set,clear)")))
+        CmdPermsOp::from_string(Expect(args.pop_front<"C::Missing op for fim-perms (add,del,list,set,clear)">()))
       );
       auto f_process_permissions = [&] -> Expected<std::set<CmdPerms::Permission>>
       {
         std::set<CmdPerms::Permission> permissions;
-        for(auto arg : ns_vector::from_string(Expect(args.pop_front("No arguments for '{}' command"_fmt(op))), ','))
+        for(auto arg : ns_vector::from_string(Expect(args.pop_front<"C::No arguments for '{}' command">(op)), ','))
         {
           permissions.insert(Expect(CmdPerms::Permission::from_string(arg)));
         }
@@ -160,11 +172,11 @@ using namespace ns_parser::ns_interface;
         break;
         case CmdPermsOp::NONE:
         {
-          return Unexpected("Invalid operation on permissions");
+          return Unexpected("C::Invalid operation on permissions");
         }
       }
       // Check for trailing arguments
-      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-perms: {}"_fmt(args.data())));
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-perms: {}", args.data()));
       return CmdType{cmd_perms};
     },
     // Configure environment
@@ -172,12 +184,12 @@ using namespace ns_parser::ns_interface;
     {
       // Get op
       CmdEnvOp op = Expect(
-        CmdEnvOp::from_string(Expect(args.pop_front("Missing op for 'fim-env' (add,del,list,set,clear)")))
+        CmdEnvOp::from_string(Expect(args.pop_front<"C::Missing op for 'fim-env' (add,del,list,set,clear)">()))
       );
       // Gather arguments with key/values if any
       auto f_process_variables = [&] -> Expected<std::vector<std::string>>
       {
-        qreturn_if(args.empty(), Unexpected("Missing arguments for '{}'"_fmt(op)));
+        qreturn_if(args.empty(), Unexpected("C::Missing arguments for '{}'", op));
         std::vector<std::string> out = args.data();
         args.clear();
         return out;
@@ -213,11 +225,11 @@ using namespace ns_parser::ns_interface;
         break;
         case CmdEnvOp::NONE:
         {
-          return Unexpected("Invalid operation on permissions");
+          return Unexpected("C::Invalid operation on permissions");
         }
       }
       // Check for trailing arguments
-      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-env: {}"_fmt(args.data())));
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-env: {}", args.data()));
       // Check if is other command with valid args
       return CmdType{cmd_env};
     },
@@ -228,7 +240,7 @@ using namespace ns_parser::ns_interface;
       CmdDesktop cmd;
       // Get operation
       CmdDesktopOp op = Expect(CmdDesktopOp::from_string(
-        Expect(args.pop_front("Missing op for 'fim-desktop' (enable,setup,clean,dump)"))
+        Expect(args.pop_front<"C::Missing op for 'fim-desktop' (enable,setup,clean,dump)">())
       ));
       // Get operation specific arguments
       switch(op)
@@ -237,7 +249,7 @@ using namespace ns_parser::ns_interface;
         {
           cmd.sub_cmd = CmdDesktop::Setup
           {
-            .path_file_setup = Expect(args.pop_front("Missing argument from 'setup' (/path/to/file.json)"))
+            .path_file_setup = Expect(args.pop_front<"C::Missing argument from 'setup' (/path/to/file.json)">())
           };
         }
         break;
@@ -245,7 +257,7 @@ using namespace ns_parser::ns_interface;
         {
           // Get comma separated argument list
           std::vector<std::string> vec_items =
-              Expect(args.pop_front("Missing arguments for 'enable' (desktop,entry,mimetype,none)"))
+              Expect(args.pop_front<"C::Missing arguments for 'enable' (desktop,entry,mimetype,none)">())
             | std::views::split(',')
             | std::ranges::to<std::vector<std::string>>();
           // Create items
@@ -257,7 +269,7 @@ using namespace ns_parser::ns_interface;
           // Check for 'none'
           if(set_enable.size() > 1 and set_enable.contains(ns_desktop::IntegrationItem::NONE))
           {
-            return Unexpected("'none' option should not be used with others");
+            return Unexpected("C::'none' option should not be used with others");
           }
           cmd.sub_cmd = CmdDesktop::Enable
           {
@@ -269,7 +281,7 @@ using namespace ns_parser::ns_interface;
         {
           // Get dump operation
           CmdDesktopDump op_dump = Expect(CmdDesktopDump::from_string(
-            Expect(args.pop_front("Missing arguments for 'dump' (desktop,icon)"))
+            Expect(args.pop_front<"C::Missing arguments for 'dump' (desktop,icon)">())
           ));
           // Parse dump operation
           switch(op_dump)
@@ -277,7 +289,7 @@ using namespace ns_parser::ns_interface;
             case CmdDesktopDump::ICON:
             {
               cmd.sub_cmd = CmdDesktop::Dump { CmdDesktop::Dump::Icon {
-                .path_file_icon = Expect(args.pop_front("Missing argument for 'icon' /path/to/dump/file"))
+                .path_file_icon = Expect(args.pop_front<"C::Missing argument for 'icon' /path/to/dump/file">())
               }};
             }
             break;
@@ -291,7 +303,7 @@ using namespace ns_parser::ns_interface;
               cmd.sub_cmd = CmdDesktop::Dump { CmdDesktop::Dump::MimeType{} };
             }
             break;
-            case CmdDesktopDump::NONE: return Unexpected("Invalid desktop dump operation");
+            case CmdDesktopDump::NONE: return Unexpected("C::Invalid desktop dump operation");
           }
         }
         break;
@@ -300,9 +312,9 @@ using namespace ns_parser::ns_interface;
           cmd.sub_cmd = CmdDesktop::Clean{};
         }
         break;
-        case CmdDesktopOp::NONE: return Unexpected("Invalid desktop operation");
+        case CmdDesktopOp::NONE: return Unexpected("C::Invalid desktop operation");
       }
-      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-desktop: {}"_fmt(args.data())));
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-desktop: {}", args.data()));
       return CmdType(cmd);
     },
     // Manage layers
@@ -312,27 +324,30 @@ using namespace ns_parser::ns_interface;
       CmdLayer cmd;
       // Get op
       CmdLayerOp op = Expect(
-        CmdLayerOp::from_string(Expect(args.pop_front("Missing op for 'fim-layer' (create,add)")))
+        CmdLayerOp::from_string(Expect(args.pop_front<"C::Missing op for 'fim-layer' (create,add)">()))
       );
       // Process command
       switch(op)
       {
         case CmdLayerOp::ADD:
         {
-          std::string error_msg = "add requires exactly one argument (/path/to/file.layer)";
-          cmd.sub_cmd = CmdLayer::Add { .path_file_src = (Expect(args.pop_front(error_msg))) };
-          qreturn_if(not args.empty(), Unexpected(error_msg));
+          constexpr ns_string::static_string error_msg = "C::add requires exactly one argument (/path/to/file.layer)";
+          cmd.sub_cmd = CmdLayer::Add
+          {
+            .path_file_src = (Expect(args.pop_front<error_msg>()))
+          };
+          qreturn_if(not args.empty(), Unexpected(error_msg.data));
         }
         break;
         case CmdLayerOp::CREATE:
         {
-          std::string error_msg = "add requires exactly two arguments (/path/to/dir /path/to/file.layer)";
+          constexpr ns_string::static_string error_msg = "C::create requires exactly two arguments (/path/to/dir /path/to/file.layer)";
           cmd.sub_cmd = CmdLayer::Create
           {
-            .path_dir_src = Expect(args.pop_front(error_msg)),
-            .path_file_target = Expect(args.pop_front(error_msg))
+            .path_dir_src = Expect(args.pop_front<error_msg>()),
+            .path_file_target = Expect(args.pop_front<error_msg>())
           };
-          qreturn_if(not args.empty(), Unexpected(error_msg));
+          qreturn_if(not args.empty(), Unexpected(error_msg.data));
         }
         break;
         case CmdLayerOp::COMMIT:
@@ -340,7 +355,7 @@ using namespace ns_parser::ns_interface;
           cmd.sub_cmd = CmdLayer::Commit{};
         }
         break;
-        case CmdLayerOp::NONE: return Unexpected("Invalid layer operation");
+        case CmdLayerOp::NONE: return Unexpected("C::Invalid layer operation");
       }
       return CmdType(cmd);
     },
@@ -351,65 +366,65 @@ using namespace ns_parser::ns_interface;
       CmdBind cmd;
       // Check op
       CmdBindOp op = Expect(
-        CmdBindOp::from_string(Expect(args.pop_front("Missing op for 'fim-bind' command (add,del,list)")))
+        CmdBindOp::from_string(Expect(args.pop_front<"C::Missing op for 'fim-bind' command (add,del,list)">()))
       );
       // Process command
       switch(op)
       {
         case CmdBindOp::ADD:
         {
-          std::string msg = "Incorrect number of arguments for 'add' (<ro,rw,dev> <src> <dst>)";
+          constexpr ns_string::static_string msg = "C::Incorrect number of arguments for 'add' (<ro,rw,dev> <src> <dst>)";
           cmd.sub_cmd = CmdBind::Add
           {
-            .type =  Expect(ns_db::ns_bind::Type::from_string(Expect(args.pop_front(msg)))),
-            .path_src = Expect(args.pop_front(msg)),
-            .path_dst = Expect(args.pop_front(msg))
+            .type =  Expect(ns_db::ns_bind::Type::from_string(Expect(args.pop_front<msg>()))),
+            .path_src = Expect(args.pop_front<msg>()),
+            .path_dst = Expect(args.pop_front<msg>())
           };
-          qreturn_if(not args.empty(), Unexpected(msg));
+          qreturn_if(not args.empty(), Unexpected(msg.data));
         }
         break;
         case CmdBindOp::DEL:
         {
-          std::string str_index = Expect(args.pop_front("Incorrect number of arguments for 'del' (<index>)"));
+          std::string str_index = Expect(args.pop_front<"C::Incorrect number of arguments for 'del' (<index>)">());
           qreturn_if(not std::ranges::all_of(str_index, ::isdigit)
-            , Unexpected("Index argument for 'del' is not a number")
+            , Unexpected("C::Index argument for 'del' is not a number")
           );
           cmd.sub_cmd = CmdBind::Del
           {
             .index = std::stoull(str_index)
           };
-          qreturn_if(not args.empty(), Unexpected("Incorrect number of arguments for 'del' (<index>)"));
+          qreturn_if(not args.empty(), Unexpected("C::Incorrect number of arguments for 'del' (<index>)"));
         }
         break;
         case CmdBindOp::LIST:
         {
           cmd.sub_cmd = CmdBind::List{};
-          qreturn_if(not args.empty(), Unexpected("'list' command takes no arguments"));
+          qreturn_if(not args.empty(), Unexpected("C::'list' command takes no arguments"));
         }
         break;
-        case CmdBindOp::NONE: return Unexpected("Invalid operation for bind");
+        case CmdBindOp::NONE: return Unexpected("C::Invalid operation for bind");
       }
       return CmdType(cmd);
     },
     // Notifies with notify-send when the program starts
     ns_match::equal("fim-notify") >>= [&] -> Expected<CmdType>
     {
-      std::string msg = "Incorrect number of arguments for 'fim-notify' (<on|off>)";
+      constexpr ns_string::static_string msg = "C::Incorrect number of arguments for 'fim-notify' (<on|off>)";
       auto cmd_notify = CmdType(CmdNotify{
-        Expect(CmdNotifySwitch::from_string(Expect(args.pop_front(msg))))
+        Expect(CmdNotifySwitch::from_string(Expect(args.pop_front<msg>())))
       });
-      qreturn_if(not args.empty(), Unexpected(msg));
+      qreturn_if(not args.empty(), Unexpected(msg.data));
       return cmd_notify;
     },
     // Enables or disable ignore case for paths (useful for wine)
     ns_match::equal("fim-casefold") >>= [&] -> Expected<CmdType>
     {
-      std::string msg = "Incorrect number of arguments for 'fim-casefold' (<on|off>)";
-      qreturn_if(args.empty(), Unexpected(msg));
+      constexpr ns_string::static_string msg = "C::Incorrect number of arguments for 'fim-casefold' (<on|off>)";
+      qreturn_if(args.empty(), Unexpected(msg.data));
       auto cmd_casefold = CmdType(CmdCaseFold{
-        Expect(CmdCaseFoldSwitch::from_string(Expect(args.pop_front(msg))))
+        Expect(CmdCaseFoldSwitch::from_string(Expect(args.pop_front<msg>())))
       });
-      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-casefold: {}"_fmt(args.data())));
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-casefold: {}", args.data()));
       return cmd_casefold;
     },
     // Set the default startup command
@@ -417,7 +432,7 @@ using namespace ns_parser::ns_interface;
     {
       // Check op
       CmdBootOp op = Expect(CmdBootOp::from_string(
-        Expect(args.pop_front("Invalid operation for 'fim-boot' (<set|show|clear>)"))
+        Expect(args.pop_front<"C::Invalid operation for 'fim-boot' (<set|show|clear>)">())
       ));
       // Build command
       CmdBoot cmd_boot;
@@ -426,7 +441,7 @@ using namespace ns_parser::ns_interface;
         case CmdBootOp::SET:
         {
           cmd_boot.sub_cmd = CmdBoot::Set {
-            .program = Expect(args.pop_front("Missing program for 'set' operation")),
+            .program = Expect(args.pop_front<"C::Missing program for 'set' operation">()),
             .args = args.data()
           };
           args.clear();
@@ -442,25 +457,25 @@ using namespace ns_parser::ns_interface;
           cmd_boot.sub_cmd = CmdBoot::Clear{};
         }
         break;
-        case CmdBootOp::NONE: return Unexpected("Invalid boot operation");
+        case CmdBootOp::NONE: return Unexpected("C::Invalid boot operation");
       }
       // Check for trailing arguments
-      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-boot: {}"_fmt(args.data())));
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-boot: {}", args.data()));
       return cmd_boot;
     },
     // Run a command in an existing instance
     ns_match::equal("fim-instance") >>= [&] -> Expected<CmdType>
     {
-      std::string msg = "Missing op for 'fim-instance' (<exec|list>)";
-      CmdInstanceOp op = Expect(CmdInstanceOp::from_string(Expect(args.pop_front(msg))));
+      constexpr ns_string::static_string msg = "C::Missing op for 'fim-instance' (<exec|list>)";
+      CmdInstanceOp op = Expect(CmdInstanceOp::from_string(Expect(args.pop_front<msg>())));
       CmdInstance cmd;
       switch(op)
       {
         case CmdInstanceOp::EXEC:
         {
-          std::string str_id = Expect(args.pop_front("Missing 'id' argument for 'fim-instance'"));
-          qreturn_if(not std::ranges::all_of(str_id, ::isdigit), Unexpected("Id argument must be a digit"));
-          qreturn_if(args.empty(), Unexpected("Missing 'cmd' argument for 'fim-instance'"));
+          std::string str_id = Expect(args.pop_front<"C::Missing 'id' argument for 'fim-instance'">());
+          qreturn_if(not std::ranges::all_of(str_id, ::isdigit), Unexpected("C::Id argument must be a digit"));
+          qreturn_if(args.empty(), Unexpected("C::Missing 'cmd' argument for 'fim-instance'"));
           cmd.sub_cmd = CmdInstance::Exec
           {
             .id = std::stoi(str_id),
@@ -474,17 +489,17 @@ using namespace ns_parser::ns_interface;
           cmd.sub_cmd = CmdInstance::List{};
         }
         break;
-        case CmdInstanceOp::NONE: return Unexpected("Invalid instance operation");
+        case CmdInstanceOp::NONE: return Unexpected("C::Invalid instance operation");
       }
-      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-instance: {}"_fmt(args.data())));
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-instance: {}", args.data()));
       return CmdType(cmd);
     },
     // Select or show the current overlay filesystem
     ns_match::equal("fim-overlay") >>= [&] -> Expected<CmdType>
     {
-      std::string msg = "Missing op for 'fim-overlay' (<set|show>)";
+      constexpr ns_string::static_string msg = "C::Missing op for 'fim-overlay' (<set|show>)";
       // Get op
-      CmdOverlayOp op = Expect(CmdOverlayOp::from_string(Expect(args.pop_front(msg))));
+      CmdOverlayOp op = Expect(CmdOverlayOp::from_string(Expect(args.pop_front<msg>())));
       // Build command
       CmdOverlay cmd;
       switch(op)
@@ -494,7 +509,7 @@ using namespace ns_parser::ns_interface;
           cmd.sub_cmd = CmdOverlay::Set
           {
             .overlay = Expect(ns_reserved::ns_overlay::OverlayType::from_string(           
-              Expect(args.pop_front("Missing argument for 'set'"))
+              Expect(args.pop_front<"C::Missing argument for 'set'">())
             ))
           };
         }
@@ -506,18 +521,18 @@ using namespace ns_parser::ns_interface;
         break;
         case CmdOverlayOp::NONE:
         {
-          return Unexpected("Invalid operation for fim-overlay");
+          return Unexpected("C::Invalid operation for fim-overlay");
         }
       }
-      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-overlay: {}"_fmt(args.data())));
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-overlay: {}", args.data()));
       return CmdType(cmd);
     },
     // Select or show the current overlay filesystem
     ns_match::equal("fim-version") >>= [&] -> Expected<CmdType>
     {
-      std::string msg = "Missing op for 'fim-version' (<short|full|deps>)";
+      constexpr ns_string::static_string msg = "C::Missing op for 'fim-version' (<short|full|deps>)";
       // Get op
-      CmdVersionOp op = Expect(CmdVersionOp::from_string(Expect(args.pop_front(msg))));
+      CmdVersionOp op = Expect(CmdVersionOp::from_string(Expect(args.pop_front<msg>())));
       // Build command
       CmdVersion cmd;
       switch(op)
@@ -525,20 +540,20 @@ using namespace ns_parser::ns_interface;
         case CmdVersionOp::SHORT: cmd.sub_cmd = CmdVersion::Short{}; break;
         case CmdVersionOp::FULL: cmd.sub_cmd = CmdVersion::Full{}; break;
         case CmdVersionOp::DEPS: cmd.sub_cmd = CmdVersion::Deps{}; break;
-        case CmdVersionOp::NONE: return Unexpected("Invalid operation for fim-overlay");
+        case CmdVersionOp::NONE: return Unexpected("C::Invalid operation for fim-overlay");
       }
-      qreturn_if(not args.empty(), Unexpected("Trailing arguments for fim-overlay: {}"_fmt(args.data())));
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-overlay: {}", args.data()));
       return CmdType(cmd);
     },
     // Use the default startup command
-    ns_match::equal("fim-help") >>= [&]
+    ns_match::equal("fim-help") >>= [&] -> Expected<CmdType>
     {
       if (args.empty())
       {
         std::cerr << ns_cmd::ns_help::help_usage() << '\n';
         return CmdType(CmdExit{});
       }
-      auto message = ns_match::match(args.pop_front("Missing argument for 'fim-help'"),
+      auto message = Expect(ns_match::match(Expect(args.pop_front<"C::Missing argument for 'fim-help'">()),
         ns_match::equal("bind")     >>=  ns_cmd::ns_help::bind_usage(),
         ns_match::equal("boot")     >>=  ns_cmd::ns_help::boot_usage(),
         ns_match::equal("casefold") >>=  ns_cmd::ns_help::casefold_usage(),
@@ -552,8 +567,8 @@ using namespace ns_parser::ns_interface;
         ns_match::equal("perms")    >>=  ns_cmd::ns_help::perms_usage(),
         ns_match::equal("root")     >>=  ns_cmd::ns_help::root_usage(),
         ns_match::equal("version")  >>=  ns_cmd::ns_help::version_usage()
-      );
-      std::cout << message.value_or("Invalid argument for help command\n");
+      ), "C::Invalid argument for help command");
+      std::cout << message;
       return CmdType(CmdExit{});
     }
   ));
@@ -579,7 +594,7 @@ using namespace ns_parser::ns_interface;
     // Mount filesystems
     [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config);
     // Execute specified command
-    auto environment = ExpectedOrDefault(ns_db::ns_env::get(config.path_file_binary));
+    auto environment = ns_db::ns_env::get(config.path_file_binary).or_default();
     // Check if should use bwrap native overlayfs
     std::optional<ns_bwrap::Overlay> bwrap_overlay = ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP )?
         std::make_optional(ns_bwrap::Overlay
@@ -678,7 +693,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("Invalid permissions sub-command");
+      return Unexpected("C::Invalid permissions sub-command");
     }
   }
   // Configure environment
@@ -708,7 +723,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("Invalid environment sub-command");
+      return Unexpected("C::Invalid environment sub-command");
     }
   }
   // Configure desktop integration
@@ -742,12 +757,12 @@ using namespace ns_parser::ns_interface;
       }
       else
       {
-        return Unexpected("Invalid dump sub-command");
+        return Unexpected("C::Invalid dump sub-command");
       }
     }
     else
     {
-      return Unexpected("Invalid desktop sub-command");
+      return Unexpected("C::Invalid desktop sub-command");
     }
   }
   // Manager layers
@@ -776,7 +791,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("Invalid layer operation");
+      return Unexpected("C::Invalid layer operation");
     }
   }
   // Bind a device or file to the flatimage
@@ -800,7 +815,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("Invalid bind operation");
+      return Unexpected("C::Invalid bind operation");
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdNotify>(&variant_cmd) )
@@ -846,7 +861,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("Invalid boot sub-command");
+      return Unexpected("C::Invalid boot sub-command");
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )
@@ -863,9 +878,9 @@ using namespace ns_parser::ns_interface;
     std::ranges::sort(instances, {}, [](auto&& e){ return std::stoi(e.filename().string()); });
     if(auto cmd_exec = std::get_if<CmdInstance::Exec>(&(cmd->sub_cmd)))
     {
-      qreturn_if(instances.size() == 0, Unexpected("No instances are running"));
+      qreturn_if(instances.size() == 0, Unexpected("C::No instances are running"));
       qreturn_if(cmd_exec->id < 0 or static_cast<size_t>(cmd_exec->id) >= instances.size()
-        , Unexpected("Instance index out of bounds")
+        , Unexpected("C::Instance index out of bounds")
       );
       return ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
         .with_args("--connect", instances.at(cmd_exec->id))
@@ -883,7 +898,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("Invalid instance operation");     
+      return Unexpected("C::Invalid instance operation");     
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdOverlay>(&variant_cmd) )
@@ -898,7 +913,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("Invalid operation for fim-overlay");
+      return Unexpected("C::Invalid operation for fim-overlay");
     }    
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdVersion>(&variant_cmd) )
@@ -917,7 +932,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("Invalid operation for fim-version");
+      return Unexpected("C::Invalid operation for fim-version");
     }    
   }
   // Update default command on database
@@ -950,7 +965,7 @@ using namespace ns_parser::ns_interface;
   }
   else
   {
-    return Unexpected("Unknown command");
+    return Unexpected("C::Unknown command");
   }
 
   return EXIT_SUCCESS;

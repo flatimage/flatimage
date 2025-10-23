@@ -22,6 +22,7 @@
 #include "log.hpp"
 #include "../macro.hpp"
 #include "../std/vector.hpp"
+#include "../std/expected.hpp"
 
 namespace ns_subprocess
 {

@@ -17,6 +17,7 @@
 
 #include "subprocess.hpp"
 #include "env.hpp"
+#include "../std/expected.hpp"
 
 // Other codes available here:
 // https://man7.org/linux/man-pages/man2/statfs.2.html
@@ -44,7 +45,7 @@ inline Expected<bool> is_fuse(fs::path const& path_dir_mount)
 
   if ( statfs(path_dir_mount.c_str(), &buf) < 0 )
   {
-    return Unexpected(strerror(errno));
+    return Unexpected("E::{}", strerror(errno));
   }
 
   return buf.f_type == FUSE_SUPER_MAGIC;

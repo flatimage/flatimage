@@ -20,6 +20,7 @@
 #include <unordered_map>
 
 #include "../macro.hpp"
+#include "../std/expected.hpp"
 #include "../lib/env.hpp"
 #include "../lib/log.hpp"
 #include "../lib/linux.hpp"
@@ -57,10 +58,10 @@ void signal_handler(int sig)
   std::error_code ec;
   fs::path path_dir_env = path_file_env.parent_path();
   qreturn_if(not fs::exists(path_dir_env, ec) and not fs::create_directories(path_dir_env, ec)
-    , Unexpected(std::format("Could not create upper directories of file '{}': '{}'", path_file_env.string(), ec.message()))
+    , Unexpected("E::Could not create upper directories of file '{}': '{}'", path_file_env.string(), ec.message())
   );
   std::ofstream ofile_env(path_file_env, std::ios::out | std::ios::trunc);
-  qreturn_if(not ofile_env.is_open(), Unexpected("Could not open file '{}'"_fmt(path_file_env)));
+  qreturn_if(not ofile_env.is_open(), Unexpected("E::Could not open file '{}'", path_file_env));
   for(char **env = environ; *env != NULL; ++env) { ofile_env << *env << '\n'; }
   ofile_env.close();
   return {};
@@ -103,7 +104,7 @@ void signal_handler(int sig)
   );
   // Check for errors
   return (static_cast<size_t>(size_writen) != data.length())?
-      Unexpected("Could not write data to daemon({}): {}"_fmt(size_writen, strerror(errno)))
+      Unexpected("E::Could not write data to daemon({}): {}", size_writen, strerror(errno))
     : Expected<void>{};
 }
 
@@ -122,7 +123,7 @@ void signal_handler(int sig)
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , std::span<pid_t>(&pid_child, 1)
   );
-  qreturn_if(bytes_read != sizeof(pid_child), Unexpected(strerror(errno)));
+  qreturn_if(bytes_read != sizeof(pid_child), Unexpected("E::{}", strerror(errno)));
   opt_child = pid_child;
   ns_log::debug()("Child pid: {}", pid_child);
   // Connect to stdin, stdout, and stderr with fifos
@@ -140,7 +141,7 @@ void signal_handler(int sig)
     , std::chrono::seconds{SECONDS_TIMEOUT}
     , std::span<int>(&code_exit, 1)
   );
-  qreturn_if(bytes_exit != sizeof(code_exit), Unexpected("Incorrect number of bytes '{}' read"_fmt(bytes_exit)));
+  qreturn_if(bytes_exit != sizeof(code_exit), Unexpected("E::Incorrect number of bytes '{}' read", bytes_exit));
   return code_exit;
 }
 
@@ -179,7 +180,7 @@ void signal_handler(int sig)
   // Create define log file for child
   fs::path path_file_log = path_dir_portal / "cli.log";
   qreturn_if(std::error_code ec; (fs::create_directories(path_file_log.parent_path(), ec))
-    , Unexpected(std::format("Error to create log file: {}", ec.message()))
+    , Unexpected("E::Error to create log file: {}", ec.message())
   );
   // Create fifos
   fs::path path_dir_fifo = path_dir_portal / "fifo";

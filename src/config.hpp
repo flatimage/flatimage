@@ -208,15 +208,15 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
   // Create host config directory
   config->path_dir_host_config = config->path_file_binary.parent_path() / ".{}.config"_fmt(config->path_file_binary.filename());
   config->path_dir_host_config_tmp = config->path_dir_host_config / "tmp";
-  Expect(ns_filesystem::ns_path::create_if_not_exists(config->path_dir_host_config_tmp));
+  Expect(ns_fs::create_directories(config->path_dir_host_config_tmp));
   ns_env::set("FIM_DIR_CONFIG", config->path_dir_host_config, ns_env::Replace::Y);
   // Overlayfs write data to remain on the host
   config->path_dir_mount_ciopfs = config->path_dir_host_config / "casefold";
   config->path_dir_data_overlayfs = config->path_dir_host_config / "overlays";
   config->path_dir_upper_overlayfs = config->path_dir_data_overlayfs / "upperdir";
   config->path_dir_work_overlayfs = config->path_dir_data_overlayfs / "workdir" / std::to_string(getpid());
-  Expect(ns_filesystem::ns_path::create_if_not_exists(config->path_dir_upper_overlayfs));
-  Expect(ns_filesystem::ns_path::create_if_not_exists(config->path_dir_work_overlayfs));
+  Expect(ns_fs::create_directories(config->path_dir_upper_overlayfs));
+  Expect(ns_fs::create_directories(config->path_dir_work_overlayfs));
   // Bwrap
   ns_env::set("BWRAP_LOG", config->path_dir_mount.string() + ".bwrap.log", ns_env::Replace::Y);
   // Environment

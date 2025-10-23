@@ -11,6 +11,7 @@
 #include <string>
 #include <filesystem>
 
+#include "../std/expected.hpp"
 #include "../macro.hpp"
 #include "reserved.hpp"
 
@@ -35,7 +36,7 @@ inline Expected<void> write(fs::path const& path_file_binary, std::string_view c
 {
   uint64_t space_available = ns_reserved::FIM_RESERVED_OFFSET_ENVIRONMENT_END - ns_reserved::FIM_RESERVED_OFFSET_ENVIRONMENT_BEGIN;
   uint64_t space_required = json.size();
-  qreturn_if(space_available <= space_required, Unexpected("Not enough space to fit json data"));
+  qreturn_if(space_available <= space_required, Unexpected("E::Not enough space to fit json data"));
   Expect(ns_reserved::write(path_file_binary
     , FIM_RESERVED_OFFSET_ENVIRONMENT_BEGIN
     , FIM_RESERVED_OFFSET_ENVIRONMENT_END

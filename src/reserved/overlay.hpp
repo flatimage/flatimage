@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <filesystem>
 
+#include "../std/expected.hpp"
 #include "../macro.hpp"
 #include "../std/enum.hpp"
 #include "reserved.hpp"
@@ -43,12 +44,12 @@ inline Expected<void> write(fs::path const& path_file_binary, OverlayType const&
     case OverlayType::OVERLAYFS: mask = 1 << 2; break;
     case OverlayType::UNIONFS: mask = 1 << 3; break;
     case OverlayType::NONE:
-    default: return Unexpected("Invalid overlay option");
+    default: return Unexpected("E::Invalid overlay option");
   }
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_OVERLAY_BEGIN;
   uint64_t offset_end = ns_reserved::FIM_RESERVED_OFFSET_OVERLAY_END;
   uint64_t size = offset_end - offset_begin;
-  qreturn_if(size != sizeof(uint8_t), Unexpected("Incorrect number of bytes to write overlay mask: {} vs {}"_fmt(size, sizeof(uint8_t))));
+  qreturn_if(size != sizeof(uint8_t), Unexpected("E::Incorrect number of bytes to write overlay mask: {} vs {}", size, sizeof(uint8_t)));
   return ns_reserved::write(path_file_binary, offset_begin, offset_end, reinterpret_cast<char*>(&mask), sizeof(uint8_t));
 }
 

@@ -11,6 +11,7 @@
 #include <memory>
 #include <fcntl.h>
 
+#include "../std/expected.hpp"
 #include "../std/filesystem.hpp"
 #include "../config.hpp"
 #include "../reserved/overlay.hpp"
@@ -113,7 +114,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
     ns_log::debug()("casefold is disabled");
   }
   // Spawn janitor, make it permissive since flatimage works without it
-  elog_expected("Could not spawn janitor: {}", spawn_janitor());
+  spawn_janitor().discard("E::Could not spawn janitor");
 }
 
 /**
@@ -257,7 +258,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     {
       return e
         // Each directory expands to a file list
-        | std::views::transform([](auto&& f){ return ns_filesystem::ns_path::list_files(f); })
+        | std::views::transform([](auto&& f){ return ns_fs::regular_files(f); })
         // Filter and transform into a vector of vectors
         | std::views::filter([](auto&& f){ return f.has_value(); })
         | std::views::transform([](auto&& f){ return f.value(); })

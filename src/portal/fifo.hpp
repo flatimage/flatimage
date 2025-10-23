@@ -18,6 +18,7 @@
 #include <fcntl.h> // O_RDONLY
 #include <sys/prctl.h> // PR_SET_PDEATHSIG
 
+#include "../std/expected.hpp"
 #include "../macro.hpp"
 #include "../lib/linux.hpp"
 #include "config.hpp"
@@ -36,7 +37,7 @@ namespace fs = std::filesystem;
   fs::path path_dir_parent = path_file_fifo.parent_path();
   // Create parent directory(ies)
   qreturn_if(not fs::exists(path_dir_parent, ec) and not fs::create_directories(path_dir_parent, ec)
-    , Unexpected("Failed to create upper directories for fifo")
+    , Unexpected("E::Failed to create upper directories for fifo")
   );
   // Replace old fifo if exists
   if (fs::exists(path_file_fifo, ec))
@@ -45,7 +46,7 @@ namespace fs = std::filesystem;
   }
   // Create fifo
   qreturn_if(mkfifo(path_file_fifo.c_str(), 0666) < 0
-    , Unexpected(strerror(errno))
+    , Unexpected("E::{}", strerror(errno))
   );
   return path_file_fifo;
 }

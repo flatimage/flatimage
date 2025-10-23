@@ -9,6 +9,7 @@
 #include <filesystem>
 #include <memory>
 
+#include "../std/expected.hpp"
 #include "../lib/env.hpp"
 #include "../lib/subprocess.hpp"
 
@@ -52,15 +53,15 @@ inline Portal::~Portal()
 [[nodiscard]] inline Expected<std::unique_ptr<Portal>> create(pid_t const pid_reference, std::string const& mode)
 {
   auto portal = std::make_unique<Portal>();
-  qreturn_if(portal == nullptr, Unexpected("Could not create portal object"));
+  qreturn_if(portal == nullptr, Unexpected("E::Could not create portal object"));
   // Path to flatimage binaries
   std::string str_dir_app_bin = Expect(ns_env::get_expected("FIM_DIR_APP_BIN"));
   // Create path to daemon
   portal->m_path_file_daemon = fs::path{str_dir_app_bin} / "fim_portal_daemon";
-  qreturn_if(not fs::exists(portal->m_path_file_daemon), Unexpected("Daemon not found in {}"_fmt(portal->m_path_file_daemon)));
+  qreturn_if(not fs::exists(portal->m_path_file_daemon), Unexpected("E::Daemon not found in {}", portal->m_path_file_daemon));
   // Create path to portal
   portal->m_path_file_guest = fs::path{str_dir_app_bin} / "fim_portal";
-  qreturn_if(not fs::exists(portal->m_path_file_guest), Unexpected("Guest not found in {}"_fmt(portal->m_path_file_guest)));
+  qreturn_if(not fs::exists(portal->m_path_file_guest), Unexpected("E::Guest not found in {}", portal->m_path_file_guest));
   // Create a portal that uses the reference file to create an unique communication key
   portal->m_process = std::make_unique<ns_subprocess::Subprocess>(portal->m_path_file_daemon);
   // Spawn process to background

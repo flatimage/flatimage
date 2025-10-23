@@ -15,6 +15,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#include "../std/expected.hpp"
 #include "../lib/linux.hpp"
 #include "../lib/env.hpp"
 #include "../db/db.hpp"
@@ -76,7 +77,7 @@ namespace child
 inline void parent_wait(pid_t const pid, ns_db::Db& db)
 {
   // Write pid to fifo
-  elog_expected("Failed to write pid to fifo: {}", write_fifo_pid(pid, db));
+  write_fifo_pid(pid, db).discard("C::Failed to write pid to fifo");
   // Wait for child to finish
   int status = -1;
   elog_if(::waitpid(pid, &status, 0) < 0
@@ -86,7 +87,7 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   int code = (not WIFEXITED(status))? 1 : WEXITSTATUS(status);
   ns_log::debug()("Exit code: {}", code);
   // Send exit code of child through a fifo
-  elog_expected("Failed to write exit code to fifo: {}", write_fifo_exit(code, db));
+  write_fifo_exit(code, db).discard("C::Failed to write exit code to fifo: {}");
 }
 
 /**
@@ -101,7 +102,7 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   auto path_file_environment = Expect(db("environment").template value<std::string>());
   // Open environment file
   std::ifstream file_environment(path_file_environment);
-  qreturn_if(not file_environment.is_open(), Unexpected("Could not open environment fifo file"));
+  qreturn_if(not file_environment.is_open(), Unexpected("E::Could not open environment fifo file"));
   // Collect environment variables
   std::vector<std::string> out;
   for (std::string entry; std::getline(file_environment, entry);)
@@ -143,8 +144,8 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
       , std::chrono::seconds(SECONDS_TIMEOUT)
       , oflag
     );
-    qreturn_if(fd < 0, Unexpected(std::format("open fd {} failed", name)));
-    qreturn_if(dup2(fd, fileno) < 0, Unexpected(std::format("dup2 {} failed", name)));
+    qreturn_if(fd < 0, Unexpected("E::open fd {} failed", name));
+    qreturn_if(dup2(fd, fileno) < 0, Unexpected("E::dup2 {} failed", name));
     close(fd);
     return {};
   };
@@ -166,10 +167,7 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
  */
 [[nodiscard]] inline Expected<void> spawn(fs::path const& path_dir_portal, std::string_view msg)
 {
-  if(auto ret = ns_log::set_sink_file(path_dir_portal / "spawned_parent_{}.log"_fmt(getpid())); not ret)
-  {
-    std::cerr << "Failed to set logger sink file: " << ret.error() << '\n';
-  }
+  ns_log::set_sink_file(path_dir_portal / "spawned_parent_{}.log"_fmt(getpid()));
   ns_log::set_level(ns_log::Level::CRITICAL);
   auto db = Expect(ns_db::from_string(msg));
   // Get command
@@ -177,14 +175,14 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   // Search for command in PATH and replace vec_argv[0] with the full path to the binary
   vec_argv[0] = Expect(ns_env::search_path(vec_argv[0]));
   // Ignore on empty command
-  if ( vec_argv.empty() ) { return Unexpected("Empty command"); }
+  if ( vec_argv.empty() ) { return Unexpected("E::Empty command"); }
   // Create child
   pid_t ppid = getpid();
   pid_t pid = fork();
   // Failed to fork
   if(pid < 0)
   {
-    return Unexpected("Failed to fork");
+    return Unexpected("E::Failed to fork");
   }
   // Is parent
   else if (pid > 0)
@@ -194,15 +192,12 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   }
   // Is child
   // Configure child logger
-  if(auto ret = ns_log::set_sink_file(path_dir_portal / "spawned_child_{}.log"_fmt(getpid())); not ret)
-  {
-    std::cerr << "Failed to set logger sink file: " << ret.error() << '\n';
-  }
+  ns_log::set_sink_file(path_dir_portal / "spawned_child_{}.log"_fmt(getpid()));
   ns_log::set_level(ns_log::Level::CRITICAL);
   // Die with parent
-  qreturn_if(::prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, Unexpected("Could not set child to die with parent"));
+  qreturn_if(::prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, Unexpected("E::Could not set child to die with parent"));
   // Check if parent still exists
-  qreturn_if(::kill(ppid, 0) < 0, Unexpected("Parent pid is already dead"));
+  qreturn_if(::kill(ppid, 0) < 0, Unexpected("E::Parent pid is already dead"));
   // Perform execve
   Expect(child_execve(vec_argv, db));
   _exit(1);

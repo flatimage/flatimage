@@ -13,6 +13,7 @@
 
 #include "../../lib/subprocess.hpp"
 #include "../../lib/env.hpp"
+#include "../../std/expected.hpp"
 
 namespace
 {
@@ -46,11 +47,11 @@ namespace ns_layers
   ns_log::info()("Gathering files to compress...");
   std::ofstream file_list(path_file_list, std::ios::out | std::ios::trunc);
   qreturn_if(not file_list.is_open()
-    , Unexpected("Could not open list of files '{}' to compress"_fmt(path_file_list))
+    , Unexpected("E::Could not open list of files '{}' to compress", path_file_list)
   );
   // Check if source directory exists and is a directory
-  qreturn_if(not fs::exists(path_dir_src), Unexpected("Source directory '{}' does not exist"_fmt(path_dir_src)));
-  qreturn_if(not fs::is_directory(path_dir_src), Unexpected("Source '{}' is not a directory"_fmt(path_dir_src)));
+  qreturn_if(not fs::exists(path_dir_src), Unexpected("E::Source directory '{}' does not exist", path_dir_src));
+  qreturn_if(not fs::is_directory(path_dir_src), Unexpected("E::Source '{}' is not a directory", path_dir_src));
   // Gather files to compress
   for(auto&& entry = fs::recursive_directory_iterator(path_dir_src)
     ; entry != fs::recursive_directory_iterator()
@@ -101,8 +102,8 @@ namespace ns_layers
     .with_args("--input-list", path_file_list)
     .spawn()
     .wait();
-  qreturn_if(not ret, Unexpected("mkdwarfs process exited abnormally"));
-  qreturn_if(ret.value() != 0, Unexpected("mkdwarfs process exited with error code '{}'", ret.value()));
+  qreturn_if(not ret, Unexpected("E::mkdwarfs process exited abnormally"));
+  qreturn_if(ret.value() != 0, Unexpected("E::mkdwarfs process exited with error code '{}'", ret.value()));
   return {};
 }
 
@@ -117,9 +118,9 @@ namespace ns_layers
 {
   // Open binary file for writing
   std::ofstream file_binary(path_file_binary, std::ios::app | std::ios::binary);
-  qreturn_if(not file_binary.is_open(), Unexpected("Failed to open output file '{}'"_fmt(path_file_binary)));
+  qreturn_if(not file_binary.is_open(), Unexpected("E::Failed to open output file '{}'", path_file_binary));
   std::ifstream file_layer(path_file_layer, std::ios::in | std::ios::binary);
-  qreturn_if(not file_layer.is_open(), Unexpected("Failed to open input file '{}'"_fmt(path_file_layer)));
+  qreturn_if(not file_layer.is_open(), Unexpected("E::Failed to open input file '{}'", path_file_layer));
   // Get byte size
   uint64_t file_size = fs::file_size(path_file_layer);
   // Write byte size
@@ -128,7 +129,7 @@ namespace ns_layers
   while( file_layer.read(buff, sizeof(buff)) or file_layer.gcount() > 0 )
   {
     file_binary.write(buff, file_layer.gcount());
-    qreturn_if(not file_binary, Unexpected("Error writing data to file"));
+    qreturn_if(not file_binary, Unexpected("E::Error writing data to file"));
   }
   ns_log::info()("Included novel layer from file '{}'", path_file_layer);
   return {};
@@ -167,7 +168,7 @@ namespace ns_layers
   }
   // Remove files from the compression list
   std::ifstream file_list(path_file_list_tmp);
-  qreturn_if(not file_list.is_open(), Unexpected("Could not open file list for erasing files..."));
+  qreturn_if(not file_list.is_open(), Unexpected("E::Could not open file list for erasing files..."));
   std::string line;
   while(std::getline(file_list, line))
   {

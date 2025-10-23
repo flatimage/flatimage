@@ -17,6 +17,7 @@
 #include "../lib/elf.hpp"
 #include "../db/db.hpp"
 #include "../std/filesystem.hpp"
+#include "../std/expected.hpp"
 
 namespace ns_relocate
 {
@@ -80,25 +81,16 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   // This is done because the current executable cannot mount itself.
 
   // Get path to called executable
-  qreturn_if(!fs::exists("/proc/self/exe", ec), Unexpected("Error retrieving executable path for self"));
+  qreturn_if(!fs::exists("/proc/self/exe", ec), Unexpected("E::Error retrieving executable path for self"));
   auto path_absolute = fs::read_symlink("/proc/self/exe", ec);
-  // Helper to create directories
-  auto f_dir_create_if_not_exists = [](fs::path const& p) -> Expected<fs::path>
-  {
-    std::error_code ec;
-    qreturn_if (not fs::exists(p, ec) and not fs::create_directories(p, ec)
-      , Unexpected("Failed to create directory {}"_fmt(p))
-    );
-    return p;
-  };
   // Create base dir
-  fs::path path_dir_base = Expect(f_dir_create_if_not_exists("/tmp/fim"));
+  fs::path path_dir_base = Expect(ns_fs::create_directories("/tmp/fim"));
   // Make the temporary directory name
-  fs::path path_dir_app = Expect(f_dir_create_if_not_exists(path_dir_base / "app" / "{}_{}"_fmt(FIM_COMMIT, FIM_TIMESTAMP)));
+  fs::path path_dir_app = Expect(ns_fs::create_directories(path_dir_base / "app" / "{}_{}"_fmt(FIM_COMMIT, FIM_TIMESTAMP)));
   // Create bin dir
-  fs::path path_dir_app_bin = Expect(f_dir_create_if_not_exists(path_dir_app / "bin"));
+  fs::path path_dir_app_bin = Expect(ns_fs::create_directories(path_dir_app / "bin"));
   // Create sbin dir
-  fs::path path_dir_app_sbin = Expect(f_dir_create_if_not_exists(path_dir_app / "sbin"));
+  fs::path path_dir_app_sbin = Expect(ns_fs::create_directories(path_dir_app / "sbin"));
   // Set variables
   ns_env::set("FIM_DIR_GLOBAL", path_dir_base.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_DIR_APP", path_dir_app.c_str(), ns_env::Replace::Y);
@@ -106,10 +98,10 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   ns_env::set("FIM_DIR_APP_SBIN", path_dir_app_sbin.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_FILE_BINARY", path_absolute.c_str(), ns_env::Replace::Y);
   // Create instance directory
-  fs::path path_dir_instance = Expect(f_dir_create_if_not_exists("{}/{}/{}"_fmt(path_dir_app, "instance", std::to_string(getpid()))));
+  fs::path path_dir_instance = Expect(ns_fs::create_directories("{}/{}/{}"_fmt(path_dir_app, "instance", std::to_string(getpid()))));
   ns_env::set("FIM_DIR_INSTANCE", path_dir_instance.c_str(), ns_env::Replace::Y);
   // Path to directory with mount points
-  fs::path path_dir_mount = Expect(f_dir_create_if_not_exists(path_dir_instance / "mount"));
+  fs::path path_dir_mount = Expect(ns_fs::create_directories(path_dir_instance / "mount"));
   ns_env::set("FIM_DIR_MOUNT", path_dir_mount.c_str(), ns_env::Replace::Y);
 
   // Starting offsets
@@ -149,7 +141,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
     // Read size bytes (FATAL if fails)
     uint64_t size;
     qreturn_if(not file_binary.read(reinterpret_cast<char*>(&size), sizeof(size))
-      , Unexpected("Could not read binary size")
+      , Unexpected("E::Could not read binary size")
     );
     // Open output file and write 
     if (fs::exists(path_file, ec))
@@ -160,12 +152,12 @@ constexpr std::array<const char*,403> const arr_busybox_applet
     {
       // Read binary
       std::vector<char> buffer(size);
-      qreturn_if(not file_binary.read(buffer.data(), size), Unexpected("Could not read binary"));
+      qreturn_if(not file_binary.read(buffer.data(), size), Unexpected("E::Could not read binary"));
       // Open output binary file
       std::ofstream of{path_file, std::ios::out | std::ios::binary};
-      qreturn_if(not of.is_open(), Unexpected("Could not open output file '{}'"_fmt(path_file)));
+      qreturn_if(not of.is_open(), Unexpected("E::Could not open output file '{}'", path_file));
       // Write binary
-      qreturn_if(not of.write(buffer.data(), size), Unexpected("Could not write binary file '{}'"_fmt(path_file)));
+      qreturn_if(not of.write(buffer.data(), size), Unexpected("E::Could not write binary file '{}'", path_file));
       // Set permissions
       fs::permissions(path_file, fs::perms::owner_all | fs::perms::group_all, ec);
       elog_if(ec, "Error on setting permissions of file '{}': {}"_fmt(path_file, ec.message()));
@@ -177,7 +169,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   // Write binaries
   auto start = std::chrono::high_resolution_clock::now();
   std::ifstream file_binary{path_absolute, std::ios::in | std::ios::binary};
-  qreturn_if(not file_binary.is_open(), Unexpected("Could not open flatimage binary file"));
+  qreturn_if(not file_binary.is_open(), Unexpected("E::Could not open flatimage binary file"));
   constexpr static char const str_raw_json[] =
   {
     #embed FIM_FILE_TOOLS
@@ -204,7 +196,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   // Filesystem starts here
   ns_env::set("FIM_OFFSET", std::to_string(offset_end).c_str(), ns_env::Replace::Y);
   qreturn_if(offset_end != offset
-    , Unexpected("Broken image actual offset({}) != offset({})"_fmt(offset_end, offset))
+    , Unexpected("E::Broken image actual offset({}) != offset({})", offset_end, offset)
   );
   ns_log::debug()("FIM_OFFSET: {}", offset_end);
 
@@ -220,7 +212,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
 
   // Launch Runner
   int code = execve("{}/fim_boot"_fmt(path_dir_instance).c_str(), argv, environ);
-  return Unexpected("Could not perform 'evecve({})': {}"_fmt(code, strerror(errno)));
+  return Unexpected("E::Could not perform 'evecve({})': {}", code, strerror(errno));
 }
 
 } // namespace
@@ -235,11 +227,11 @@ constexpr std::array<const char*,403> const arr_busybox_applet
 [[nodiscard]] inline Expected<void> relocate(char** argv, int32_t offset)
 {
   // Get path to self
-  fs::path path_file_self = Expect(ns_filesystem::ns_path::file_self(), "Could not relocate binary: {}", __expected_ret.error());
+  fs::path path_file_self = Expect(ns_fs::file_self(), "E::Could not relocate binary");
   // If it is outside /tmp, move the binary
-  if ( fs::file_size(path_file_self) != ns_elf::skip_elf_header(path_file_self) )
+  if (fs::file_size(path_file_self) != Expect(ns_elf::skip_elf_header(path_file_self)))
   {
-    Expect(relocate_impl(argv, offset), "Could not relocate binary: {}", __expected_ret.error());
+    Expect(relocate_impl(argv, offset), "E::Could not relocate binary");
   }
   return {};
 }

@@ -12,6 +12,7 @@
 #include <filesystem>
 #include <format>
 
+#include "../std/expected.hpp"
 #include "../lib/env.hpp"
 #include "../reserved/env.hpp"
 #include "db.hpp"
@@ -56,7 +57,7 @@ namespace fs = std::filesystem;
   {
     if (std::ranges::count_if(entry, [](char c){ return c == '='; }) == 0)
     {
-      return Unexpected(std::format("Variable assignment '{}' is invalid", entry));
+      return Unexpected("C::Variable assignment '{}' is invalid", entry);
     }
   }
   return {};

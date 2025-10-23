@@ -20,6 +20,7 @@
 #include <unistd.h>
 #include <unordered_map>
 
+#include "../std/expected.hpp"
 #include "../lib/log.hpp"
 #include "../lib/env.hpp"
 #include "../macro.hpp"
@@ -64,10 +65,9 @@ extern char** environ;
 
 int main(int argc, char** argv)
 {
+  auto __expected_fn = [](auto&&){ return 1; };
   // Create directory for the portal data
-  fs::path path_dir_instance = expect_map_error(ns_env::get_expected("FIM_DIR_INSTANCE")
-    , [](auto&& e) { std::cerr << e << '\n'; return EXIT_FAILURE; }
-  );
+  fs::path path_dir_instance = Expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
   fs::path path_dir_portal = path_dir_instance / "portal";
   ereturn_if(std::error_code ec;
       not fs::exists(path_dir_portal, ec) and not fs::create_directories(path_dir_portal, ec)
@@ -86,17 +86,10 @@ int main(int argc, char** argv)
 
   // Configure logger file
   fs::path path_file_log = fs::path{path_dir_portal} / "daemon.{}.log"_fmt(mode);
-  if(auto ret = ns_log::set_sink_file(path_file_log); not ret)
-  {
-    std::cerr << "Could not set logger file: " << path_file_log << '\n';
-  }
+  ns_log::set_sink_file(path_file_log);
   ns_log::set_level((ns_env::exists("FIM_DEBUG", "1"))? ns_log::Level::DEBUG : ns_log::Level::CRITICAL);
-
   // Create a fifo to receive commands from
-  fs::path path_fifo_in = expect_map_error(
-    create_fifo(path_dir_portal / "daemon.{}.fifo"_fmt(mode))
-    , [](auto&& e){ std::cerr << e << '\n'; return EXIT_FAILURE; }
-  );
+  fs::path path_fifo_in = Expect(create_fifo(path_dir_portal / "daemon.{}.fifo"_fmt(mode)));
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
   ereturn_if(fd_fifo < 0, strerror(errno), EXIT_FAILURE);
 
@@ -131,7 +124,7 @@ int main(int argc, char** argv)
     }
     else if (pid == 0)
     {
-      elog_expected("Could not spawn child: {}", child::spawn(path_dir_portal, msg));
+      child::spawn(path_dir_portal, msg).discard("C::Could not spawn child");
       _exit(1);
     }
   } // for

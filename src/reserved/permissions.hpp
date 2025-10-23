@@ -15,6 +15,7 @@
 
 #include "reserved.hpp"
 #include "../std/enum.hpp"
+#include "../std/expected.hpp"
 
 namespace ns_reserved::ns_permissions
 {
@@ -63,7 +64,7 @@ inline std::map<Permission,Bits> const permission_mask =
 [[nodiscard]] inline Expected<void> bit_set(Bits& bits, Permission const& permission, bool value) noexcept
 {
   auto it = permission_mask.find(permission);
-  qreturn_if(it == permission_mask.end(), Unexpected("Permission '{}' not found"_fmt(permission)));
+  qreturn_if(it == permission_mask.end(), Unexpected("E::Permission '{}' not found", permission));
   Bits mask = it->second;
   if (value) { bits |= mask;  }
   else       { bits &= ~mask; }
@@ -118,7 +119,7 @@ inline Expected<Bits> read(fs::path const& path_file_binary) noexcept
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
   uint64_t size = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_END - offset_begin;
   constexpr size_t const size_bits = sizeof(Bits);
-  qreturn_if(size_bits != size, Unexpected("Trying to read an exceeding number of bytes: {} vs {}"_fmt(size_bits, size)));
+  qreturn_if(size_bits != size, Unexpected("E::Trying to read an exceeding number of bytes: {} vs {}", size_bits, size));
   Bits bits;
   Expect(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&bits), size_bits));
   return bits;
@@ -133,11 +134,11 @@ class Permissions
     {
       if(permissions.contains(Permission::NONE))
       {
-        return Unexpected("Invalid permission 'NONE'");
+        return Unexpected("E::Invalid permission 'NONE'");
       }
       if(permissions.contains(Permission::ALL))
       {
-        qreturn_if(permissions.size() > 1, Unexpected("Permission 'all' should not be used with others"));
+        qreturn_if(permissions.size() > 1, Unexpected("E::Permission 'all' should not be used with others"));
         return this->set_all(true);
       }
       for(Permission const& permission : permissions)

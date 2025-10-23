@@ -17,6 +17,18 @@
 
 namespace ns_string
 {
+  
+template<size_t N>
+struct static_string 
+{
+  char data[N];
+  constexpr static_string(const char (&str)[N]) 
+  {
+    std::copy_n(str, N, data);
+  }
+  constexpr operator const char*() const { return data; }
+  constexpr operator std::string_view() const { return data; }
+};
 
 /**
  * @brief Converts a type to a string

@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <csignal>
 
+#include "../std/expected.hpp"
 #include "../lib/log.hpp"
 #include "../lib/env.hpp"
 #include "../lib/fuse.hpp"
@@ -39,10 +40,7 @@ void cleanup(int)
   // Register signal handler
   signal(SIGTERM, cleanup);
   // Initialize logger
-  if(auto ret = ns_log::set_sink_file(Expect(ns_env::get_expected("FIM_DIR_MOUNT")) + ".janitor.log"); not ret)
-  {
-    std::cerr << "Could not set logger sink file: " << ret.error() << '\n';
-  }
+  ns_log::set_sink_file(Expect(ns_env::get_expected("FIM_DIR_MOUNT")) + ".janitor.log");
   // Check argc
   qreturn_if(argc < 2, std::unexpected("Incorrect usage"));
   // Get pid to wait for
@@ -61,22 +59,15 @@ void cleanup(int)
   for (auto&& path_dir_mountpoint : std::vector<std::filesystem::path>(argv+1, argv+argc))
   {
     ns_log::info()("Un-mount '{}'", path_dir_mountpoint);
-    if(auto ret = ns_fuse::unmount(path_dir_mountpoint); not ret)
-    {
-      ns_log::error()("Could not un-mount '{}': '{}'", path_dir_mountpoint, ret.error());
-    }
+    ns_fuse::unmount(path_dir_mountpoint).discard("E::Could not un-mount '{}'", path_dir_mountpoint);
   }
   return {};
 }
 
 int main(int argc, char** argv)
 {
-  auto result = boot(argc, argv);
-  if(not result)
-  {
-    ns_log::error()("Failure to start janitor: {}", result.error());
-    return EXIT_FAILURE;
-  }
+  auto __expected_fn = [](auto&&){ return 1; };
+  Expect(boot(argc, argv), "C::Failure to start janitor");
   return EXIT_SUCCESS;
 } // main
 

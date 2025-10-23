@@ -20,7 +20,7 @@
 #include <expected>
 
 #include "../macro.hpp"
-#include "../common.hpp"
+#include "../std/expected.hpp"
 
 namespace ns_elf
 {
@@ -47,9 +47,9 @@ namespace fs = std::filesystem;
 {
   // Open source and output files
   std::ifstream f_in{path_file_input, std::ios::binary};
-  qreturn_if(not f_in.is_open() , Unexpected("Failed to open in file {}\n"_fmt(path_file_input)));
+  qreturn_if(not f_in.is_open() , Unexpected("E::Failed to open in file {}", path_file_input));
   std::ofstream f_out{path_file_output, std::ios::binary};
-  qreturn_if(not f_out.is_open(), Unexpected("Failed to open out file {}\n"_fmt(path_file_output)));
+  qreturn_if(not f_out.is_open(), Unexpected("E::Failed to open out file {}", path_file_output));
   // Calculate the size of the data to read
   uint64_t size = section.second - section.first;
   // Seek to the start offset in the input file
@@ -87,18 +87,18 @@ namespace fs = std::filesystem;
   ElfW(Ehdr) header;
   // Try to open header file
   File file(fopen(path_file_elf.c_str(), "rb"));
-  qreturn_if(file.ptr == nullptr, Unexpected("Could not open file '{}': {}"_fmt(path_file_elf, strerror(errno))));
+  qreturn_if(file.ptr == nullptr, Unexpected("E::Could not open file '{}': {}", path_file_elf, strerror(errno)));
   // Seek the position to read the header
   qreturn_if(fseek(file.ptr, offset, SEEK_SET) < 0
-    , Unexpected("Could not seek in file '{}': {}"_fmt(path_file_elf, strerror(errno)))
+    , Unexpected("E::Could not seek in file '{}': {}", path_file_elf, strerror(errno))
   )
   // read the header
   qreturn_if(fread(&header, sizeof(header), 1, file.ptr) != 1
-    , Unexpected("Could not read elf header")
+    , Unexpected("E::Could not read elf header")
   );
   // check so its really an elf file
   qreturn_if (std::memcmp(header.e_ident, ELFMAG, SELFMAG) != 0
-    , Unexpected("'{}' not an elf file"_fmt(path_file_elf));
+    , Unexpected("E::'{}' not an elf file", path_file_elf);
   );
   offset = header.e_shoff + (header.e_ehsize * header.e_shnum);
   return offset;

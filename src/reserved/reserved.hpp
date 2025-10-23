@@ -15,6 +15,7 @@
 #include <fstream>
 
 #include "../macro.hpp"
+#include "../std/expected.hpp"
 
 namespace ns_reserved
 {
@@ -111,17 +112,17 @@ uint64_t const FIM_RESERVED_OFFSET_BINDINGS_END = FIM_RESERVED_OFFSET + reserved
   , uint64_t length) noexcept
 {
   uint64_t size = offset_end - offset_begin;
-  qreturn_if(length > size, Unexpected("Size of data exceeds available space"));
+  qreturn_if(length > size, Unexpected("E::Size of data exceeds available space"));
   // Open output binary file
   std::fstream file_binary(path_file_binary, std::ios::binary | std::ios::in | std::ios::out);
-  qreturn_if(not file_binary.is_open(), Unexpected("Failed to open input file"));
+  qreturn_if(not file_binary.is_open(), Unexpected("E::Failed to open input file"));
   // Write blank data
   std::vector<char> blank(size, 0);
-  qreturn_if(not file_binary.seekp(offset_begin), Unexpected("Failed to seek offset to blank"));
-  qreturn_if(not file_binary.write(blank.data(), size), Unexpected("Failed to write blank data"));
+  qreturn_if(not file_binary.seekp(offset_begin), Unexpected("E::Failed to seek offset to blank"));
+  qreturn_if(not file_binary.write(blank.data(), size), Unexpected("E::Failed to write blank data"));
   // Write data with length
-  qreturn_if(not file_binary.seekp(offset_begin), Unexpected("Failed to seek offset to write data"));
-  qreturn_if(not file_binary.write(data, length), Unexpected("Failed to write data"));
+  qreturn_if(not file_binary.seekp(offset_begin), Unexpected("E::Failed to seek offset to write data"));
+  qreturn_if(not file_binary.write(data, length), Unexpected("E::Failed to write data"));
   return {};
 }
 
@@ -141,11 +142,11 @@ uint64_t const FIM_RESERVED_OFFSET_BINDINGS_END = FIM_RESERVED_OFFSET + reserved
 {
   // Open binary file
   std::ifstream file_binary(path_file_binary, std::ios::binary | std::ios::in);
-  qreturn_if(not file_binary.is_open(), Unexpected("Failed to open input file"));
+  qreturn_if(not file_binary.is_open(), Unexpected("E::Failed to open input file"));
   // Advance towards data
-  qreturn_if(not file_binary.seekg(offset), Unexpected("Failed to seek to file offset for read"));
+  qreturn_if(not file_binary.seekg(offset), Unexpected("E::Failed to seek to file offset for read"));
   // Read data
-  qreturn_if(not file_binary.read(data, length), Unexpected("Failed to read data from binary file"));
+  qreturn_if(not file_binary.read(data, length), Unexpected("E::Failed to read data from binary file"));
   // Return number of read bytes
   return file_binary.gcount();
 }

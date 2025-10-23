@@ -17,6 +17,7 @@
 
 #include "../db/bind.hpp"
 #include "../reserved/permissions.hpp"
+#include "../std/expected.hpp"
 #include "../std/vector.hpp"
 #include "../std/filesystem.hpp"
 #include "../lib/log.hpp"
@@ -268,8 +269,8 @@ inline Expected<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_
     .with_args(path_file_bwrap_apparmor, path_dir_mount, path_file_bwrap_src)
     .spawn()
     .wait();
-  qreturn_if(not ret, Unexpected("Could not find create profile (abnormal exit)"));
-  qreturn_if(ret and *ret != 0, Unexpected("Could not find create profile with exit code '{}'"_fmt(*ret)));
+  qreturn_if(not ret, Unexpected("E::Could not find create profile (abnormal exit)"));
+  qreturn_if(ret and *ret != 0, Unexpected("E::Could not find create profile with exit code '{}'", *ret));
   return path_file_bwrap_opt;
 }
 
@@ -297,7 +298,7 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
       // Skip files that do not match keywords
       qcontinue_if(not std::ranges::any_of(keywords, [&](auto&& f){ return path_file_entry.filename().string().contains(f); }));
       // Symlink target is the file and the end of the symlink chain
-      auto path_file_entry_realpath = ns_filesystem::ns_path::realpath(path_file_entry);
+      auto path_file_entry_realpath = ns_fs::realpath(path_file_entry);
       econtinue_if(not path_file_entry_realpath, "Broken symlink: '{}'"_fmt(path_file_entry));
       // Create target and symlink names
       fs::path path_link_target = path_dir_root_host / path_file_entry_realpath->relative_path();
@@ -736,17 +737,17 @@ inline Expected<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
 
   // Pipe to receive errors from bwrap
   int pipe_error[2];
-  qreturn_if(pipe(pipe_error) == -1, strerror(errno), Unexpected("Could not open bwrap error pipe"));
+  qreturn_if(pipe(pipe_error) == -1, strerror(errno), Unexpected("E::Could not open bwrap error pipe"));
 
   // Configure pipe read end as non-blocking
   if(fcntl(pipe_error[0], F_SETFL, fcntl(pipe_error[0], F_GETFL, 0) | O_NONBLOCK) < 0)
   {
-    return Unexpected("Could not configure bwrap pipe to be non-blocking");
+    return Unexpected("E::Could not configure bwrap pipe to be non-blocking");
   }
 
   // Get path to daemon
   fs::path path_file_daemon = path_dir_app_bin / "fim_portal_daemon";
-  qreturn_if(not fs::exists(path_file_daemon, ec), Unexpected("Missing portal daemon to run binary file path"));
+  qreturn_if(not fs::exists(path_file_daemon, ec), Unexpected("E::Missing portal daemon to run binary file path"));
 
   // Run Bwrap
   auto code = ns_subprocess::Subprocess(path_file_bash)

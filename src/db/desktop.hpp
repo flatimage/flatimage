@@ -11,6 +11,7 @@
 #include <string>
 #include <set>
 
+#include "../std/expected.hpp"
 #include "../std/enum.hpp"
 #include "db.hpp"
 

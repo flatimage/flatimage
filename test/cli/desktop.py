@@ -338,7 +338,7 @@ class TestFimDesktop(unittest.TestCase):
     self.make_json_setup('''"ICONN"''', name)
     out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
     self.assertEqual(out, "")
-    self.assertIn("Failed to deserialize json: Could not determine enum entry from 'ICONN'", err)
+    self.assertIn("Could not determine enum entry from 'ICONN'", err)
     self.assertEqual(code, 125)
 
   def test_enable_cli(self):

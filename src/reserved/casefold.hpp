@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <filesystem>
 
+#include "../std/expected.hpp"
 #include "../macro.hpp"
 #include "reserved.hpp"
 
@@ -36,7 +37,7 @@ inline Expected<void> write(fs::path const& path_file_binary, uint8_t is_casefol
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_CASEFOLD_BEGIN;
   uint64_t offset_end = ns_reserved::FIM_RESERVED_OFFSET_CASEFOLD_END;
   uint64_t size = offset_end - offset_begin;
-  qreturn_if(size != sizeof(uint8_t), Unexpected("Incorrect number of bytes to write notification flag: {} vs {}"_fmt(size, sizeof(uint8_t))));
+  qreturn_if(size != sizeof(uint8_t), Unexpected("E::Incorrect number of bytes to write notification flag: {} vs {}", size, sizeof(uint8_t)));
   return ns_reserved::write(path_file_binary, offset_begin, offset_end, reinterpret_cast<char*>(&is_casefold), sizeof(uint8_t));
 }
 
@@ -51,7 +52,7 @@ inline Expected<uint8_t> read(fs::path const& path_file_binary)
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_CASEFOLD_BEGIN;
   uint8_t is_casefold;
   ssize_t bytes = Expect(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&is_casefold), sizeof(uint8_t)));
-  qreturn_if(bytes != 1, Unexpected("Error to read notify byte, count is {}"_fmt(bytes)));
+  qreturn_if(bytes != 1, Unexpected("E::Error to read notify byte, count is {}", bytes));
   return is_casefold;
 }
 

@@ -12,6 +12,7 @@
 #include <string>
 
 #include "db.hpp"
+#include "../std/expected.hpp"
 
 #include "../std/enum.hpp"
 

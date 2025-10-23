@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <filesystem>
 
+#include "../std/expected.hpp"
 #include "../lib/linux.hpp"
 #include "../lib/env.hpp"
 #include "../lib/log.hpp"
@@ -43,18 +44,12 @@ extern char** environ;
 {
   // Create configuration object
   std::shared_ptr<ns_config::FlatimageConfig> config = Expect(ns_config::config());
-  qreturn_if(config == nullptr, Unexpected("Failed to initialize configuration"));
+  qreturn_if(config == nullptr, Unexpected("E::Failed to initialize configuration"));
   // Set log file, permissive
-  if(auto ret = ns_log::set_sink_file(config->path_dir_mount.string() + ".boot.log"); not ret)
-  {
-    std::cerr << "Could not setup logger sink: " << ret.error() << '\n';
-  }
+  ns_log::set_sink_file(config->path_dir_mount.string() + ".boot.log");
   // Start host portal, permissive
-  [[maybe_unused]] auto portal = ns_portal::create(getpid(), "host");
-  if(not portal)
-  {
-    std::cerr << "Could not execute portal daemon: " << portal.error() << '\n';
-  }
+  [[maybe_unused]] auto portal = ns_portal::create(getpid(), "host")
+    .forward("E::Could not start portal daemon");
   // Parse flatimage command if exists
   return Expect(ns_parser::parse_cmds(*config, argc, argv));
 }
@@ -89,39 +84,20 @@ void set_logger_level(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
+  auto __expected_fn = [](auto&&){ return 125; };
   // Configure logger
   set_logger_level(argc, argv);
-
   // Make variables available in environment
   ns_env::set("FIM_VERSION", FIM_VERSION, ns_env::Replace::Y);
   ns_env::set("FIM_COMMIT", FIM_COMMIT, ns_env::Replace::Y);
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
   ns_env::set("FIM_TIMESTAMP", FIM_TIMESTAMP, ns_env::Replace::Y);
-
   // Check if linux has the fuse module loaded
-  if(auto ret = ns_linux::module_check("fuse"); not ret)
-  {
-    ns_log::error()("'fuse' module might not be loaded: {}", ret.error());
-  }
-
+  ns_linux::module_check("fuse").discard("W::'fuse' module might not be loaded");
   // If it is outside /tmp, move the binary
-  if (auto result = ns_relocate::relocate(argv, FIM_RESERVED_OFFSET); not result)
-  {
-    ns_log::critical()("Failure to relocate binary: {}", result.error());
-    return 125;
-  }
-
+  Expect(ns_relocate::relocate(argv, FIM_RESERVED_OFFSET), "C::Failure to relocate binary");
   // Launch flatimage
-  if (auto code = boot(argc, argv))
-  {
-    return code.value();
-  }
-  else
-  {
-    ns_log::critical()("Program exited with error: {}", code.error());
-  }
-
-  return 125;
+  return Expect(boot(argc, argv), "C::Program exited with error");
 }
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

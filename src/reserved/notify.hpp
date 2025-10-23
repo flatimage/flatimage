@@ -11,6 +11,7 @@
 #include <cstdint>
 #include <filesystem>
 
+#include "../std/expected.hpp"
 #include "../macro.hpp"
 #include "reserved.hpp"
 
@@ -36,7 +37,7 @@ inline Expected<void> write(fs::path const& path_file_binary, uint8_t is_notify)
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_NOTIFY_BEGIN;
   uint64_t offset_end = ns_reserved::FIM_RESERVED_OFFSET_NOTIFY_END;
   uint64_t size = offset_end - offset_begin;
-  qreturn_if(size != sizeof(uint8_t), Unexpected("Incorrect number of bytes to write notification flag: {} vs {}"_fmt(size, sizeof(uint8_t))));
+  qreturn_if(size != sizeof(uint8_t), Unexpected("E::Incorrect number of bytes to write notification flag: {} vs {}", size, sizeof(uint8_t)));
   return ns_reserved::write(path_file_binary, offset_begin, offset_end, reinterpret_cast<char*>(&is_notify), sizeof(uint8_t));
 }
 

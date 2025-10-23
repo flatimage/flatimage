@@ -91,12 +91,12 @@ class TestFimLayer(unittest.TestCase):
     # Missing source
     out,err,code = self.run_cmd("fim-layer", "create")
     self.assertEqual(out, "")
-    self.assertIn("add requires exactly two arguments (/path/to/dir /path/to/file.layer)", err)
+    self.assertIn("create requires exactly two arguments (/path/to/dir /path/to/file.layer)", err)
     self.assertEqual(code, 125)
     # Missing dest
     out,err,code = self.run_cmd("fim-layer", "create", str(self.dir_root))
     self.assertEqual(out, "")
-    self.assertIn("add requires exactly two arguments (/path/to/dir /path/to/file.layer)", err)
+    self.assertIn("create requires exactly two arguments (/path/to/dir /path/to/file.layer)", err)
     self.assertEqual(code, 125)
     # Source directory does not exist
     out,err,code = self.run_cmd("fim-layer", "create", "/hello/world", str(self.file_layer))
