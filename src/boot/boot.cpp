@@ -17,7 +17,7 @@
 #include "../lib/linux.hpp"
 #include "../lib/env.hpp"
 #include "../lib/log.hpp"
-#include "../parser/parser.hpp"
+#include "../parser/executor.hpp"
 #include "../portal/portal.hpp"
 #include "../config.hpp"
 #include "relocate.hpp"
@@ -50,8 +50,8 @@ extern char** environ;
   // Start host portal, permissive
   [[maybe_unused]] auto portal = ns_portal::create(getpid(), "host")
     .forward("E::Could not start portal daemon");
-  // Parse flatimage command if exists
-  return Expect(ns_parser::parse_cmds(*config, argc, argv));
+  // Execute flatimage command if exists
+  return Expect(ns_parser::execute_command(*config, argc, argv));
 }
 
 /**

@@ -13,10 +13,10 @@
 #include <string>
 #include <vector>
 
-#include "../std/enum.hpp"
-#include "cmd/desktop.hpp"
-#include "cmd/bind.hpp"
 #include "../reserved/permissions.hpp"
+#include "../std/enum.hpp"
+#include "../db/bind.hpp"
+#include "cmd/desktop.hpp"
 
 namespace ns_parser::ns_interface
 {
