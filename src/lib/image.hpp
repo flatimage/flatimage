@@ -14,12 +14,11 @@
 #include <boost/gil/extension/io/png.hpp>
 #include <boost/gil/extension/numeric/sampler.hpp>
 #include <boost/gil/extension/numeric/resample.hpp>
-#include <format>
 
 #include "env.hpp"
 #include "log.hpp"
-#include "match.hpp"
 #include "subprocess.hpp"
+#include "../std/enum.hpp"
 
 namespace ns_image
 {
@@ -28,6 +27,8 @@ namespace
 {
 
 namespace fs = std::filesystem;
+
+ENUM(ImageFormat, JPG, PNG);
 
 inline Expected<void> resize_impl(fs::path const& path_file_src
   , fs::path const& path_file_dst
@@ -39,13 +40,27 @@ inline Expected<void> resize_impl(fs::path const& path_file_src
   // Create icon directory and set file name
   ns_log::info()("Reading image {}", path_file_src);
   qreturn_if(not fs::is_regular_file(path_file_src), std::unexpected("File '{}' does not exist or is not a regular file"_fmt(path_file_src)));
+
+  // Determine image format
+  std::string ext = path_file_src.extension().string();
+  std::ranges::transform(ext, ext.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
+
+  ImageFormat format = Expect(
+    (ext == ".jpg" || ext == ".jpeg") ? Expected<ImageFormat>(ImageFormat::JPG) :
+    (ext == ".png") ? Expected<ImageFormat>(ImageFormat::PNG) :
+    std::unexpected("Input image of invalid format: '{}'"_fmt(ext))
+  );
+
   // Read image into memory
   gil::rgba8_image_t img;
-  Expect(ns_match::match(path_file_src.extension()
-      , ns_match::equal(".jpg", ".jpeg") >>= [&]{ gil::read_and_convert_image(path_file_src, img, gil::jpeg_tag()); }
-      , ns_match::equal(".png") >>= [&]{ gil::read_and_convert_image(path_file_src, img, gil::png_tag()); }
-    ).transform_error([](auto&& e){ return std::vformat("Input image of invalid format '{}': '{}'", std::make_format_args(e)); })
-  );
+  if (format == ImageFormat::JPG)
+  {
+    gil::read_and_convert_image(path_file_src, img, gil::jpeg_tag());
+  }
+  else if (format == ImageFormat::PNG)
+  {
+    gil::read_and_convert_image(path_file_src, img, gil::png_tag());
+  }
   ns_log::info()("Image size is {}x{}", std::to_string(img.width()), std::to_string(img.height()));
   ns_log::info()("Saving image to {}", path_file_dst);
   // Search for imagemagick
