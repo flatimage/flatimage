@@ -39,6 +39,7 @@ enum class FimCommand
   NOTIFY,
   CASEFOLD,
   BOOT,
+  REMOTE,
   INSTANCE,
   OVERLAY,
   VERSION,
@@ -53,20 +54,21 @@ enum class FimCommand
  */
 [[nodiscard]] inline Expected<FimCommand> fim_command_from_string(std::string_view str)
 {
-  if (str == "fim-exec")     return FimCommand::EXEC;
-  if (str == "fim-root")     return FimCommand::ROOT;
-  if (str == "fim-perms")    return FimCommand::PERMS;
-  if (str == "fim-env")      return FimCommand::ENV;
-  if (str == "fim-desktop")  return FimCommand::DESKTOP;
-  if (str == "fim-layer")    return FimCommand::LAYER;
   if (str == "fim-bind")     return FimCommand::BIND;
-  if (str == "fim-notify")   return FimCommand::NOTIFY;
-  if (str == "fim-casefold") return FimCommand::CASEFOLD;
   if (str == "fim-boot")     return FimCommand::BOOT;
-  if (str == "fim-instance") return FimCommand::INSTANCE;
-  if (str == "fim-overlay")  return FimCommand::OVERLAY;
-  if (str == "fim-version")  return FimCommand::VERSION;
+  if (str == "fim-casefold") return FimCommand::CASEFOLD;
+  if (str == "fim-desktop")  return FimCommand::DESKTOP;
+  if (str == "fim-env")      return FimCommand::ENV;
+  if (str == "fim-exec")     return FimCommand::EXEC;
   if (str == "fim-help")     return FimCommand::HELP;
+  if (str == "fim-instance") return FimCommand::INSTANCE;
+  if (str == "fim-layer")    return FimCommand::LAYER;
+  if (str == "fim-notify")   return FimCommand::NOTIFY;
+  if (str == "fim-overlay")  return FimCommand::OVERLAY;
+  if (str == "fim-perms")    return FimCommand::PERMS;
+  if (str == "fim-remote")   return FimCommand::REMOTE;
+  if (str == "fim-root")     return FimCommand::ROOT;
+  if (str == "fim-version")  return FimCommand::VERSION;
 
   return Unexpected("C::Unknown command: {}", str);
 }
@@ -504,6 +506,41 @@ class VecArgs
       return cmd_boot;
     }
 
+    // Set, show, or clear the remote URL
+    case FimCommand::REMOTE:
+    {
+      // Check op
+      CmdRemoteOp op = Expect(CmdRemoteOp::from_string(
+        Expect(args.pop_front<"C::Invalid operation for 'fim-remote' (<set|show|clear>)">())
+      ));
+      // Build command
+      CmdRemote cmd_remote;
+      switch(op)
+      {
+        case CmdRemoteOp::SET:
+        {
+          cmd_remote.sub_cmd = CmdRemote::Set {
+            .url = Expect(args.pop_front<"C::Missing URL for 'set' operation">())
+          };
+        }
+        break;
+        case CmdRemoteOp::SHOW:
+        {
+          cmd_remote.sub_cmd = CmdRemote::Show{};
+        }
+        break;
+        case CmdRemoteOp::CLEAR:
+        {
+          cmd_remote.sub_cmd = CmdRemote::Clear{};
+        }
+        break;
+        case CmdRemoteOp::NONE: return Unexpected("C::Invalid remote operation");
+      }
+      // Check for trailing arguments
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-remote: {}", args.data()));
+      return cmd_remote;
+    }
+
     // Run a command in an existing instance
     case FimCommand::INSTANCE:
     {
@@ -612,6 +649,7 @@ class VecArgs
       else if (help_topic == "notify")   { message = ns_cmd::ns_help::notify_usage(); }
       else if (help_topic == "overlay")  { message = ns_cmd::ns_help::overlay_usage(); }
       else if (help_topic == "perms")    { message = ns_cmd::ns_help::perms_usage(); }
+      else if (help_topic == "remote")   { message = ns_cmd::ns_help::remote_usage(); }
       else if (help_topic == "root")     { message = ns_cmd::ns_help::root_usage(); }
       else if (help_topic == "version")  { message = ns_cmd::ns_help::version_usage(); }
       else

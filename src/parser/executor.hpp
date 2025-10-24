@@ -20,6 +20,7 @@
 
 #include "../filesystems/controller.hpp"
 #include "../db/env.hpp"
+#include "../db/remote.hpp"
 #include "../macro.hpp"
 #include "../reserved/overlay.hpp"
 #include "../reserved/notify.hpp"
@@ -333,6 +334,26 @@ using namespace ns_parser::ns_interface;
     else
     {
       return Unexpected("C::Invalid boot sub-command");
+    }
+  }
+  // Configure remote URL
+  else if ( auto cmd = std::get_if<ns_parser::CmdRemote>(&variant_cmd) )
+  {
+    if(std::get_if<CmdRemote::Clear>(&(cmd->sub_cmd)))
+    {
+      Expect(ns_db::ns_remote::clear(config.path_file_binary));
+    }
+    else if(auto cmd_set = std::get_if<CmdRemote::Set>(&(cmd->sub_cmd)))
+    {
+      Expect(ns_db::ns_remote::set(config.path_file_binary, cmd_set->url));
+    }
+    else if(std::get_if<CmdRemote::Show>(&(cmd->sub_cmd)))
+    {
+      std::println("{}", Expect(ns_db::ns_remote::get(config.path_file_binary)));
+    }
+    else
+    {
+      return Unexpected("C::Invalid remote sub-command");
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )

@@ -19,6 +19,7 @@ nav:
     - fim-overlay: cmd/overlay.md
     - fim-notify: cmd/notify.md
     - fim-perms: cmd/perms.md
+    - fim-remote: cmd/remote.md
     - fim-root: cmd/root.md
     - fim-version: cmd/version.md
   - Environment:

@@ -138,6 +138,22 @@ struct CmdBoot
   std::variant<Clear,Set,Show> sub_cmd;
 };
 
+ENUM(CmdRemoteOp,SET,SHOW,CLEAR);
+struct CmdRemote
+{
+  struct Clear
+  {
+  };
+  struct Set
+  {
+    std::string url;
+  };
+  struct Show
+  {
+  };
+  std::variant<Clear,Set,Show> sub_cmd;
+};
+
 ENUM(CmdLayerOp,ADD,COMMIT,CREATE);
 struct CmdLayer
 {
@@ -269,6 +285,7 @@ using CmdType = std::variant<CmdRoot
   , CmdNotify
   , CmdCaseFold
   , CmdBoot
+  , CmdRemote
   , CmdInstance
   , CmdOverlay
   , CmdNone

@@ -56,9 +56,12 @@ struct Reserved
   // bindings
   constexpr static uint64_t const fim_reserved_offset_bindings_begin = fim_reserved_offset_environment_end;
   constexpr static uint64_t const fim_reserved_offset_bindings_end = fim_reserved_offset_bindings_begin + 1_mib;
+  // remote
+  constexpr static uint64_t const fim_reserved_offset_remote_begin = fim_reserved_offset_bindings_end;
+  constexpr static uint64_t const fim_reserved_offset_remote_end = fim_reserved_offset_remote_begin + 4_kib;
   constexpr Reserved()
   {
-    static_assert(fim_reserved_offset_icon_end < FIM_RESERVED_SIZE, "Insufficient reserved space");
+    static_assert(fim_reserved_offset_remote_end < FIM_RESERVED_SIZE, "Insufficient reserved space");
   }
 };
 
@@ -92,6 +95,9 @@ uint64_t const FIM_RESERVED_OFFSET_ENVIRONMENT_END = FIM_RESERVED_OFFSET + reser
 // Bindings
 uint64_t const FIM_RESERVED_OFFSET_BINDINGS_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_bindings_begin;
 uint64_t const FIM_RESERVED_OFFSET_BINDINGS_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_bindings_end;
+// Remote
+uint64_t const FIM_RESERVED_OFFSET_REMOTE_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_remote_begin;
+uint64_t const FIM_RESERVED_OFFSET_REMOTE_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_remote_end;
 
 
 

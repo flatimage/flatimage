@@ -67,7 +67,7 @@ inline std::string help_usage()
     .with_args({
       { "cmd", "Name of the command to display help details" },
     })
-    .with_note("Available commands: fim-{bind,boot,casefold,commit,desktop,env,exec,instance,layer,notify,perms,root,version}")
+    .with_note("Available commands: fim-{bind,boot,casefold,desktop,env,exec,instance,layer,notify,overlay,perms,remote,root,version}")
     .with_example(R"(fim-help bind")")
     .get();
 }
@@ -283,6 +283,27 @@ inline std::string perms_usage()
     .with_args({
       { "list", "Lists the current permissions" },
       { "clear", "Clears all permissions" },
+    })
+    .get();
+}
+
+inline std::string remote_usage()
+{
+  return HelpEntry{"fim-remote"}
+    .with_description("Configure the remote URL for recipes")
+    .with_usage("fim-remote <set> <url>")
+    .with_args({
+      { "set", "Set the remote URL" },
+      { "url", "The remote URL to configure" },
+    })
+    .with_example("fim-remote set https://updates.example.com/repo")
+    .with_usage("fim-remote <show>")
+    .with_args({
+      { "show", "Display the current remote URL" },
+    })
+    .with_usage("fim-remote <clear>")
+    .with_args({
+      { "clear", "Clear the configured remote URL" },
     })
     .get();
 }

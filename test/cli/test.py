@@ -14,6 +14,7 @@ import exec
 import layer
 import overlay
 import permissions
+import remote
 import root
 import portal
 import instance
@@ -55,6 +56,7 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(overlay.TestFimOverlay))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(permissions.TestFimPerms))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(portal.TestFimPortal))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(remote.TestFimRemote))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(root.TestFimRoot))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(version.TestFimVersion))
   return suite
