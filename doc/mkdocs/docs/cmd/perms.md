@@ -1,61 +1,414 @@
-# Configure permissions
+# Configure Permissions
 
 ## What is it?
 
-It is a functionally to allow granular access to the host's resources. The
-available permissions and their descriptions are as follows:
+The `fim-perms` command provides granular control over which host system resources are accessible to applications running inside the FlatImage container. By default, FlatImage runs in a sandboxed environment with no access to host resources.
 
-* home - Access to the host `HOME` directory, defined by the `HOME` environment variable.
-    * Binds `[rw]` `$HOME -> $HOME`
-* media - Access to external storage devices.
-    * Binds `[rw]` `/media -> /media`
-    * Binds `[rw]` `/run/media -> /run/media`
-    * Binds `[rw]` `/mnt -> /mnt`
-* audio - Access to audio sockets.
-    * Binds `[rw]` `$XDG_RUNTIME_DIR/pulse/native -> $XDG_RUNTIME_DIR/pulse/native`
-    * Binds `[rw]` `$XDG_RUNTIME_DIR/pipewire-0 -> $XDG_RUNTIME_DIR/pipewire-0`.
-* wayland - Access to the wayland socket.
-    * Binds `[rw]` `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY -> $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`
-    * Requires defined variable `WAYLAND_DISPLAY` on the host.
-* xorg - Access to the `xorg` socket.
-    * Binds `[ro]` `$XAUTHORITY -> $XAUTHORITY`.
-    * Requires defined variables `XAUTHORITY` and `DISPLAY` on the host.
-* dbus_user - Allows access to the `session bus`, allowing desktop applications to
-    interact with each other.
-    * Binds `[rw]` `$DBUS_SESSION_BUS_ADDRESS -> $DBUS_SESSION_BUS_ADDRESS`.
-    * Requires defined variable `DBUS_SESSION_BUS_ADDRESS`.
-    * Firefox uses `dbus_user` to communicate with other instances (not a hard-requirement).
-* dbus_system - System level messages
-    * Binds `[rw]` `/run/dbus/system_bus_socket -> /run/dbus/system_bus_socket`.
-* udev - Monitor device events, detect new hardware / hardware changes.
-    * Binds `[rw]` `/run/udev -> /run/udev`.
-* usb - Provides access to Universal Serial Bus `USB` devices.
-    * Binds `[dev]` `/dev/usb -> /dev/usb`
-    * Binds `[dev]` `/dev/bus/usb -> /dev/bus/usb`
-* input - Binds input devices (joysticks, mouse, keyboard, etc)
-    * Binds `[dev]` `/dev/input -> /dev/input`
-    * Binds `[dev]` `/dev/uinput -> /dev/uinput`
-* gpu - Allows access to GPU hardware
-    * Binds `[dev]` `/dev/dri -> /dev/dri`
-    * Symlinks nvidia drivers from the host to the container
-* network - Configures network access
-    * Binds `[ro]` `/etc/host.conf -> /etc/host.conf`
-    * Binds `[ro]` `/etc/hosts -> /etc/hosts`
-    * Binds `[ro]` `/etc/nsswitch.conf -> /etc/nsswitch.conf`
-    * Binds `[ro]` `/etc/resolv.conf -> /etc/resolv.conf`
-* shm - A tmpfs mount used for POSIX shared memory
-    * Binds `[dev]` `/dev/shm -> /dev/shm`
-* optical - Access to optical devices such as CD and DVD drives.
-    * Binds `[dev]` `/dev/sr[0-255] -> /dev/sr[0-255]`
-    * Binds `[dev]` `/dev/sg[0-255] -> /dev/sg[0-255]`
-* dev - Binds the host `/dev` directory to the container.
-    * Binds `[dev]` `/dev -> /dev`
+The permission system allows you to:
 
-If `XDG_RUNTIME_DIR` is undefined it defaults to `/run/user/$(id -u)`. The tag
-after `Binds` indicates if the bind is `read-only [ro]`, `read-write [rw]` or a
-`device [dev]`.
+- **Grant only necessary access** - Applications get exactly what they need, nothing more
+- **Enable functionality** - GUI apps need display access, network apps need connectivity
+- **Customize isolation** - Different applications need different resource access
 
-## How to use
+## Available Permissions
+
+### home
+Access to the host `$HOME` directory.
+
+**Binds:**
+
+- `[rw]` `$HOME` → `$HOME`
+
+**When to use:**
+
+- Applications that work with user documents
+- Text editors, office applications
+- File managers
+- Media players accessing user libraries
+- Development tools needing project access
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add home
+./app.flatimage fim-exec ls ~/Documents
+```
+
+---
+
+### media
+
+Access to external storage devices and mount points.
+
+**Binds:**
+
+- `[rw]` `/media` → `/media`
+- `[rw]` `/run/media` → `/run/media`
+- `[rw]` `/mnt` → `/mnt`
+
+**When to use:**
+
+- Applications that work with external drives
+- Backup utilities
+- Media management software
+- File transfer applications
+- Data recovery tools
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add media
+./app.flatimage fim-exec ls /media/usb-drive
+```
+
+---
+
+### audio
+
+Access to audio subsystem for sound input/output.
+
+**Binds:**
+
+- `[rw]` `$XDG_RUNTIME_DIR/pulse/native` → `$XDG_RUNTIME_DIR/pulse/native`
+- `[rw]` `$XDG_RUNTIME_DIR/pipewire-0` → `$XDG_RUNTIME_DIR/pipewire-0`
+
+**When to use:**
+
+- Media players and music applications
+- Video conferencing software
+- Games with sound
+- Audio editing tools
+- Screen recording with audio
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add audio
+./app.flatimage fim-exec mpv music.mp3
+```
+
+---
+
+### wayland
+
+Access to Wayland display server.
+
+**Binds:**
+
+- `[rw]` `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY` → `$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY`
+
+**Requirements:**
+
+- `WAYLAND_DISPLAY` environment variable must be set on host
+
+**When to use:**
+
+- GUI applications on Wayland desktop
+- Modern desktop environments (GNOME, KDE Plasma 6+)
+- Applications that create windows
+- Graphics applications
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add wayland
+./app.flatimage fim-exec firefox
+```
+
+---
+
+### xorg
+Access to X11 display server.
+
+**Binds:**
+
+- `[ro]` `$XAUTHORITY` → `$XAUTHORITY`
+
+**Requirements:**
+
+- `XAUTHORITY` and `DISPLAY` environment variables must be set on host
+
+**When to use:**
+
+- GUI applications on X11 desktop
+- Legacy desktop environments
+- Applications requiring X11 features
+- Remote X11 sessions
+
+**Example:**
+```bash
+./app.flatimage fim-perms add xorg
+./app.flatimage fim-exec gimp
+```
+
+---
+
+### dbus_user
+
+Access to D-Bus session bus for inter-application communication.
+
+**Binds:**
+
+- `[rw]` `$DBUS_SESSION_BUS_ADDRESS` → `$DBUS_SESSION_BUS_ADDRESS`
+
+**Requirements:**
+
+- `DBUS_SESSION_BUS_ADDRESS` environment variable must be set on host
+
+**When to use:**
+
+- Applications that communicate with other apps
+- Desktop integration features
+- Firefox (for multiple instance communication)
+- Notification support
+- Desktop environment integration
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add dbus_user
+./app.flatimage fim-exec firefox
+```
+
+---
+
+### dbus_system
+
+Access to D-Bus system bus for system-level communication.
+
+**Binds:**
+
+- `[rw]` `/run/dbus/system_bus_socket` → `/run/dbus/system_bus_socket`
+
+**When to use:**
+
+- System monitoring tools
+- Power management applications
+- Network management utilities
+- Hardware control applications
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add dbus_system
+./app.flatimage fim-exec system-monitor
+```
+
+---
+
+### udev
+
+Monitor device events and detect hardware changes.
+
+**Binds:**
+
+- `[rw]` `/run/udev` → `/run/udev`
+
+**When to use:**
+
+- Hardware detection applications
+- Device management tools
+- Applications that respond to device insertion/removal
+- System utilities
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add udev
+./app.flatimage fim-exec hardware-manager
+```
+
+---
+
+### usb
+
+Access to USB devices.
+
+**Binds:**
+
+- `[dev]` `/dev/usb` → `/dev/usb`
+- `[dev]` `/dev/bus/usb` → `/dev/bus/usb`
+
+**When to use:**
+
+- USB device communication
+- Hardware programming tools
+- Device firmware updates
+- USB peripheral access
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add usb
+./app.flatimage fim-exec usb-tool
+```
+
+---
+
+### input
+
+Access to input devices (keyboard, mouse, joysticks, etc.).
+
+**Binds:**
+
+- `[dev]` `/dev/input` → `/dev/input`
+- `[dev]` `/dev/uinput` → `/dev/uinput`
+
+**When to use:**
+
+- Games requiring gamepad input
+- Input device configuration tools
+- Emulators
+- Accessibility applications
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add input
+./app.flatimage fim-exec game
+```
+
+---
+
+### gpu
+
+Access to GPU hardware acceleration.
+
+**Binds:**
+
+- `[dev]` `/dev/dri` → `/dev/dri`
+- Symlinks NVIDIA drivers from host to container
+
+**When to use:**
+
+- Games requiring 3D acceleration
+- Video editing applications
+- 3D modeling software
+- GPU-accelerated computation
+- Hardware-accelerated video playback
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add gpu
+./app.flatimage fim-exec blender
+```
+
+---
+
+### network
+
+Configure network access for internet connectivity.
+
+**Binds:**
+
+- `[ro]` `/etc/host.conf` → `/etc/host.conf`
+- `[ro]` `/etc/hosts` → `/etc/hosts`
+- `[ro]` `/etc/nsswitch.conf` → `/etc/nsswitch.conf`
+- `[ro]` `/etc/resolv.conf` → `/etc/resolv.conf`
+
+**When to use:**
+
+- Web browsers
+- Download managers
+- Network utilities
+- Online games
+- Update mechanisms
+- Any application requiring internet
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add network
+./app.flatimage fim-exec curl https://example.com
+```
+
+---
+
+### shm
+
+Access to POSIX shared memory.
+
+**Binds:**
+
+- `[dev]` `/dev/shm` → `/dev/shm`
+
+**When to use:**
+
+- Applications using shared memory IPC
+- Performance-critical applications
+- Multi-process applications
+- Some database systems
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add shm
+./app.flatimage fim-exec database-server
+```
+
+---
+
+### optical
+
+Access to optical drives (CD/DVD/Blu-ray).
+
+**Binds:**
+
+- `[dev]` `/dev/sr[0-255]` → `/dev/sr[0-255]`
+- `[dev]` `/dev/sg[0-255]` → `/dev/sg[0-255]`
+
+**When to use:**
+
+- CD/DVD burning applications
+- Media ripping tools
+- Disc backup software
+- Disc verification utilities
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add optical
+./app.flatimage fim-exec k3b
+```
+
+---
+
+### dev
+
+Access to all devices in `/dev` directory.
+
+**Binds:**
+
+- `[dev]` `/dev` → `/dev`
+
+**When to use:**
+
+- System administration tools
+- Hardware diagnostic utilities
+- Low-level device access
+- When specific device permissions are insufficient.
+
+**Example:**
+
+```bash
+./app.flatimage fim-perms add dev
+./app.flatimage fim-exec hardware-diagnostic
+```
+
+---
+
+**Environment Variable Defaults:**
+
+If `XDG_RUNTIME_DIR` is undefined, it defaults to `/run/user/$(id -u)`.
+
+**Bind Type Legend:**
+
+- `[ro]` - Read-only: Container can read but not modify
+- `[rw]` - Read-write: Container can read and modify
+- `[dev]` - Device: Special device node binding
+
+## How to Use
 
 You can use `./app.flatimage fim-help perms` to get the following usage details:
 
@@ -65,53 +418,90 @@ Note: Permissions: audio,dbus_system,dbus_user,dev,gpu,home,input,media,network,
 Usage: fim-perms <add|del> <perms...>
   <add> : Allow one or more permissions
   <del> : Delete one or more permissions
-  <perms...> : A comma-separated permission list
+  <perms...> : One or more permissions
 Example: fim-perms add home,network,gpu
 Usage: fim-perms <list|clear>
   <list> : Lists the current permissions
   <clear> : Clears all permissions
 ```
 
----
+### Add Permissions
 
-To allow the access to a resource, use the `add` subcommand:
+Grant one or more permissions to the container:
 
-```
-$ ./app.flatimage fim-perms add home
-```
+```bash
+# Add single permission
+./app.flatimage fim-perms add home
 
-This will make the `home` directory of the host accessible from the container.
-
----
-
-To reset all permissions to a specific list of permissions, use `set`:
-
-```
-$ ./app.flatimage fim-perms set audio,wayland,xorg,network
+# Add multiple permissions
+./app.flatimage fim-perms add home,network,audio
 ```
 
-This command blocks all previous permissions and only allow `audio,wayland,xorg,network`.
+Existing permissions are preserved; new ones are added to the list.
 
----
+### Set Permissions
 
-To list currently allowed permissions, use `list`:
+Replace all permissions with a specific set:
 
-```
-$ ./app.flatimage fim-perms list
-```
-
----
-
-To delete a specific permission, use `del`:
-
-```
-$ ./app.flatimage fim-perms del home
+```bash
+# Reset to only these permissions
+./app.flatimage fim-perms set wayland,audio,network
 ```
 
-This remove access to the host home directory.
+All previous permissions are removed; only the specified ones remain.
 
-## How it works
+**Difference between add and set:**
 
-FlatImage uses [bubblewrap's](https://github.com/containers/bubblewrap)
-bind mechanisms to make devices and directories available in the guest
-container.
+```bash
+# Current: home,network
+./app.flatimage fim-perms add audio
+# Result: home,network,audio
+
+# Current: home,network,audio
+./app.flatimage fim-perms set wayland,gpu
+# Result: wayland,gpu (home,network,audio removed)
+```
+
+### List Permissions
+
+Display currently configured permissions:
+
+```bash
+./app.flatimage fim-perms list
+```
+
+**Example output:**
+```
+home
+network
+audio
+wayland
+```
+
+### Remove Permissions
+
+Delete one or more specific permissions:
+
+```bash
+# Remove single permission
+./app.flatimage fim-perms del home
+
+# Remove multiple permissions
+./app.flatimage fim-perms del home,network
+```
+
+Other permissions remain unchanged.
+
+### Clear All Permissions
+
+Remove all permissions, returning to fully isolated state:
+
+```bash
+./app.flatimage fim-perms clear
+```
+
+After clearing, the container has no access to host resources.
+
+## How it Works
+
+FlatImage uses [bubblewrap's](https://github.com/containers/bubblewrap) bind mount mechanism to selectively expose host resources to the container. Each permission translates to one or more bind mounts or device bindings.

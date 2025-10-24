@@ -2,17 +2,26 @@
 
 ## What is it?
 
-The desktop integration allows flatimage programs to integrate themselves into the
-start menu, show the application icon in the file manager and also define its
-own mimetype.
+Desktop integration allows FlatImage applications to behave like native desktop applications by adding:
+
+- **Menu entries** - Application appears in your desktop's start menu/application launcher
+- **Application icons** - Custom icon displayed in menus and file managers
+- **MIME type associations** - File manager shows FlatImage-specific file types with custom icons
+- **File associations** - Double-click to open files with your FlatImage application
+
+**Use Cases:**
+
+- Making portable applications feel native to the desktop environment
+- Creating professional application distributions
+- Allowing users to launch applications from GUI menus instead of terminal
+- Associating file types with your packaged application
+- Improving discoverability of installed FlatImage applications
 
 ## How to Use
 
-**Configure**
-
 You can use `./app.flatimage fim-help desktop` to get the following usage details:
 
-```
+```txt
 fim-desktop : Configure the desktop integration
 Usage: fim-desktop <setup> <json-file>
   <setup> : Sets up the desktop integration with an input json file
@@ -35,59 +44,87 @@ Usage: fim-desktop <dump> <entry|mimetype>
   <mimetype> : The mime type of the application
 ```
 
-**Setup the desktop integration**
+### Setup Desktop Integration
 
-To setup the desktop integration for a flatimage package, the first step is to
-create a `json` file with the integration data, assume we create a file named
-`desktop.json` with the following contents:
+#### Step 1: Create Configuration File
+
+Create a JSON file defining your desktop integration settings:
 
 ```json
 {
   "name": "MyApp",
   "icon": "./my_app.png",
-  "categories": ["System","Audio"],
+  "categories": ["System", "Audio"],
   "integrations": ["ENTRY", "MIMETYPE", "ICON"]
 }
 ```
 
-This example creates the integration data for the application `MyApp`, with the
-icon file `my_app.png` located in the same folder as `desktop.json`. The
-categories field is used for the desktop menu entry integration, a list of valid
-categories is found
-[here](https://specifications.freedesktop.org/menu-spec/latest/category-registry.html#main-category-registry).
-Let's assume the json file is called `desktop.json` and the flatimage file is
-called `app.flatimage`, the next command uses the `desktop.json` file to
-configure the desktop integration.
+**Configuration Fields:**
+
+- **name** - Application name (shown in menus and file managers)
+- **icon** - Path to icon file (PNG or SVG, relative to JSON file location)
+- **categories** - Desktop menu categories (see [valid categories](https://specifications.freedesktop.org/menu-spec/latest/category-registry.html))
+- **integrations** - Which integrations to enable (ENTRY, MIMETYPE, ICON)
+
+**Common Category Combinations:**
+
+- **Development tools**: `["Development"]`
+- **Graphics applications**: `["Graphics", "2DGraphics"]`
+- **Audio applications**: `["Audio", "AudioVideo"]`
+- **Video applications**: `["Video", "AudioVideo"]`
+- **Internet browsers**: `["Network", "WebBrowser"]`
+- **Games**: `["Game"]`
+- **Office applications**: `["Office"]`
+- **System utilities**: `["System", "Utility"]`
+
+#### Step 2: Apply Configuration
+
+Apply the desktop integration configuration to your FlatImage:
 
 ```bash
-$ ./app.flatimage fim-desktop setup ./desktop.json
+# Apply the configuration
+./app.flatimage fim-desktop setup ./desktop.json
 ```
 
-**Enable/Disable integration files**
+This stores the integration metadata inside the FlatImage binary.
 
-After the setup step, you can enable the integration selectively; `entry` refers
-to the desktop entry in the start menu; `mimetype` refers to the mime package file
-that defines the application type, usually shown in file managers in the 'type' column;
-`icon` is the application icon shown in the start menu (entry) and the file manager (type).
-Here's how to enable everything:
+#### Step 3: Enable Integrations
+
+Activate the desktop integration features:
 
 ```bash
-$ ./app.flatimage fim-desktop enable entry,mimetype,icon
+# Enable all integration features
+./app.flatimage fim-desktop enable entry,mimetype,icon
 ```
 
-To disable all desktop integrations, use:
+On the next execution, FlatImage will automatically create the necessary desktop files in `$XDG_DATA_HOME` (typically `~/.local/share`).
+
+**Selective enabling:**
 
 ```bash
-$ ./app.flatimage fim-desktop enable none
+# Enable only menu entry and icon
+./app.flatimage fim-desktop enable entry,icon
+
+# Enable only MIME type
+./app.flatimage fim-desktop enable mimetype
+
+# Disable all integrations
+./app.flatimage fim-desktop enable none
 ```
 
-**Dump integration files**
+### Managing Integration Files
 
-To dump the desktop entry:
+#### View Generated Desktop Entry
+
+Inspect the generated .desktop file:
 
 ```bash
-# For the desktop entry
-$ ./app.flatimage fim-desktop dump entry
+./app.flatimage fim-desktop dump entry
+```
+
+**Example output:**
+
+```desktop
 [Desktop Entry]
 Name=MyApp
 Type=Application
@@ -98,11 +135,23 @@ MimeType=application/flatimage_MyApp;
 Categories=Network;System;
 ```
 
-To dump the mime type `XML` file:
+**Key fields:**
+
+- **Exec** - Full path to your FlatImage (auto-updates if you move the file)
+- **Icon** - Icon identifier used by the desktop environment
+- **Categories** - Menu categories (from your configuration)
+
+#### View MIME Type Definition
+
+Inspect the generated MIME type XML:
 
 ```bash
-# For the mime type package file
-$ ./app.flatimage fim-desktop dump mimetype
+./app.flatimage fim-desktop dump mimetype
+```
+
+**Example output:**
+
+```xml
 <?xml version="1.0" encoding="UTF-8"?>
 <mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
   <mime-type type="application/flatimage_MyApp">
@@ -114,85 +163,103 @@ $ ./app.flatimage fim-desktop dump mimetype
 </mime-info>
 ```
 
-To dump the desktop application icon:
+This makes your FlatImage file identifiable by the desktop environment.
+
+#### Export the Icon
+
+Extract the icon file for inspection or reuse:
 
 ```bash
-# This outputs the integrated icon to a file called out.[png or svg] depending on the icon format used
-# during the setup step.
-$ ./app.flatimage fim-desktop dump icon out
+# Export icon (extension added automatically)
+./app.flatimage fim-desktop dump icon my-icon
+
+# Creates: my-icon.png or my-icon.svg depending on original format
 ```
 
-**Erase entries**
+#### Remove Desktop Integration
 
-To erase all desktop integration files created by flatimage, use the command:
+Clean up all desktop integration files:
 
 ```bash
-$ ./app.flatimage fim-desktop clean
-# (optional) Disable desktop integration to avoid the creation of files on the next execution
-$ ./app.flatimage fim-desktop enable none
+# Remove all generated files
+./app.flatimage fim-desktop clean
+
+# Optionally disable to prevent recreation
+./app.flatimage fim-desktop enable none
 ```
 
-**xdg-open**
+This removes files from:
+- `$XDG_DATA_HOME/applications/`
+- `$XDG_DATA_HOME/mime/packages/`
+- `$XDG_DATA_HOME/icons/hicolor/`
 
-Flatimage redirects `xdg-open` commands to the host machine
+### Integration File Locations
 
-Examples:
+Desktop integration creates files in standard XDG locations:
 
-* Open a video file with the host default video player: `xdg-open my-file.mkv`
-* Open a link with the host default browser: `xdg-open www.google.com`
+**Base Directory:**
+
+- `$XDG_DATA_HOME` (defaults to `~/.local/share` if undefined)
+
+**Desktop Entry:**
+
+- `$XDG_DATA_HOME/applications/flatimage-MyApp.desktop`
+
+**MIME Type Definitions:**
+
+- `$XDG_DATA_HOME/mime/packages/flatimage-MyApp.xml` (application-specific)
+- `$XDG_DATA_HOME/mime/packages/flatimage.xml` (generic FlatImage type)
+
+**Application Icons (SVG):**
+
+- `$XDG_DATA_HOME/icons/hicolor/scalable/apps/flatimage_MyApp.svg`
+- `$XDG_DATA_HOME/icons/hicolor/scalable/mimetypes/application-flatimage_MyApp.svg`
+
+**Application Icons (PNG):**
+
+- `$XDG_DATA_HOME/icons/hicolor/{size}/apps/flatimage_MyApp.png`
+- `$XDG_DATA_HOME/icons/hicolor/{size}/mimetypes/application-flatimage_MyApp.png`
+
+Where `{size}` = 16, 22, 24, 32, 48, 64, 96, 128, 256
 
 ## How it Works
 
-Consider the following integration setup:
+### Technical Details
 
-```json
-{
-  "name": "MyApp",
-  "icon": "./my_app.png",
-  "categories": ["System","Audio"],
-  "integrations": ["ENTRY", "MIMETYPE", "ICON"]
-}
-```
+**Desktop Entry Creation:**
 
-**XDG_DATA_HOME**
+When `entry` is enabled, FlatImage creates a `.desktop` file following the [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry-spec/latest/). The entry includes:
 
-* If `XDG_DATA_HOME` is undefined, it falls back to `$HOME/.local/share`.
-* If `HOME` is undefined, the integration does not take place.
+- Absolute path to the FlatImage executable (auto-updates on execution)
+- Application name and comment
+- Icon identifier
+- Categories for menu placement
 
-**Desktop Entry**
+**MIME Type Registration:**
 
-Enabled with `fim-desktop enable entry`, this option creates a desktop entry in
-`$XDG_DATA_HOME/applications/flatimage-MyApp.desktop` that executes the application
-from its current path. If the file is moved or its name is changed, the next
-execution updates the desktop entry with the correct path to the application.
+When `mimetype` is enabled, FlatImage creates XML files following the [Shared MIME Info Specification](https://specifications.freedesktop.org/shared-mime-info-spec/latest/):
 
-**Mime Type**
+- Application-specific MIME type (matches exact filename)
+- Generic FlatImage MIME type (matches `*.flatimage` pattern)
 
-Enabled with `fim-desktop enable mimetype`, this option creates two files:
+The MIME database updates automatically on first execution and when the filename changes.
 
-1. `$XDG_DATA_HOME/mime/packages/flatimage-MyApp.xml`: This is a mime type specific for
-the packaged application, it matches the base name of the full path and is required
-to show an application specific icon in the file manager.
-2. `$XDG_DATA_HOME/mime/packages/flatimage.xml`: This is a generic FlatImage mime type
-that match files with the glob pattern `*.flatimage`.
+**Icon Installation:**
 
-The mime database is updated after the first execution after the desktop integration is
-configured with `fim-desktop setup ...`, and also when the basename of the application file
-changes.
+When `icon` is enabled, FlatImage installs icon files for:
 
-**Icon**
+- Application launchers (apps directory)
+- File type associations (mimetypes directory)
 
-This enables the integration of the `FlatImage` generic icon, and the application specific
-icon.
+**SVG icons:** Installed to `scalable/` directory  
+**PNG icons:** Automatically scaled and installed to multiple size directories (16×16 through 256×256)
 
-For the application specific icons, in case they are in the `svg` format:
+**Path Auto-Update:**
 
-- `$XDG_DATA_HOME/icons/hicolor/scalable/mimetypes/application-flatimage_MyApp.svg`
-- `$XDG_DATA_HOME/icons/hicolor/scalable/apps/flatimage_MyApp.svg`
+FlatImage checks if the desktop entry path matches the current executable path on every launch. If different:
 
-For the application specific icons, in case they are in the `png` format:
+1. Updates the `.desktop` file with new path
+2. Updates the MIME type glob pattern if filename changed
+3. Notifies desktop environment of changes
 
-- `$XDG_DATA_HOME/icons/hicolor/{}x{}/mimetypes/application-flatimage_MyApp.png`
-- `$XDG_DATA_HOME/icons/hicolor/{}x{}/apps/application-flatimage_MyApp.png`
-
-Where the placeholders `{}x{}` are replaced by equal values of `16,22,24,32,48,64,96,128,256`.
+This ensures desktop integration remains functional even after moving or renaming the file.

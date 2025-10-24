@@ -2,9 +2,7 @@
   <img src="https://raw.githubusercontent.com/flatimage/docs/master/docs/image/icon.png" width=150px/>
 </p>
 
-# FlatImage
-
-## What is it?
+# What is FlatImage?
 
 FlatImage, is a hybrid of [Flatpak](https://github.com/flatpak/flatpak)
 sandboxing with [AppImage](https://github.com/AppImage/AppImageKit) portability.
@@ -36,49 +34,127 @@ binary (or to handle how to package the application, dependencies and create a
 runner script). It also increases the quality of life of the package developer,
 simplifying the packaging process of applications.
 
-## How to use
+# Getting Started
 
-**Get FlatImage**
+## Download a distribution
 
-Download a flatimage package from the [releases](https://github.com/ruanformigoni/flatimage/releases), your available options are:
+Download one of the following distributions of a FlatImage package:
 
-* `arch.flatimage`
-* `alpine.flatimage`
-* `blueprint.flatimage`
+- [Alpine Linux](https://archlinux.org) is a complete `MUSL` subsystem with the `apk` package manager. [Download](https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage)
 
-`arch` is a complete `GNU` archlinux subsystem with the `pacman` package manager.
+- [Arch Linux](https://archlinux.org) is a complete `GNU` subsystem with the `pacman` package manager. [Download](https://github.com/flatimage/flatimage/releases/latest/download/arch.flatimage)
 
-`alpine` is a complete `MUSL` alpine subsystem with the `apk` package manager.
+- Blueprint is an empty FlatImage so you can build your own Linux sub-system. [Download](https://github.com/flatimage/flatimage/releases/latest/download/blueprint.flatimage)
 
-`blueprint` is a flatimage without a system to build a package with only the
-bare minimum for the application to work, making it lightweight in file size.
+## Enter the Container
 
-**Execute The Container**
+The following commands download and enter the alpine container.
 
-With `arch.flatimage` as an example, you can enter the container simply by
-executing the binary file:
-
+```bash
+# Download the container
+$ wget -O alpine.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+# Make it executable
+$ chmod +x ./alpine.flatimage
+# Enter the container
+$ ./alpine.flatimage
+[flatimage-alpine] / > echo hello
+hello
 ```
-$ chmod +x ./arch.flatimage
-$ ./arch.flatimage
-[flatimage-arch] / → 
+To exit the container, just press `CTRL+D`.
+
+## Configure Permissions
+
+By default, no permissions are set for the container. To allow one or more permissions use the [fim-perms](./cmd/perms.md) command.
+
+```bash
+$ ./alpine.flatimage fim-perms add xorg,wayland,network
 ```
 
-To exit the container, just press `CTRL+D`. To download packages please enable
-the network permission with:
+The permissions `xorg` and `wayland` allow applications to create novel windows which appear in the host system. The `network` permission allows network access to applications inside the container.
+
+## Execute Commands Once
+
+To execute commands without entering the container, use `fim-exec` and `fim-root`. These commands bring up the container, execute your command, and bring down the container after the command is finished.
+
+[fim-root](./cmd/root.md) executes the command as the root user.
+
+```bash
+# Allow network access
+$ ./alpine.flatimage fim-perms add xorg,wayland,network,audio
+# Using 'fim-root' to install firefox in the alpine image
+$ ./alpine.flatimage fim-root apk add firefox
 ```
-$ ./arch.flatimage fim-perms add network
+
+[fim-exec](./cmd/exec.md) executes the command as a regular user.
+
+```bash
+# Using 'fim-exec' to run firefox as a regular user
+$ ./alpine.flatimage fim-exec firefox font-noto
 ```
 
-Go to the `fim-perms` help page for more details.
+## Configure the Default Boot Command
 
-## How it works
+[fim-boot](./cmd/boot.md) configures the default boot command, by default it is `bash`.
 
-A FlatImage uses a container where it executes its own commands apart from the
-host system. With that in mind, it is possible to package applications that run
-in different linux distributions without worrying about missing binaries or
-libraries.
+```bash
+# Configure the boot command
+$ ./alpine.flatimage fim-boot set firefox
+# Opens firefox
+$ ./alpine.flatimage
+```
 
+## Commit Changes
+
+[fim-commit](./cmd/commit.md) is used compress and save the installed applications to inside the image.
+
+```bash
+# Commit changes
+$ ./alpine.flatimage fim-commit
+# Rename application
+$ mv ./alpine.flatimage ./firefox.flatimage
+```
+
+## Case-Insensitive File System
+
+[fim-casefold](./cmd/casefold.md) enables filesystem case-insensitivity. **Linux** filesystems are **case-sensitive** by default. This means:
+
+- `file.txt`, `File.txt`, and `FILE.txt` are treated as three completely different files
+- You can have all three in the same directory simultaneously
+- This applies to most common Linux filesystems like ext4, XFS, and Btrfs
+
+**Example:**
+```bash
+$ touch readme.txt
+$ touch README.txt
+$ ls -1
+readme.txt
+README.txt
+```
+
+**Windows** filesystems (NTFS, FAT32) are **case-insensitive** but **case-preserving**. This means:
+- `file.txt` and `File.txt` refer to the **same file**
+- The system preserves the capitalization you used when creating the file
+- You cannot have two files in the same directory that differ only by case
+- Commands and file access treat names as case-insensitive.
+
+To make FlatImage's filesystem case insensitive:
+```bash
+# Enable case-insensitivity
+$ ./alpine.flatimage fim-casefold on
+# Create create a README file.
+$ ./alpine.flatimage fim-root touch /READme.md
+# Try to access it as 'readme.md'
+$ ./alpine.flatimage fim-root stat /readME.md
+  File: /readME.md
+  Size: 0               Blocks: 0          IO Block: 4096   regular empty file
+Device: 61h/97d Inode: 26          Links: 1
+Access: (0644/-rw-r--r--)  Uid: (    0/ UNKNOWN)   Gid: (    0/    root)
+Access: 2025-10-11 19:14:21.106722076 +0000
+Modify: 2025-10-11 19:14:21.106722076 +0000
+Change: 2025-10-11 19:14:21.107484017 +0000
+```
+
+The current implementation is not **case-preserving**, the file names are always created in lower-case. Thus, if disabled with `fim-casefold off`, the file in the previous example will be accessible only as `readme.md` until casefolding is turned back on.
 
 # Motivations
 
@@ -113,12 +189,17 @@ libraries.
    and turn them into a portable binary.
 
 
-# Related Projects
+# Related and Similar Projects
 
-- [https://github.com/Kron4ek/Conty](https://github.com/Kron4ek/Conty)
-- [https://github.com/genuinetools/binctr](https://github.com/genuinetools/binctr)
-- [https://github.com/Intoli/exodus](https://github.com/Intoli/exodus)
-- [https://statifier.sourceforge.net/](https://statifier.sourceforge.net/)
-- [https://github.com/matthewbauer/nix-bundle](https://github.com/matthewbauer/nix-bundle)
-- [https://github.com/containers/bubblewrap](https://github.com/containers/bubblewrap)
-- [https://github.com/proot-me/proot](https://github.com/proot-me/proot)
+- [AppBundle](https://github.com/xplshn/pelf)
+- [AppImage](https://appimage.org/)
+- [NixAppImage](https://github.com/pkgforge/nix-appimage)
+- [RunImage](https://github.com/VHSgunzo/runimage)
+- [Flatpak](https://flatpak.org/)
+- [Conty](https://github.com/Kron4ek/Conty)
+- [binctr](https://github.com/genuinetools/binctr)
+- [exodus](https://github.com/Intoli/exodus)
+- [statifier](https://statifier.sourceforge.net/)
+- [nix-bundle](https://github.com/matthewbauer/nix-bundle)
+- [bubblewrap](https://github.com/containers/bubblewrap)
+- [Proot](https://github.com/proot-me/proot)
