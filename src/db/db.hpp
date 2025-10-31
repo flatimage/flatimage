@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -32,7 +33,6 @@ namespace fs = std::filesystem;
 
 
 using json_t = nlohmann::json;
-using Exception = json_t::exception;
 
 template<typename T>
 concept IsString =
@@ -59,8 +59,6 @@ class Db
     [[maybe_unused]] [[nodiscard]] std::vector<std::pair<std::string, Db>> items() const noexcept;
     template<typename V = Db>
     [[maybe_unused]] [[nodiscard]] Expected<V> value() noexcept;
-    template<typename V>
-    [[maybe_unused]] [[nodiscard]] V value_or_default(IsString auto&& k, V&& v = V{}) const noexcept;
     template<typename F, IsString Ks>
     [[maybe_unused]] [[nodiscard]] decltype(auto) apply(F&& f, Ks&& ks);
     [[maybe_unused]] [[nodiscard]] std::string dump();
@@ -87,7 +85,7 @@ class Db
 /**
  * @brief Construct a new Db:: Db object
  */
-inline Db::Db() noexcept : m_json(json_t::parse("{}"))
+inline Db::Db() noexcept : m_json(json_t::object())
 {
 }
 
@@ -143,7 +141,9 @@ inline json_t const& Db::data() const
  */
 inline std::vector<std::string> Db::keys() const noexcept
 {
-  return data().items()
+  json_t const& json = data();
+  ereturn_if(not json.is_structured(), "Invalid non-structured json access", {});
+  return json.items()
     | std::views::transform([&](auto&& e) { return e.key(); })
     | std::ranges::to<std::vector<std::string>>();
 }
@@ -155,7 +155,9 @@ inline std::vector<std::string> Db::keys() const noexcept
  */
 inline std::vector<std::pair<std::string,Db>> Db::items() const noexcept
 {
-  return data().items()
+  json_t const& json = data();
+  ereturn_if(not json.is_structured(), "Invalid non-structured json access", {});
+  return json.items()
     | std::views::transform([](auto&& e){ return std::make_pair(e.key(), Db{e.value()}); })
     | std::ranges::to<std::vector<std::pair<std::string,Db>>>();
 }
@@ -174,51 +176,28 @@ Expected<V> Db::value() noexcept
   {
     return Db{json};
   }
-  else if constexpr ( ns_concept::IsVector<V> )
+  else if constexpr ( ns_concept::IsVector<V> and ns_concept::SameAs<typename V::value_type, std::string>)
   {
     qreturn_if(not json.is_array(), std::unexpected("Tried to create array with non-array entry"));
+    qreturn_if(std::any_of(json.begin(), json.end(), [](auto&& e){ return not e.is_string(); })
+      , std::unexpected("Invalid key type for string array")
+    );
     return std::ranges::subrange(json.begin(), json.end())
       | std::views::transform([](auto&& e){ return typename std::remove_cvref_t<V>::value_type(e); })
       | std::ranges::to<V>();
   }
-  else
+  else if constexpr (ns_concept::StringConstructible<V>)
   {
     return ( json.is_string() )?
         Expected<V>(std::string{json})
       : std::unexpected("Json element is not a string");
   }
-}
-
-/**
- * @brief Get the current value of the json entry or a provided one (defaults to default-constructed)
- * 
- * @tparam V The target type
- * @param k The key of the accessed json entry
- * @param v The alternative value to return (optional)
- * @return V The accessed value or the provided alternative
- */
-template<typename V>
-V Db::value_or_default(IsString auto&& k, V&& v) const noexcept
-{
-  // Read current json
-  json_t json = data();
-  // Check if has value
-  ereturn_if(not json.contains(k), "Could not find '{}' in database"_fmt(k), v);
-  // Access value
-  json = json[k];
-  // Return range or string type
-  if constexpr ( ns_concept::IsVector<V> )
-  {
-    ereturn_if(not json.is_array(), "Tried to access non-array as array in DB with key '{}'"_fmt(k), v);
-    return std::ranges::subrange(json.begin(), json.end())
-      | std::views::transform([](auto&& e){ return typename std::remove_cvref_t<V>::value_type(e); })
-      | std::ranges::to<V>();
-  }
   else
   {
-    return V{json};
+    static_assert(std::is_same_v<V, V> == false, "Unsupported type V for value()");
+    return std::unexpected("No viable type conversion");
   }
-} 
+}
 
 /**
  * @brief Dumps the current json into a string
@@ -227,7 +206,14 @@ V Db::value_or_default(IsString auto&& k, V&& v) const noexcept
  */
 inline std::string Db::dump()
 {
-  return data().dump(2);
+  try
+  {
+    return data().dump(2);
+  }
+  catch (std::exception const& e)
+  {
+    return e.what();
+  }
 }
 
 /**
@@ -249,7 +235,8 @@ inline bool Db::empty() const noexcept
 template<IsString T>
 bool Db::contains(T&& key) const noexcept
 {
-  return data().contains(key);
+  json_t const& json = data();
+  return (json.is_object() || json.is_array()) && json.contains(key);
 }
 
 /**
@@ -268,8 +255,7 @@ inline KeyType Db::type() const noexcept
  * If the current json entry is:
  *  - An array, it erases the entry from the array
  *  - An object, it erases the key/value if exists
- * 
- * @param key 
+ * @param key The identifier of the key to remove
  * @return True if the key was removed, false otherwise
  */
 template<IsString T>
@@ -299,7 +285,7 @@ bool Db::erase(T&& key)
  */
 inline void Db::clear()
 {
-  data() = "{}";
+  data() = json_t::object();
 }
 
 /**
@@ -383,7 +369,7 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
 [[nodiscard]] inline Expected<void> write_file(fs::path const& path_file_db, Db& db)
 {
   std::ofstream file(path_file_db, std::ios::trunc);
-  qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}' for writing"));
+  qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}' for writing"_fmt(path_file_db)));
   file << std::setw(2) << db.dump();
   file.close();
   return Expected<void>{};

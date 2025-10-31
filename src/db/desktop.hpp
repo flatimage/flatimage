@@ -67,7 +67,7 @@ inline Desktop::Desktop()
   // Parse icon path (optional)
   desktop.m_path_file_icon = db("icon").template value<std::string>();
   // Parse enabled integrations (optional)
-  for(auto&& item : db.template value_or_default<std::vector<std::string>>("integrations"))
+  for(auto&& item : db("integrations").value<std::vector<std::string>>().or_default())
   {
     desktop.m_set_integrations.insert(Expect(IntegrationItem::from_string(item)));
   }
