@@ -117,8 +117,8 @@ class TestFimRecipe(unittest.TestCase):
     self.assertIn("Successfully downloaded recipe 'gpu'", out)
     self.assertIn("Connecting to raw.githubusercontent.com", err)
     self.assertEqual(code, 0)
-    # Check if recipe was cached (assuming alpine distro)
-    cache_path = self.get_recipe_cache_path("alpine", "gpu")
+    # Check if recipe was cached
+    cache_path = self.get_recipe_cache_path(self.get_distribution(), "gpu")
     # Cache may exist in config directory
     self.assertTrue(cache_path.exists() or Path(self.dir_image).exists())
 
@@ -145,7 +145,7 @@ class TestFimRecipe(unittest.TestCase):
       "description": "Old cached version",
       "packages": ["old-package"]
     }
-    cache_path = self.create_mock_recipe("alpine", "xorg", mock_content)
+    cache_path = self.create_mock_recipe(self.get_distribution(), "xorg", mock_content)
     # Read the old content before fetch
     with open(cache_path, 'r') as f:
       old_content = json.load(f)
@@ -188,7 +188,7 @@ class TestFimRecipe(unittest.TestCase):
       "description": "Test recipe for GPU drivers",
       "packages": ["mesa", "vulkan-tools", "nvidia-driver"]
     }
-    self.create_mock_recipe("alpine", "gpu-test", mock_content)
+    self.create_mock_recipe(self.get_distribution(), "gpu-test", mock_content)
     # Get recipe info
     out, err, code = self.run_cmd("fim-recipe", "info", "gpu-test")
     # Check fields
@@ -206,7 +206,7 @@ class TestFimRecipe(unittest.TestCase):
     mock_content = {
       "packages": ["package1", "package2"]
     }
-    self.create_mock_recipe("alpine", "minimal-recipe", mock_content)
+    self.create_mock_recipe(self.get_distribution(), "minimal-recipe", mock_content)
     # Get recipe info
     out, err, code = self.run_cmd("fim-recipe", "info", "minimal-recipe")
     # Check fields
@@ -222,7 +222,7 @@ class TestFimRecipe(unittest.TestCase):
     mock_content = {
       "description": "Recipe with no packages"
     }
-    self.create_mock_recipe("alpine", "empty-recipe", mock_content)
+    self.create_mock_recipe(self.get_distribution(), "empty-recipe", mock_content)
     # Get recipe info
     out, err, code = self.run_cmd("fim-recipe", "info", "empty-recipe")
     # Check fields
@@ -236,8 +236,8 @@ class TestFimRecipe(unittest.TestCase):
     # Create two mock recipes
     mock1 = {"description": "First recipe", "packages": ["pkg1"]}
     mock2 = {"description": "Second recipe", "packages": ["pkg2"]}
-    self.create_mock_recipe("alpine", "recipe1", mock1)
-    self.create_mock_recipe("alpine", "recipe2", mock2)
+    self.create_mock_recipe(self.get_distribution(), "recipe1", mock1)
+    self.create_mock_recipe(self.get_distribution(), "recipe2", mock2)
     # Get recipe info
     out, err, code = self.run_cmd("fim-recipe", "info", "recipe1,recipe2")
     # Should display info for both recipes
@@ -252,7 +252,7 @@ class TestFimRecipe(unittest.TestCase):
 
   def test_info_malformed_json(self):
     """Test info on a recipe with malformed JSON"""
-    cache_path = self.get_recipe_cache_path("alpine", "broken-recipe")
+    cache_path = self.get_recipe_cache_path(self.get_distribution(), "broken-recipe")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     with open(cache_path, 'w') as f:
       f.write("{invalid json content")
@@ -265,7 +265,7 @@ class TestFimRecipe(unittest.TestCase):
 
   def test_info_empty_file(self):
     """Test info on an empty recipe file"""
-    cache_path = self.get_recipe_cache_path("alpine", "empty-file")
+    cache_path = self.get_recipe_cache_path(self.get_distribution(), "empty-file")
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.touch() 
     out, err, code = self.run_cmd("fim-recipe", "info", "empty-file")
@@ -280,27 +280,21 @@ class TestFimRecipe(unittest.TestCase):
   def test_install_recipe_not_cached(self):
     """Test install when recipe hasn't been fetched"""
     out, err, code = self.run_cmd("fim-recipe", "install", "xorg")
-    dist, _, _ = self.run_cmd("fim-version", "full")
-    if "ALPINE" in dist:
-      self.assertRegex(out, "OK: [0-9]+ MiB in [0-9]+ packages")
-      self.assertEqual(code, 0)
-    elif "ARCH" in dist:
-      self.assertTrue(False, f"Un-implemented")
-    else:
-      self.assertTrue(False, f"Un-recognized distribution in '{dist}'")
+    match self.get_distribution():
+      case "alpine":
+        self.assertRegex(out, "OK: [0-9]+ MiB in [0-9]+ packages")
+        self.assertEqual(code, 0)
+      case "arch":
+        self.assertIn("Running post-transaction hooks...", out)
+        self.assertEqual(code, 0)
+      case _:
+        self.assertTrue(False, f"Un-recognized distribution")
 
   def test_install_recipe_cached(self):
     """Test that install uses cached recipe if available"""
-    # Get distribution
-    dist, _, _ = self.run_cmd("fim-version", "full")
     # Create a mock recipe
     mock_content = {"packages": ["htop"]}
-    if "ALPINE" in dist:
-      self.create_mock_recipe("alpine", "htop", mock_content)
-    elif "ARCH" in dist:
-      self.create_mock_recipe("arch", "htop", mock_content)
-    else:
-      self.assertTrue(False, "No Un-supported distribution")
+    self.create_mock_recipe(self.get_distribution(), "htop", mock_content)
     # Install
     out, err, code = self.run_cmd("fim-recipe", "install", "htop")
     self.assertIn("Using existing recipe", out)
@@ -309,18 +303,10 @@ class TestFimRecipe(unittest.TestCase):
 
   def test_install_multiple_recipes(self):
     """Test installing multiple recipes"""
-    # Get distribution
-    dist, _, _ = self.run_cmd("fim-version", "full")
     mock1 = {"packages": ["htop"]}
     mock2 = {"packages": ["bmon"]}
-    if "ALPINE" in dist:
-      self.create_mock_recipe("alpine", "htop", mock1)
-      self.create_mock_recipe("alpine", "bmon", mock2)
-    elif "ARCH" in dist:
-      self.create_mock_recipe("arch", "htop", mock1)
-      self.create_mock_recipe("arch", "bmon", mock2)
-    else:
-      self.assertTrue(False, "No Un-supported distribution")
+    self.create_mock_recipe(self.get_distribution(), "htop", mock1)
+    self.create_mock_recipe(self.get_distribution(), "bmon", mock2)
     out, err, code = self.run_cmd("fim-recipe", "install", "htop,bmon")
     self.assertIn("Using existing recipe", out)
     self.assertNotIn("Connecting to", out)
@@ -356,8 +342,8 @@ class TestFimRecipe(unittest.TestCase):
     """Test comma-separated recipes with spaces"""
     mock1 = {"packages": ["pkg1"]}
     mock2 = {"packages": ["pkg2"]}
-    self.create_mock_recipe("alpine", "recipe-a", mock1)
-    self.create_mock_recipe("alpine", "recipe-b", mock2)
+    self.create_mock_recipe(self.get_distribution(), "recipe-a", mock1)
+    self.create_mock_recipe(self.get_distribution(), "recipe-b", mock2)
     # Test with spaces around commas
     out, err, code = self.run_cmd("fim-recipe", "info", "recipe-a, recipe-b")
     self.assertIn("Recipe: recipe-a", out)
@@ -368,8 +354,8 @@ class TestFimRecipe(unittest.TestCase):
     """Test comma-separated list with empty entries"""
     mock1 = {"packages": ["pkg1"]}
     mock2 = {"packages": ["pkg2"]}
-    self.create_mock_recipe("alpine", "recipe-a", mock1)
-    self.create_mock_recipe("alpine", "recipe-b", mock2)
+    self.create_mock_recipe(self.get_distribution(), "recipe-a", mock1)
+    self.create_mock_recipe(self.get_distribution(), "recipe-b", mock2)
     out, err, code = self.run_cmd("fim-recipe", "info", "recipe-a,,recipe-b")
     self.assertIn("Recipe: recipe-a", out)
     self.assertNotIn("Recipe: recipe-b", out)
