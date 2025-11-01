@@ -154,6 +154,24 @@ struct CmdRemote
   std::variant<Clear,Set,Show> sub_cmd;
 };
 
+ENUM(CmdRecipeOp,FETCH,INFO,INSTALL);
+struct CmdRecipe
+{
+  struct Fetch
+  {
+    std::vector<std::string> recipes;
+  };
+  struct Info
+  {
+    std::vector<std::string> recipes;
+  };
+  struct Install
+  {
+    std::vector<std::string> recipes;
+  };
+  std::variant<Fetch,Info,Install> sub_cmd;
+};
+
 ENUM(CmdLayerOp,ADD,COMMIT,CREATE);
 struct CmdLayer
 {
@@ -286,6 +304,7 @@ using CmdType = std::variant<CmdRoot
   , CmdCaseFold
   , CmdBoot
   , CmdRemote
+  , CmdRecipe
   , CmdInstance
   , CmdOverlay
   , CmdNone

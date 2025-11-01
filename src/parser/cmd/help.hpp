@@ -67,7 +67,7 @@ inline std::string help_usage()
     .with_args({
       { "cmd", "Name of the command to display help details" },
     })
-    .with_note("Available commands: fim-{bind,boot,casefold,desktop,env,exec,instance,layer,notify,overlay,perms,remote,root,version}")
+    .with_note("Available commands: fim-{bind,boot,casefold,desktop,env,exec,instance,layer,notify,overlay,perms,recipe,remote,root,version}")
     .with_example(R"(fim-help bind")")
     .get();
 }
@@ -305,6 +305,37 @@ inline std::string remote_usage()
     .with_args({
       { "clear", "Clear the configured remote URL" },
     })
+    .get();
+}
+
+inline std::string recipe_usage()
+{
+  return HelpEntry{"fim-recipe"}
+    .with_description("Fetch, inspect, and install recipes from a remote repository")
+    .with_usage("fim-recipe <fetch> <recipes>")
+    .with_args({
+      { "fetch", "Download one or more recipes with their dependencies without installing packages" },
+      { "recipes", "Name(s) of the recipe(s) to download (comma-separated for multiple)" },
+    })
+    .with_note("Recipes and all dependencies are downloaded from URL/DISTRO/latest/<recipe>.json to path_dir_host_config/recipes/DISTRO/latest/<recipe>.json")
+    .with_example(R"(fim-recipe fetch gpu)")
+    .with_example(R"(fim-recipe fetch gpu,audio,xorg)")
+    .with_usage("fim-recipe <info> <recipes>")
+    .with_args({
+      { "info", "Display information about one or more locally cached recipes including dependencies" },
+      { "recipes", "Name(s) of the recipe(s) to inspect (comma-separated for multiple)" },
+    })
+    .with_example(R"(fim-recipe info gpu)")
+    .with_example(R"(fim-recipe info gpu,audio,xorg)")
+    .with_usage("fim-recipe <install> <recipes>")
+    .with_args({
+      { "install", "Download recipes with dependencies, validate no cycles exist, and install all packages" },
+      { "recipes", "Name(s) of the recipe(s) to install (comma-separated for multiple)" },
+    })
+    .with_note("The remote URL must be configured using 'fim-remote set <url>'")
+    .with_note("Dependencies are resolved recursively and cyclic dependencies are detected")
+    .with_example(R"(fim-recipe install gpu)")
+    .with_example(R"(fim-recipe install gpu,audio,xorg)")
     .get();
 }
 

@@ -40,6 +40,7 @@ enum class FimCommand
   CASEFOLD,
   BOOT,
   REMOTE,
+  RECIPE,
   INSTANCE,
   OVERLAY,
   VERSION,
@@ -66,6 +67,7 @@ enum class FimCommand
   if (str == "fim-notify")   return FimCommand::NOTIFY;
   if (str == "fim-overlay")  return FimCommand::OVERLAY;
   if (str == "fim-perms")    return FimCommand::PERMS;
+  if (str == "fim-recipe")   return FimCommand::RECIPE;
   if (str == "fim-remote")   return FimCommand::REMOTE;
   if (str == "fim-root")     return FimCommand::ROOT;
   if (str == "fim-version")  return FimCommand::VERSION;
@@ -541,6 +543,47 @@ class VecArgs
       return cmd_remote;
     }
 
+    // Fetch and install recipes
+    case FimCommand::RECIPE:
+    {
+      // Check op
+      CmdRecipeOp op = Expect(CmdRecipeOp::from_string(
+        Expect(args.pop_front<"C::Invalid operation for 'fim-recipe' (<fetch|info|install>)">())
+      ));
+      // Build command
+      CmdRecipe cmd_recipe;
+      auto f_parse_recipes = [](auto& args) -> Expected<std::vector<std::string>>
+      {
+          std::vector<std::string> recipes = Expect(args.template pop_front<"C::Missing recipe for operation">())
+            | std::views::split(',')
+            | std::ranges::to<std::vector<std::string>>();
+          qreturn_if(recipes.empty(), Unexpected("C::Recipe argument is empty"));
+          return recipes;
+      };
+      switch(op)
+      {
+        case CmdRecipeOp::FETCH:
+        {
+          cmd_recipe.sub_cmd = CmdRecipe::Fetch { .recipes = Expect(f_parse_recipes(args)) };
+        }
+        break;
+        case CmdRecipeOp::INFO:
+        {
+          cmd_recipe.sub_cmd = CmdRecipe::Info { .recipes = Expect(f_parse_recipes(args)) };
+        }
+        break;
+        case CmdRecipeOp::INSTALL:
+        {
+          cmd_recipe.sub_cmd = CmdRecipe::Install { .recipes = Expect(f_parse_recipes(args)) };
+        }
+        break;
+        case CmdRecipeOp::NONE: return Unexpected("C::Invalid recipe operation");
+      }
+      // Check for trailing arguments
+      qreturn_if(not args.empty(), Unexpected("C::Trailing arguments for fim-recipe: {}", args.data()));
+      return cmd_recipe;
+    }
+
     // Run a command in an existing instance
     case FimCommand::INSTANCE:
     {
@@ -649,6 +692,7 @@ class VecArgs
       else if (help_topic == "notify")   { message = ns_cmd::ns_help::notify_usage(); }
       else if (help_topic == "overlay")  { message = ns_cmd::ns_help::overlay_usage(); }
       else if (help_topic == "perms")    { message = ns_cmd::ns_help::perms_usage(); }
+      else if (help_topic == "recipe")   { message = ns_cmd::ns_help::recipe_usage(); }
       else if (help_topic == "remote")   { message = ns_cmd::ns_help::remote_usage(); }
       else if (help_topic == "root")     { message = ns_cmd::ns_help::root_usage(); }
       else if (help_topic == "version")  { message = ns_cmd::ns_help::version_usage(); }

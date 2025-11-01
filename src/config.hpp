@@ -15,6 +15,7 @@
 
 #include "lib/env.hpp"
 #include "std/filesystem.hpp"
+#include "std/enum.hpp"
 #include "reserved/casefold.hpp"
 #include "reserved/notify.hpp"
 #include "reserved/overlay.hpp"
@@ -58,6 +59,9 @@
 namespace ns_config
 {
 
+// Distribution enum
+ENUM(Distribution, ARCH, ALPINE)
+
 namespace
 {
 
@@ -88,7 +92,7 @@ inline void search_stack(std::vector<fs::path> const& vec_path_dir_layer
 struct FlatimageConfig
 {
   // Distribution name
-  std::string str_dist;
+  Distribution distribution;
   // Feature flags
   bool is_root;
   bool is_readonly;
@@ -165,7 +169,7 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
 
   // Distribution
-  config->str_dist = FIM_DIST;
+  config->distribution = Expect(Distribution::from_string(FIM_DIST));
 
   // Paths in /tmp
   config->path_dir_global          = Expect(ns_env::get_expected("FIM_DIR_GLOBAL"));

@@ -28,11 +28,13 @@
 #include "../reserved/boot.hpp"
 #include "../bwrap/bwrap.hpp"
 #include "../config.hpp"
+#include "../lib/subprocess.hpp"
 #include "interface.hpp"
 #include "parser.hpp"
 #include "cmd/layers.hpp"
 #include "cmd/desktop.hpp"
 #include "cmd/bind.hpp"
+#include "cmd/recipe.hpp"
 
 namespace ns_parser
 {
@@ -354,6 +356,54 @@ using namespace ns_parser::ns_interface;
     else
     {
       return Unexpected("C::Invalid remote sub-command");
+    }
+  }
+  // Fetch and install recipes
+  else if ( auto cmd = std::get_if<ns_parser::CmdRecipe>(&variant_cmd) )
+  {
+    auto f_fetch = [&config](std::string const& recipe, bool use_existing) -> Expected<std::vector<std::string>>
+    {
+      return ns_recipe::fetch(
+          config.distribution
+        , Expect(ns_db::ns_remote::get(config.path_file_binary))
+        , config.path_dir_app_sbin / "wget"
+        , config.path_dir_host_config
+        , recipe
+        , use_existing
+      );
+    };
+
+    if(auto cmd_fetch = std::get_if<CmdRecipe::Fetch>(&(cmd->sub_cmd)))
+    {
+      // Fetch recipes with dependencies, always download when fetch command is called directly
+      for(auto const& recipe : cmd_fetch->recipes)
+      {
+        Expect(f_fetch(recipe, false));
+      }
+    }
+    else if(auto cmd_info = std::get_if<CmdRecipe::Info>(&(cmd->sub_cmd)))
+    {
+      for(auto const& recipe : cmd_info->recipes)
+      {
+        Expect(ns_recipe::info(config.distribution, config.path_dir_host_config, recipe));
+      }
+    }
+    else if(auto cmd_install = std::get_if<CmdRecipe::Install>(&(cmd->sub_cmd)))
+    {
+      std::vector<std::string> all_recipes;
+      // Fetch all recipes and dependencies, overwrite existing
+      for(auto const& recipe : cmd_install->recipes)
+      {
+        std::vector<std::string> sub_recipes = Expect(f_fetch(recipe, true));
+        std::ranges::copy(sub_recipes, std::back_inserter(all_recipes));
+      }
+      config.is_root = 1;
+      // Install all packages and dependencies
+      return ns_recipe::install(config.distribution, config.path_dir_host_config, all_recipes, f_bwrap);
+    }
+    else
+    {
+      return Unexpected("C::Invalid recipe sub-command");
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )
