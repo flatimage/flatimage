@@ -165,6 +165,12 @@ struct NAME \
     { \
       return m_current; \
     } \
+    std::string lower() const \
+    { \
+      std::string str{*this}; \
+      std::ranges::transform(str, str.begin(), ::tolower); \
+      return str; \
+    } \
     operator std::string() const \
     { \
       switch(m_current) \
