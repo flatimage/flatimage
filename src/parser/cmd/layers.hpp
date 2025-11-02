@@ -59,8 +59,15 @@ namespace ns_layers
   {
     // Get full file path to entry
     fs::path path_entry = entry->path();
+    // Regular file or symlink
+    if(entry->is_regular_file() or entry->is_symlink())
+    {
+      file_list
+        << path_entry.lexically_relative(path_dir_src).string()
+        << '\n';      
+    }
     // Is a directory
-    if(entry->is_directory())
+    else if(entry->is_directory())
     {
       // Ignore directory as it is not traverseable
       if(::access(path_entry.c_str(), R_OK | X_OK) != 0)
@@ -76,13 +83,6 @@ namespace ns_layers
           << path_entry.lexically_relative(path_dir_src).string()
           << '\n';      
       }
-    }
-    // Regular file or symlink
-    else if(entry->is_regular_file() or entry->is_symlink())
-    {
-      file_list
-        << path_entry.lexically_relative(path_dir_src).string()
-        << '\n';      
     }
     // Unsupported for compression
     else
