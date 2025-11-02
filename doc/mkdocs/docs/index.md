@@ -105,11 +105,11 @@ $ ./alpine.flatimage
 
 ## Commit Changes
 
-[fim-commit](./cmd/commit.md) is used compress and save the installed applications to inside the image.
+[fim-layer](./cmd/layer.md) is used compress and save the installed applications to inside the image.
 
 ```bash
 # Commit changes
-$ ./alpine.flatimage fim-commit
+$ ./alpine.flatimage fim-layer commit
 # Rename application
 $ mv ./alpine.flatimage ./firefox.flatimage
 ```
