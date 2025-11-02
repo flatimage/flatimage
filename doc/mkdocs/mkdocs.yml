@@ -5,8 +5,13 @@ nav:
   - Comparison:
     - comparison.md
   - Examples:
-    - Steam: examples/steam.md
-    - Firefox: examples/firefox.md
+    - Alpine:
+      - Firefox: examples/alpine/firefox.md
+    - Arch:
+      - Firefox: examples/arch/firefox.md
+      - Steam: examples/arch/steam.md
+    - Blueprint:
+      - Batocera: examples/blueprint/batocera.md
   - Commands:
     - fim-bind: cmd/bind.md
     - fim-boot: cmd/boot.md
