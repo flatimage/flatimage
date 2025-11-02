@@ -41,7 +41,7 @@ namespace ns_layers
 {
   // Find mkdwarfs binary
   auto path_file_mkdwarfs = Expect(ns_env::search_path("mkdwarfs"));
-  // Compression level must be at least 1 and less or equal to 10
+  // Compression level
   compression_level = std::clamp(compression_level, uint64_t{0}, uint64_t{9});
   // Search for all viable files to compress
   ns_log::info()("Gathering files to compress...");

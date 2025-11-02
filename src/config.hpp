@@ -231,8 +231,7 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
   // Compression level configuration (goes from 0 to 10, default is 7)
   config->layer_compression_level  = ({
    std::string str_compression_level = ns_env::get_expected("FIM_COMPRESSION_LEVEL").value_or("7");
-   uint32_t compression_level = std::ranges::all_of(str_compression_level, ::isdigit) ? std::stoi(str_compression_level) : 7;
-   std::clamp(compression_level, uint32_t{0}, uint32_t{10});
+   std::ranges::all_of(str_compression_level, ::isdigit) ? std::stoi(str_compression_level) : 7;
   });
   // LD_LIBRARY_PATH
   if ( auto ret = ns_env::get_expected("LD_LIBRARY_PATH") )
