@@ -60,7 +60,7 @@ namespace ns_config
 {
 
 // Distribution enum
-ENUM(Distribution, ARCH, ALPINE)
+ENUM(Distribution, ARCH, ALPINE, BLUEPRINT)
 
 namespace
 {

@@ -307,6 +307,11 @@ requires std::invocable<F,std::string,std::vector<std::string>&>
       args = {"-Syu", "--noconfirm", "--needed"};
     }
     break;
+    case ns_config::Distribution::BLUEPRINT:
+    {
+      return Unexpected("E::Blueprint does not support recipes");
+    }
+    break;
     case ns_config::Distribution::NONE:
     {
       return Unexpected("E::Unsupported distribution '{}' for recipe installation", distribution);
