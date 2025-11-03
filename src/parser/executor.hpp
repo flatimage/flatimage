@@ -69,6 +69,7 @@ using namespace ns_parser::ns_interface;
     [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config);
     // Execute specified command
     auto environment = ns_db::ns_env::get(config.path_file_binary).or_default();
+    auto hash_environment = ns_db::ns_env::key_value(environment);
     // Check if should use bwrap native overlayfs
     std::optional<ns_bwrap::Overlay> bwrap_overlay = ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP )?
         std::make_optional(ns_bwrap::Overlay
@@ -83,14 +84,14 @@ using namespace ns_parser::ns_interface;
         config.path_dir_mount_ciopfs
       : config.path_dir_mount_overlayfs;
     // Get uid and gid from config (checks environment database or uses defaults)
-    auto uid_gid = Expect(config.get_uid_gid());
+    auto id = Expect(ns_config::get_id(config.is_root, hash_environment));
     // Create bwrap command
-    ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(uid_gid.uid
-      , uid_gid.gid
+    ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(id.uid
+      , id.gid
       , bwrap_overlay
       , path_dir_root
-      , Expect(config.write_bashrc())
-      , Expect(config.write_passwd())
+      , config.path_file_bashrc
+      , config.path_file_passwd
       , program
       , args
       , environment);
