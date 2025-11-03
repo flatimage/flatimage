@@ -76,7 +76,8 @@ class Bwrap
     Expected<fs::path> test_and_setup(fs::path const& path_file_bwrap);
 
   public:
-    Bwrap(bool is_root
+    Bwrap(mode_t uid
+      , mode_t gid
       , std::optional<Overlay> opt_overlay
       , fs::path const& path_dir_root
       , fs::path const& path_file_bashrc
@@ -112,20 +113,21 @@ class Bwrap
       , fs::path const& path_dir_app_bin);
 };
 
-/**
+ /**
  * @brief Construct a new Bwrap:: Bwrap object
  *
  * @param is_root A flag to set the sandbox user as root
  * @param opt_overlay Optional overlay filesystem configuration
  * @param path_dir_root Path to the sandbox root directory
  * @param path_file_bashrc Path to the `.bashrc` file used by the sandbox shell
+ * @param path_file_passwd Path to the passwd file to bind
  * @param path_file_program Program to launch in the sandbox
  * @param program_args Arguments for the program launched in the sandbox
  * @param program_env Environment for the program launched in the sandbox
- * @param path_file_passwd Path to the passwd file to bind
  */
 inline Bwrap::Bwrap(
-      bool is_root
+      mode_t uid
+    , mode_t gid
     , std::optional<Overlay> opt_overlay
     , fs::path const& path_dir_root
     , fs::path const& path_file_bashrc
@@ -136,7 +138,7 @@ inline Bwrap::Bwrap(
   : m_path_file_program(path_file_program)
   , m_program_args(program_args)
   , m_opt_path_dir_work(opt_overlay.transform([](auto&& e){ return e.path_dir_work; }))
-  , m_is_root(is_root)
+  , m_is_root(uid == 0)
   , m_path_file_passwd(path_file_passwd)
 {
   // Push passed environment
@@ -146,33 +148,10 @@ inline Bwrap::Bwrap(
   m_program_env.push_back("TERM=xterm");
 
   // Setup .bashrc
-  std::ofstream of{path_file_bashrc};
-  if ( of.is_open() )
-  {
-    if ( auto it = std::ranges::find_if(program_env, [](auto&& e){ return e.starts_with("PS1="); });
-    it != std::ranges::end(program_env))
-    {
-      std::string ps1{*it};
-      ps1.erase(0, ps1.find('=')+1);
-      of << "export PS1=" << '"' << ps1 << '"';
-    } // if
-    else
-    {
-      of << R"(export PS1="[flatimage-${FIM_DIST,,}] \W → ")";
-    } // else
-    ns_env::set("BASHRC_FILE", path_file_bashrc.c_str(), ns_env::Replace::Y);
-  } // if
-  of.close();
+  ns_env::set("BASHRC_FILE", path_file_bashrc.c_str(), ns_env::Replace::Y);
 
-  // Check if should be root in the container
-  if ( m_is_root )
-  {
-    ns_vector::push_back(m_args, "--uid", "0", "--gid", "0");
-  }
-  else
-  {
-    ns_vector::push_back(m_args, "--uid", std::to_string(getuid()), "--gid", std::to_string(getgid()));
-  }
+  // Configure uid and gid
+  ns_vector::push_back(m_args, "--uid", std::to_string(uid), "--gid", std::to_string(gid));
 
   // Use native bwrap --overlay options or overlayfs
   if ( opt_overlay )

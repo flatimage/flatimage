@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <filesystem>
+#include <fstream>
 #include <ranges>
 
 #include "lib/env.hpp"
@@ -62,6 +63,13 @@ namespace ns_config
 
 // Distribution enum
 ENUM(Distribution, ARCH, ALPINE, BLUEPRINT)
+
+// UID/GID pair
+struct UidGid
+{
+  mode_t uid;
+  mode_t gid;
+};
 
 namespace
 {
@@ -136,6 +144,8 @@ struct FlatimageConfig
     elog_if(ec, "Error to erase '{}': '{}'"_fmt(this->path_dir_work_overlayfs, ec.message()));
   }
   Expected<fs::path> write_passwd() const;
+  Expected<fs::path> write_bashrc() const;
+  Expected<UidGid> get_uid_gid() const;
 };
 
 /**
@@ -256,26 +266,115 @@ struct FlatimageConfig
   // Get user info
   struct passwd *pw = getpwuid(getuid());
   qreturn_if(not pw, Unexpected("E::Failed to get current user info"));
+  // Get UID/GID (respects is_root flag and custom values from environment)
+  auto uid_gid = Expect(this->get_uid_gid());
   // Get environment variables
-  auto db_env = Expect(ns_db::ns_env::get(this->path_file_binary));
-  auto variables = ns_db::ns_env::key_value(db_env);
+  auto program_env = Expect(ns_db::ns_env::get(this->path_file_binary));
+  auto variables = ns_db::ns_env::key_value(program_env);
   // Open passwd file
-  std::ofstream passwd_file{this->path_file_passwd};
-  qreturn_if(not passwd_file.is_open(), Unexpected("E::Failed to open passwd file at {}", this->path_file_passwd));
-  // Write to passwd file
+  std::ofstream file_passwd{this->path_file_passwd};
+  qreturn_if(not file_passwd.is_open(), Unexpected("E::Failed to open passwd file at {}", this->path_file_passwd));
+  // Write to passwd file using configured UID/GID
   if(variables.contains("USER"))
   {
     std::string user = variables.at("USER");
-    passwd_file << user << ":x:" << pw->pw_uid << ":" << pw->pw_gid << ":"
+    file_passwd << user << ":x:" << uid_gid.uid << ":" << uid_gid.gid << ":"
       << user << ":" << std::format("/home/{}", user) << ":" << pw->pw_shell << "\n";
   }
   else
   {
-    passwd_file << pw->pw_name << ":x:" << pw->pw_uid << ":" << pw->pw_gid << ":"
+    file_passwd << pw->pw_name << ":x:" << uid_gid.uid << ":" << uid_gid.gid << ":"
                 << pw->pw_gecos << ":" << pw->pw_dir << ":" << pw->pw_shell << "\n";
   }
-  passwd_file.close();
+  file_passwd.close();
   return this->path_file_passwd;
+}
+
+/**
+ * @brief Writes the bashrc file and returns its path
+ *
+ * @return Expected<fs::path> The path to the bashrc file
+ */
+[[nodiscard]] inline Expected<fs::path> FlatimageConfig::write_bashrc() const
+{
+  // Get environment variables
+  auto program_env = Expect(ns_db::ns_env::get(this->path_file_binary));
+  auto variables = ns_db::ns_env::key_value(program_env);
+  // Open new bashrc file
+  std::ofstream file_bashrc{this->path_file_bashrc};
+  qreturn_if(not file_bashrc.is_open(), Unexpected("E::Failed to open bashrc file at {}", this->path_file_bashrc));
+  // Write custom PS1 or default value
+  if(variables.contains("PS1"))
+  {
+    file_bashrc << "export PS1=" << '"' << variables.at("PS1") << '"';
+  }
+  else
+  {
+    file_bashrc << R"(export PS1="[flatimage-${FIM_DIST,,}] \W > ")";
+  }
+  file_bashrc.close();
+  return this->path_file_bashrc;
+}
+
+/**
+ * @brief Gets the UID and GID for the container
+ *
+ * Checks environment database for custom UID/GID values, falls back to current user's values.
+ * If is_root flag is set, returns 0:0.
+ *
+ * @return Expected<UidGid> The UID and GID pair
+ */
+[[nodiscard]] inline Expected<UidGid> FlatimageConfig::get_uid_gid() const
+{
+  // If root mode is requested, return 0:0
+  if (this->is_root)
+  {
+    return UidGid{.uid = 0, .gid = 0};
+  }
+
+  // Get user info for defaults
+  struct passwd *pw = getpwuid(getuid());
+  qreturn_if(not pw, Unexpected("E::Failed to get current user info"));
+
+  // Get environment variables to check for custom UID/GID
+  auto program_env = Expect(ns_db::ns_env::get(this->path_file_binary));
+  auto variables = ns_db::ns_env::key_value(program_env);
+
+  // Default to actual host user UID/GID
+  mode_t uid = pw->pw_uid;
+  mode_t gid = pw->pw_gid;
+
+  // Check for custom UID in environment
+  if (variables.contains("UID"))
+  {
+    try
+    {
+      uid = std::stoul(variables.at("UID"));
+      ns_log::debug()("Using custom UID from environment: {}", uid);
+    }
+    catch (std::exception const& e)
+    {
+      ns_log::warn()("Invalid UID in environment '{}', using default: {}", variables.at("UID"), pw->pw_uid);
+      uid = pw->pw_uid;
+    }
+  }
+
+  // Check for custom GID in environment
+  if (variables.contains("GID"))
+  {
+    try
+    {
+      gid = std::stoul(variables.at("GID"));
+      ns_log::debug()("Using custom GID from environment: {}", gid);
+    }
+    catch (std::exception const& e)
+    {
+      ns_log::warn()("Invalid GID in environment '{}', using default: {}", variables.at("GID"), pw->pw_gid);
+      gid = pw->pw_gid;
+    }
+  }
+
+  return UidGid{.uid = uid, .gid = gid};
 }
 
 } // namespace ns_config

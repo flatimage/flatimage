@@ -78,14 +78,18 @@ using namespace ns_parser::ns_interface;
           , .path_dir_work = config.path_dir_work_overlayfs
         })
       : std::nullopt;
+    // Get path to root directory
     fs::path path_dir_root = ( config.is_casefold and config.overlay_type != ns_reserved::ns_overlay::OverlayType::BWRAP )?
         config.path_dir_mount_ciopfs
       : config.path_dir_mount_overlayfs;
+    // Get uid and gid from config (checks environment database or uses defaults)
+    auto uid_gid = Expect(config.get_uid_gid());
     // Create bwrap command
-    ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(config.is_root
+    ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(uid_gid.uid
+      , uid_gid.gid
       , bwrap_overlay
       , path_dir_root
-      , config.path_file_bashrc
+      , Expect(config.write_bashrc())
       , Expect(config.write_passwd())
       , program
       , args
