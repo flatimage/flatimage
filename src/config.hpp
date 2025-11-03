@@ -14,6 +14,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ranges>
+#include <format>
 
 #include "lib/env.hpp"
 #include "db/env.hpp"
@@ -274,19 +275,19 @@ struct FlatimageConfig
   // Open passwd file
   std::ofstream file_passwd{this->path_file_passwd};
   qreturn_if(not file_passwd.is_open(), Unexpected("E::Failed to open passwd file at {}", this->path_file_passwd));
+  // Define passwd entries
+  std::string user = (uid_gid.uid == 0)? "root"
+    : variables.contains("USER")? variables.at("USER")
+    : pw->pw_name;
+  fs::path path_dir_home = (uid_gid.uid == 0)? "/root"
+    : variables.contains("HOME")? variables.at("HOME")
+    : pw->pw_dir;
+  fs::path path_file_shell = variables.contains("SHELL")? fs::path{variables.at("SHELL")}
+    : this->path_file_bash;
   // Write to passwd file using configured UID/GID
-  if(variables.contains("USER"))
-  {
-    std::string user = variables.at("USER");
-    file_passwd << user << ":x:" << uid_gid.uid << ":" << uid_gid.gid << ":"
-      << user << ":" << std::format("/home/{}", user) << ":" << pw->pw_shell << "\n";
-  }
-  else
-  {
-    file_passwd << pw->pw_name << ":x:" << uid_gid.uid << ":" << uid_gid.gid << ":"
-                << pw->pw_gecos << ":" << pw->pw_dir << ":" << pw->pw_shell << "\n";
-  }
-  file_passwd.close();
+  file_passwd
+    << std::format("{}:x:{}:{}:{}:{}:{}", user, uid_gid.uid, uid_gid.gid, user, path_dir_home.string(), path_file_shell.string())
+    << '\n';
   return this->path_file_passwd;
 }
 
@@ -312,7 +313,6 @@ struct FlatimageConfig
   {
     file_bashrc << R"(export PS1="[flatimage-${FIM_DIST,,}] \W > ")";
   }
-  file_bashrc.close();
   return this->path_file_bashrc;
 }
 
