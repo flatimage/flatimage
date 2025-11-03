@@ -68,26 +68,6 @@ namespace
 
 namespace fs = std::filesystem;
 
-/**
- * @brief Searches a configuration file from the highest directory of overlay filesystems
- * 
- * @param vec_path_dir_layer Path to the layer directory stack
- * @param path_dir_upper Path to the upper directory of the overlay filesystem
- * @param path_file_config Path to the configuration file to query
- */
-inline void search_stack(std::vector<fs::path> const& vec_path_dir_layer
-  , fs::path const& path_dir_upper
-  , fs::path const& path_file_config)
-{
-  // Check if configuration exists in upperdir
-  dreturn_if(fs::exists(path_dir_upper / path_file_config), "Configuration file '{}' exists"_fmt(path_file_config));
-  // Try to find configuration file in layer stack with descending order
-  auto it = std::ranges::find_if(vec_path_dir_layer, [&](auto&& e){ return fs::exists(e / path_file_config); });
-  dreturn_if(it == std::ranges::end(vec_path_dir_layer),  "Could not find '{}' in layer stack"_fmt(path_file_config));
-  // Copy to upperdir
-  fs::copy_file(*it / path_file_config, path_dir_upper / path_file_config, fs::copy_options::skip_existing);
-}
-
 } // namespace
 
 struct FlatimageConfig
