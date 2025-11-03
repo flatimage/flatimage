@@ -271,14 +271,17 @@ inline std::string perms_usage()
 {
   return HelpEntry{"fim-perms"}
     .with_description("Edit current permissions for the flatimage")
-    .with_note("Permissions: audio,dbus_system,dbus_user,dev,gpu,home,input,media,network,optical,shm,udev,usb,wayland,xorg")
-    .with_usage("fim-perms <add|del> <perms...>")
+    .with_note("Permissions: all,audio,dbus_system,dbus_user,dev,gpu,home,input,media,network,optical,shm,udev,usb,wayland,xorg")
+    .with_usage("fim-perms <add|del|set> <perms...>")
     .with_args({
       { "add", "Allow one or more permissions" },
       { "del", "Delete one or more permissions" },
+      { "set", "Replace all permissions with the specified set" },
       { "perms...", "One or more permissions" },
     })
     .with_example("fim-perms add home,network,gpu")
+    .with_example("fim-perms set wayland,audio,network")
+    .with_note("The 'all' permission sets all available permissions and cannot be combined with other permissions")
     .with_usage("fim-perms <list|clear>")
     .with_args({
       { "list", "Lists the current permissions" },

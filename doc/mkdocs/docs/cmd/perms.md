@@ -12,6 +12,26 @@ The permission system allows you to:
 
 ## Available Permissions
 
+### all
+
+**Special Permission**: Grants all available permissions at once.
+
+**Behavior:**
+
+- Enables all individual permissions simultaneously
+- Cannot be combined with other permissions
+- Provides complete host system access within sandboxing constraints
+
+**Example:**
+
+```bash
+# Grant all permissions at once
+./app.flatimage fim-perms add all
+# Or use set
+./app.flatimage fim-perms set all
+```
+---
+
 ### home
 Access to the host `$HOME` directory.
 
@@ -414,12 +434,15 @@ You can use `./app.flatimage fim-help perms` to get the following usage details:
 
 ```txt
 fim-perms : Edit current permissions for the flatimage
-Note: Permissions: audio,dbus_system,dbus_user,dev,gpu,home,input,media,network,optical,shm,udev,usb,wayland,xorg
-Usage: fim-perms <add|del> <perms...>
+Note: Permissions: all,audio,dbus_system,dbus_user,dev,gpu,home,input,media,network,optical,shm,udev,usb,wayland,xorg
+Usage: fim-perms <add|del|set> <perms...>
   <add> : Allow one or more permissions
   <del> : Delete one or more permissions
+  <set> : Replace all permissions with the specified set
   <perms...> : One or more permissions
 Example: fim-perms add home,network,gpu
+Example: fim-perms set wayland,audio,network
+Note: The 'all' permission sets all available permissions and cannot be combined with other permissions
 Usage: fim-perms <list|clear>
   <list> : Lists the current permissions
   <clear> : Clears all permissions

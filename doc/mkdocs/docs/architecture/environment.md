@@ -7,8 +7,13 @@ filesystem paths and metadata.
 
 **Modifiable**:
 
-* `FIM_DEBUG`       : If defined to 1, print debug messages.
-* `FIM_MAIN_OFFSET` : Shows filesystem offset and exits.
+* `FIM_DEBUG`              : If defined to 1, print debug messages.
+* `FIM_MAIN_OFFSET`        : Shows filesystem offset and exits.
+* `FIM_OVERLAY`            : Override overlay filesystem type (bwrap, overlayfs, or unionfs). Takes precedence over configuration stored in binary.
+* `FIM_CASEFOLD`           : If defined to 1, enable case-insensitive filesystem. Overrides configuration stored in binary.
+* `FIM_COMPRESSION_LEVEL`  : Layer compression level (0-10, default: 7). Used by `fim-layer commit` and `fim-layer create` commands. Lower values = faster/larger, higher values = slower/smaller.
+* `FIM_DIRS_LAYER`         : Colon-separated list of directories containing layer files to mount (e.g., `/path/to/layers1:/path/to/layers2`).
+* `FIM_FILES_LAYER`        : Colon-separated list of specific layer file paths to mount (e.g., `/path/to/layer1.dwarfs:/path/to/layer2.dwarfs`).
 
 **Filesystem Paths**:
 
@@ -25,7 +30,7 @@ filesystem paths and metadata.
 **FlatImage MetaData**
 
 * `FIM_VERSION`           : The version of the flatimage package
-* `FIM_DIST`              : The linux distribution name (alpine, arch)
+* `FIM_DIST`              : The linux distribution name
 
 ## How it works
 
