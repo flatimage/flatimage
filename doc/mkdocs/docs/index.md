@@ -4,35 +4,63 @@
 
 # What is FlatImage?
 
-FlatImage, is a hybrid of [Flatpak](https://github.com/flatpak/flatpak)
-sandboxing with [AppImage](https://github.com/AppImage/AppImageKit) portability.
+FlatImage packages your entire application—code, dependencies, and configuration—into a single executable that runs sandboxed on any Linux distribution. No installation, no external files, no compatibility issues.
 
-FlatImage use case is twofold:
+## What Makes FlatImage Different?
 
-* Flatimage is a package format, it includes a piece of software with all its
-    dependencies for it work with across several linux distros (both Musl and
-    GNU). Unlike `AppImage`, FlatImage runs the application in a container by
-    default, which increases portability and compatibility at the cost of file
-    size.
+🔒 **Sandboxed by Default**  
+Granular permissions (network, GPU, home, audio...). Default: zero access, fully isolated.
 
-* Flatimage is a portable container image that requires no superuser permissions to run.
+📦 **Self-Contained**  
+All config embedded in the ELF binary's reserved space.
 
-The diverse `GNU/Linux` ecosystem includes a vast array of distributions, each
-with its own advantages and use cases. This can lead to cross-distribution
-software compatibility challenges. FlatImage addresses these issues by:
+⚡ **Fast & Compact**  
+DwarFS compression delivers high ratios with on-the-fly decompression.
 
-* Utilizing its own root directory, enabling dynamic libraries with hard-coded
-    paths to be packaged alongside the software without
-    [binary patching](https://github.com/AppImage/AppImageKit/wiki/Bundling-Windows-applications).
-* Running the application in its own gnu (or musl) environment, therefore, not using host
-    libraries that might be outdated/incompatiblesystem with the application.
+✨ **Truly Portable**  
+Static linking + embedded tools. One file runs on any Linux distro without dependencies.
 
-It simplifies the task of software packaging by enforcing the philosophy that it
-should be as simple as setting up a container. This is an effort for the
-end-user to not depend on the application developer to provide the portable
-binary (or to handle how to package the application, dependencies and create a
-runner script). It also increases the quality of life of the package developer,
-simplifying the packaging process of applications.
+🔧 **Reconfigurable After Build**  
+Change permissions, environment, boot commands, and bindings post-creation without rebuilding.
+
+🗂️ **Multiple Filesystem Backends**  
+Switch between OverlayFS (fast), UnionFS (compatible), BWRAP (native), or CIOPFS (case-insensitive) at runtime.
+
+🎮 **Case-Insensitive Filesystem**  
+Windows-style case folding for Wine/Proton compatibility. Toggle with `fim-casefold on`.
+
+🔌 **Portal IPC System**  
+Transparent host-guest communication. Execute host commands from containers with full I/O redirection.
+
+🧱 **Layered Architecture**  
+Stack compressed layers with `fim-layer commit`. Copy-on-write, incremental builds, immutable base layers.
+
+📦 **Package Recipes**  
+Install curated package sets with dependency resolution: `fim-recipe install gpu,audio,xorg`.
+
+🔗 **Runtime Bind Mounts**  
+Map host paths dynamically without rebuilding: `fim-bind add rw '$HOME/Documents' /Documents`.
+
+🚀 **Multi-Instance Support**  
+Run multiple isolated instances simultaneously. Execute in specific instances with `fim-instance`.
+
+🖥️ **Desktop Integration**  
+Auto-generated menu entries, MIME types, and icons. Paths auto-update on file moves.
+
+## Try It in 30 Seconds
+
+```bash
+# Download and run a complete Alpine Linux environment
+wget https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+chmod +x alpine.flatimage
+./alpine.flatimage  # You're now inside an isolated Alpine container!
+```
+
+# Documentation
+
+📚 **User Documentation**: https://flatimage.github.io/docs
+
+💻 **Developer Documentation**: https://flatimage.github.io/docs-developer
 
 # Getting Started
 
@@ -156,50 +184,17 @@ Change: 2025-10-11 19:14:21.107484017 +0000
 
 The current implementation is not **case-preserving**, the file names are always created in lower-case. Thus, if disabled with `fim-casefold off`, the file in the previous example will be accessible only as `readme.md` until casefolding is turned back on.
 
-# Motivations
-
-1. The idea of this application sprung with the challenge to package software
-   and dynamic libraries, such as `wine`, when there are hard-coded paths. The
-   best solution is invasive
-   [https://github.com/AppImage/AppImageKit/wiki/Bundling-Windows-applications](https://github.com/AppImage/AppImageKit/wiki/Bundling-Windows-applications)
-   , which patches the binaries of wine directly to use a custom path for the
-   32-bit libraries (an implementation of this concept is available
-   [here](https://github.com/ruanformigoni/wine)), not only that, it requires to
-   patch the `32-bit` pre-loader `ld-linux.so` as well, however, sometimes it
-   still fails to execute properly. This is an over exceeding complexity for the
-   end-user, which should package applications with no effort; `FlatImage`
-   changes the root filesystem the application runs in, to a minimal gnu
-   subsystem, and with that, it solves the previous issues with dynamic
-   libraries no workarounds required. No host libraries are used, which
-   decreases issues of portable applications working on one machine and not in
-   other.
-
-1. The fragmentation of the linux package management is considerable in modern
-   times, e.g., `apt`, `pip`, `npm`, and more. To mitigate this issue
-   `FlatImage` can perform the installation through the preferred package
-   manager, and turn the program into an executable file, that can run in any
-   linux distribution. E.g.: The user of `FlatImage` can create a binary of
-   `youtube-dl`, from the `pip` package manager, without having either pip or
-   python installed on the host operating system.
-
-1. Some applications are offered as pre-compiled compressed tar files
-   (tarballs), which sometimes only work when installed on the root of the
-   operating system. However, doing so could hinder the operating system
-   integrity, to avoid this issue `FlatImage` can install tarballs into itself
-   and turn them into a portable binary.
-
-
 # Related and Similar Projects
 
-- [AppBundle](https://github.com/xplshn/pelf)
-- [AppImage](https://appimage.org/)
-- [NixAppImage](https://github.com/pkgforge/nix-appimage)
-- [RunImage](https://github.com/VHSgunzo/runimage)
-- [Flatpak](https://flatpak.org/)
-- [Conty](https://github.com/Kron4ek/Conty)
-- [binctr](https://github.com/genuinetools/binctr)
-- [exodus](https://github.com/Intoli/exodus)
-- [statifier](https://statifier.sourceforge.net/)
-- [nix-bundle](https://github.com/matthewbauer/nix-bundle)
-- [bubblewrap](https://github.com/containers/bubblewrap)
-- [Proot](https://github.com/proot-me/proot)
+- [RunImage](https://github.com/VHSgunzo/runimage): Portable single-file Linux container in unprivileged user namespaces.
+- [AppBundle](https://github.com/xplshn/pelf): The .AppImage alternative designed for Linux, BSDs and more!
+- [NixAppImage](https://github.com/pkgforge/nix-appimage): Nix-based AppImages.
+- [Flatpak](https://flatpak.org/): Linux application sandboxing and distribution framework.
+- [Conty](https://github.com/Kron4ek/Conty): Container-based portable apps.
+- [binctr](https://github.com/genuinetools/binctr): Fully static, unprivileged, self-contained, containers as executable binaries.
+- [nix-bundle](https://github.com/matthewbauer/nix-bundle): Bundle Nix derivations to run anywhere!
+- [AppImage](https://appimage.org/): Linux apps that run anywhere.
+- [exodus](https://github.com/Intoli/exodus): Painless relocation of Linux binaries–and all of their dependencies–without containers.
+- [statifier](https://statifier.sourceforge.net/): Statifier is a tool for creating portable self-containing Linux executable.
+- [bubblewrap](https://github.com/containers/bubblewrap): Low-level unprivileged sandboxing tool used by Flatpak and similar projects.
+- [Proot](https://github.com/proot-me/proot): chroot, mount --bind, and binfmt_misc without privilege/setup for Linux.
