@@ -279,20 +279,10 @@ struct FlatimageConfig
 [[nodiscard]] inline Expected<std::shared_ptr<FlatimageConfig>> config()
 {
   auto config = std::shared_ptr<FlatimageConfig>(new FlatimageConfig());
-
+  // pid and distribution variables
   ns_env::set("FIM_PID", getpid(), ns_env::Replace::Y);
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
-
-  // Distribution
-  config->distribution = Expect(Distribution::from_string(FIM_DIST));
-  // Get built-in environment variables
-  auto hash_env = ({
-    auto program_env = Expect(ns_db::ns_env::get(config->path_file_binary));
-    ns_db::ns_env::key_value(program_env);
-  });
-  // Resolve UID/GID
-  Id id = Expect(get_id(config->is_root, hash_env));
-  // Paths in /tmp
+  // Standard paths
   config->path_dir_global          = Expect(ns_env::get_expected("FIM_DIR_GLOBAL"));
   config->path_file_binary         = Expect(ns_env::get_expected("FIM_FILE_BINARY"));
   config->path_dir_binary          = config->path_file_binary.parent_path();
@@ -301,25 +291,34 @@ struct FlatimageConfig
   config->path_dir_app_sbin        = Expect(ns_env::get_expected("FIM_DIR_APP_SBIN"));
   config->path_dir_instance        = Expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
   config->path_dir_mount           = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
-  config->path_file_bashrc         = Expect(write_bashrc(config->path_dir_instance / "bashrc", hash_env));
-  config->path_file_passwd         = Expect(write_passwd(config->path_dir_instance / "passwd", config->path_file_bashrc, id, hash_env));
   config->path_file_bash           = config->path_dir_app_bin / "bash";
   config->path_dir_mount_layers    = config->path_dir_mount / "layers";
   config->path_dir_mount_overlayfs = config->path_dir_mount / "overlayfs";
+  // Distribution
+  config->distribution = Expect(Distribution::from_string(FIM_DIST));
+  // Get built-in environment variables
+  auto hash_env = ns_db::ns_env::key_value(Expect(ns_db::ns_env::get(config->path_file_binary)));
   // Flags
   config->is_root = ns_env::exists("FIM_ROOT", "1")
     or (hash_env.contains("UID") and hash_env.at("UID") == "0");
+  // Resolve UID/GID
+  Id id = Expect(get_id(config->is_root, hash_env));
+  // Create bashrc and passwd files
+  config->path_file_bashrc = Expect(write_bashrc(config->path_dir_instance / "bashrc", hash_env));
+  config->path_file_passwd = Expect(write_passwd(config->path_dir_instance / "passwd", config->path_file_bashrc, id, hash_env));
+  // Flags for readonly, debug, notify, and casefolding
   config->is_readonly = ns_env::exists("FIM_RO", "1");
   config->is_debug = ns_env::exists("FIM_DEBUG", "1");
   config->is_casefold = ns_env::exists("FIM_CASEFOLD", "1")
     or Expect(ns_reserved::ns_casefold::read(config->path_file_binary));
   config->is_notify = Expect(ns_reserved::ns_notify::read(config->path_file_binary));
-  config->overlay_type = ns_reserved::ns_overlay::read(config->path_file_binary)
-    .value_or(ns_reserved::ns_overlay::OverlayType::BWRAP);
+  // Configure overlay type
+  using ns_reserved::ns_overlay::OverlayType;
   config->overlay_type = ns_env::exists("FIM_OVERLAY", "unionfs")? ns_reserved::ns_overlay::OverlayType::UNIONFS
     : ns_env::exists("FIM_OVERLAY", "overlayfs")? ns_reserved::ns_overlay::OverlayType::OVERLAYFS
     : ns_env::exists("FIM_OVERLAY", "bwrap")? ns_reserved::ns_overlay::OverlayType::BWRAP
-    : config->overlay_type.get();
+    : ns_reserved::ns_overlay::read(config->path_file_binary).value_or(OverlayType::BWRAP).get();
+  // Check for case folding usage constraints
   if(config->is_casefold and config->overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
   {
     ns_log::warn()("casefold cannot be used with bwrap overlayfs, falling back to unionfs");
@@ -364,7 +363,7 @@ struct FlatimageConfig
   else
   {
     ns_env::set("LD_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu", ns_env::Replace::Y);
-  } // else
+  }
 
   return config;
 }
