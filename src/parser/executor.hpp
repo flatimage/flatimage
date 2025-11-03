@@ -86,6 +86,7 @@ using namespace ns_parser::ns_interface;
       , bwrap_overlay
       , path_dir_root
       , config.path_file_bashrc
+      , Expect(config.write_passwd())
       , program
       , args
       , environment);

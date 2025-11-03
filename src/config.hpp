@@ -10,16 +10,17 @@
 
 #include <system_error>
 #include <unistd.h>
+#include <pwd.h>
 #include <filesystem>
 #include <ranges>
 
 #include "lib/env.hpp"
+#include "db/env.hpp"
 #include "std/filesystem.hpp"
 #include "std/enum.hpp"
 #include "reserved/casefold.hpp"
 #include "reserved/notify.hpp"
 #include "reserved/overlay.hpp"
-#include "reserved/casefold.hpp"
 
 // Version
 #ifndef FIM_VERSION
@@ -113,6 +114,7 @@ struct FlatimageConfig
   fs::path path_file_binary;
   fs::path path_dir_binary;
   fs::path path_file_bashrc;
+  fs::path path_file_passwd;
   fs::path path_file_bash;
   fs::path path_dir_mount_layers;
   fs::path path_dir_runtime;
@@ -153,6 +155,7 @@ struct FlatimageConfig
     fs::remove_all(this->path_dir_work_overlayfs, ec);
     elog_if(ec, "Error to erase '{}': '{}'"_fmt(this->path_dir_work_overlayfs, ec.message()));
   }
+  Expected<fs::path> write_passwd() const;
 };
 
 /**
@@ -160,7 +163,7 @@ struct FlatimageConfig
  * 
  * @return Expected<FlatimageConfig> A FlatImage configuration object or the respective error
  */
-inline Expected<std::shared_ptr<FlatimageConfig>> config()
+[[nodiscard]] inline Expected<std::shared_ptr<FlatimageConfig>> config()
 {
   std::error_code ec;
   auto config = std::make_shared<FlatimageConfig>();
@@ -180,7 +183,8 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
   config->path_dir_app_sbin        = Expect(ns_env::get_expected("FIM_DIR_APP_SBIN"));
   config->path_dir_instance        = Expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
   config->path_dir_mount           = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
-  config->path_file_bashrc         = config->path_dir_app / ".bashrc";
+  config->path_file_bashrc         = config->path_dir_instance / "bashrc";
+  config->path_file_passwd         = config->path_dir_instance / "passwd";
   config->path_file_bash           = config->path_dir_app_bin / "bash";
   config->path_dir_mount_layers    = config->path_dir_mount / "layers";
   config->path_dir_mount_overlayfs = config->path_dir_mount / "overlayfs";
@@ -252,7 +256,7 @@ inline Expected<std::shared_ptr<FlatimageConfig>> config()
  * @param path_dir_layers Path to the layer directory
  * @return std::vector<fs::path> The list of layer directory paths
  */
-inline std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers)
+[[nodiscard]] inline std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers)
 {
   std::vector<fs::path> vec_path_dir_layer = fs::directory_iterator(path_dir_layers)
     | std::views::filter([](auto&& e){ return fs::is_directory(e.path()); })
@@ -260,6 +264,38 @@ inline std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers)
     | std::ranges::to<std::vector<fs::path>>();
   std::ranges::sort(vec_path_dir_layer);
   return vec_path_dir_layer;
+}
+
+/**
+ * @brief Writes the passwd file and returns its path
+ * 
+ * @return Expected<fs::path> The path to the passwd file
+ */
+[[nodiscard]] inline Expected<fs::path> FlatimageConfig::write_passwd() const
+{
+  // Get user info
+  struct passwd *pw = getpwuid(getuid());
+  qreturn_if(not pw, Unexpected("E::Failed to get current user info"));
+  // Get environment variables
+  auto db_env = Expect(ns_db::ns_env::get(this->path_file_binary));
+  auto variables = ns_db::ns_env::key_value(db_env);
+  // Open passwd file
+  std::ofstream passwd_file{this->path_file_passwd};
+  qreturn_if(not passwd_file.is_open(), Unexpected("E::Failed to open passwd file at {}", this->path_file_passwd));
+  // Write to passwd file
+  if(variables.contains("USER"))
+  {
+    std::string user = variables.at("USER");
+    passwd_file << user << ":x:" << pw->pw_uid << ":" << pw->pw_gid << ":"
+      << user << ":" << std::format("/home/{}", user) << ":" << pw->pw_shell << "\n";
+  }
+  else
+  {
+    passwd_file << pw->pw_name << ":x:" << pw->pw_uid << ":" << pw->pw_gid << ":"
+                << pw->pw_gecos << ":" << pw->pw_dir << ":" << pw->pw_shell << "\n";
+  }
+  passwd_file.close();
+  return this->path_file_passwd;
 }
 
 } // namespace ns_config

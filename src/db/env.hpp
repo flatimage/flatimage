@@ -31,7 +31,7 @@ namespace fs = std::filesystem;
  * @param entries The environment variables, each entry has the format 'key=var'
  * @return The list of key/value pairs, invalid entries are ignored
  */
-[[nodiscard]] inline std::vector<std::pair<std::string,std::string>> key_value(std::vector<std::string> const& entries)
+[[nodiscard]] inline std::unordered_map<std::string,std::string> key_value(std::vector<std::string> const& entries)
 {
   return entries
     | std::views::filter([](auto&& e){ return e.find('=') != std::string::npos; })
@@ -40,7 +40,7 @@ namespace fs = std::filesystem;
         auto it = e.find('=');
         return std::make_pair(e.substr(0, it), e.substr(it+1, std::string::npos));
       })
-    | std::ranges::to<std::vector<std::pair<std::string,std::string>>>();
+    | std::ranges::to<std::unordered_map<std::string,std::string>>();
 }
 
 /**

@@ -64,6 +64,8 @@ class Bwrap
     std::vector<std::string> m_args;
     // Run bwrap with uid and gid equal to 0
     bool m_is_root;
+    // Path to generated passwd file
+    fs::path m_path_file_passwd;
     // Bwrap native --overlay options
     void overlay(std::vector<fs::path> const& vec_path_dir_layer
       , fs::path const& path_dir_upper
@@ -78,6 +80,7 @@ class Bwrap
       , std::optional<Overlay> opt_overlay
       , fs::path const& path_dir_root
       , fs::path const& path_file_bashrc
+      , fs::path const& path_file_passwd
       , fs::path const& path_file_program
       , std::vector<std::string> const& program_args
       , std::vector<std::string> const& program_env);
@@ -111,7 +114,7 @@ class Bwrap
 
 /**
  * @brief Construct a new Bwrap:: Bwrap object
- * 
+ *
  * @param is_root A flag to set the sandbox user as root
  * @param opt_overlay Optional overlay filesystem configuration
  * @param path_dir_root Path to the sandbox root directory
@@ -119,12 +122,14 @@ class Bwrap
  * @param path_file_program Program to launch in the sandbox
  * @param program_args Arguments for the program launched in the sandbox
  * @param program_env Environment for the program launched in the sandbox
+ * @param path_file_passwd Path to the passwd file to bind
  */
 inline Bwrap::Bwrap(
       bool is_root
     , std::optional<Overlay> opt_overlay
     , fs::path const& path_dir_root
     , fs::path const& path_file_bashrc
+    , fs::path const& path_file_passwd
     , fs::path const& path_file_program
     , std::vector<std::string> const& program_args
     , std::vector<std::string> const& program_env)
@@ -132,19 +137,15 @@ inline Bwrap::Bwrap(
   , m_program_args(program_args)
   , m_opt_path_dir_work(opt_overlay.transform([](auto&& e){ return e.path_dir_work; }))
   , m_is_root(is_root)
+  , m_path_file_passwd(path_file_passwd)
 {
   // Push passed environment
   std::ranges::for_each(program_env, [&](auto&& e){ ns_log::info()("ENV: {}", e); m_program_env.push_back(e); });
 
-  // Configure some environment variables
+  // Configure TERM
   m_program_env.push_back("TERM=xterm");
 
-  if ( struct passwd *pw = getpwuid(getuid()); pw )
-  {
-    m_program_env.push_back("HOST_USERNAME=pw->pw_name");
-  } // if
-
-  // Setup PS1
+  // Setup .bashrc
   std::ofstream of{path_file_bashrc};
   if ( of.is_open() )
   {
@@ -195,6 +196,8 @@ inline Bwrap::Bwrap(
   ns_vector::push_back(m_args, "--bind", "/tmp", "/tmp");
   ns_vector::push_back(m_args, "--bind", "/sys", "/sys");
   ns_vector::push_back(m_args, "--bind-try", "/etc/group", "/etc/group");
+  // Make it as a rw binding, because some package managers might try to update it.
+  ns_vector::push_back(m_args, "--bind-try", m_path_file_passwd, "/etc/passwd");
 
   // Check if XDG_RUNTIME_DIR is set or try to set it manually
   set_xdg_runtime_dir();
