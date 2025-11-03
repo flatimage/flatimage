@@ -8,6 +8,13 @@
 
 #pragma once
 
+#include <algorithm>
+#include <cctype>
+#include <cstdint>
+#include <exception>
+#include <memory>
+#include <string>
+#include <sys/types.h>
 #include <system_error>
 #include <unistd.h>
 #include <pwd.h>
@@ -15,9 +22,15 @@
 #include <fstream>
 #include <ranges>
 #include <format>
+#include <unordered_map>
+#include <vector>
 
+#include "common.hpp"
 #include "lib/env.hpp"
 #include "db/env.hpp"
+#include "lib/log.hpp"
+#include "macro.hpp"
+#include "std/expected.hpp"
 #include "std/filesystem.hpp"
 #include "std/enum.hpp"
 #include "reserved/casefold.hpp"
@@ -195,15 +208,15 @@ struct FlatimageConfig
   // Distribution name
   Distribution distribution;
   // Feature flags
-  bool is_root;
-  bool is_readonly;
-  bool is_debug;
-  bool is_casefold;
-  bool is_notify;
+  bool is_root{};
+  bool is_readonly{};
+  bool is_debug{};
+  bool is_casefold{};
+  bool is_notify{};
   // Type of overlay filesystem (bwrap,overlayfs,unionfs)  
   ns_reserved::ns_overlay::OverlayType overlay_type;
   // Offset 
-  uint64_t offset_reserved;
+  uint64_t offset_reserved{};
   // Useful directories
   fs::path path_dir_global;
   fs::path path_dir_mount;
@@ -228,7 +241,7 @@ struct FlatimageConfig
   fs::path path_dir_work_overlayfs;
   fs::path path_dir_mount_overlayfs;
   //Compression level
-  uint32_t layer_compression_level;
+  uint32_t layer_compression_level{};
   // PATH environment variable
   std::string env_path;
 
