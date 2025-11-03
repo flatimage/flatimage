@@ -2,8 +2,6 @@ site_name: FlatImage Documentation
 nav:
   - FlatImage: 
     - Getting Started: index.md
-  - Comparison:
-    - comparison.md
   - Examples:
     - Alpine:
       - Firefox: examples/alpine/firefox.md
@@ -28,14 +26,13 @@ nav:
     - fim-remote: cmd/remote.md
     - fim-root: cmd/root.md
     - fim-version: cmd/version.md
-  - Environment:
-    - environment.md
   - Portal:
-    - portal.md
+    - Commands: portal/commands.md
   - Configuration:
     - Prompt: configuration/prompt.md
     - Compression: configuration/compression.md
     - Binding: configuration/binding.md
   - Architecture:
+    - Environment: architecture/environment.md
     - Directories: architecture/directories.md
 theme: readthedocs
