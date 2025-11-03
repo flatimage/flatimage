@@ -15,7 +15,7 @@
 #include "../macro.hpp"
 #include "reserved.hpp"
 
-namespace ns_reserved::bind
+namespace ns_reserved::ns_bind
 {
 
 namespace
@@ -61,6 +61,6 @@ inline Expected<std::string> read(fs::path const& path_file_binary)
   return buffer.get();
 }
 
-} // namespace ns_reserved::bind
+} // namespace ns_reserved::ns_bind
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

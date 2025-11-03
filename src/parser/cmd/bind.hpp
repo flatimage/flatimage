@@ -48,7 +48,7 @@ namespace fs = std::filesystem;
  */
 inline Expected<ns_db::ns_bind::Binds> db_read(fs::path const& path_file_binary)
 {
-  auto reserved_data = Expect(ns_reserved::bind::read(path_file_binary));
+  auto reserved_data = Expect(ns_reserved::ns_bind::read(path_file_binary));
   return ns_db::ns_bind::deserialize(
     reserved_data.empty()? "{}" : reserved_data
   ).value_or(ns_db::ns_bind::Binds{});
@@ -62,7 +62,7 @@ inline Expected<ns_db::ns_bind::Binds> db_read(fs::path const& path_file_binary)
  */
 inline Expected<void> db_write(fs::path const& path_file_binary, ns_db::ns_bind::Binds const& binds)
 {
-  Expect(ns_reserved::bind::write(path_file_binary
+  Expect(ns_reserved::ns_bind::write(path_file_binary
     , Expect(ns_db::ns_bind::serialize(binds)).dump()
   ));
   return {};
