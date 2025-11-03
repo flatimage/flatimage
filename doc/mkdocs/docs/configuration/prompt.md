@@ -1,15 +1,48 @@
 # Prompt
 
-## Setting a Custom Prompt
+### Setting Custom Prompt
 
-You can change the value of the PS1 variable for a custom prompt for your
-application, the `Appendix` contains the options reference.
+Customize the shell prompt (PS1):
 
+**Default Prompt:**
 ```bash
-$ ./app.flatimage fim-env set 'PS1="[\#] \A \W -> "'
-$ ./app.flatimage fim-exec bash
-[1] 15:05 ~ ->
+./app.flatimage fim-exec bash
+# Prompt: [flatimage-arch] ~ >
 ```
+
+**Simple Custom Prompt:**
+```bash
+./app.flatimage fim-env add 'PS1=\W > '
+./app.flatimage fim-exec bash
+# Prompt: ~ >
+```
+
+**User@Host Style:**
+```bash
+./app.flatimage fim-env add 'PS1=\u@\h:\W\$ '
+./app.flatimage fim-exec bash
+# Prompt: user@hostname:~$
+```
+
+**With Time:**
+```bash
+./app.flatimage fim-env add 'PS1=[\t] \W > '
+./app.flatimage fim-exec bash
+# Prompt: [14:30:45] ~ >
+```
+
+**Common PS1 Escape Sequences:**
+
+| Sequence | Description | Example Output |
+|----------|-------------|----------------|
+| `\u` | Username | `user` |
+| `\h` | Hostname (short) | `machine` |
+| `\w` | Full working directory | `/home/user/project` |
+| `\W` | Current directory name | `project` |
+| `\$` | `#` if root, `$` otherwise | `$` or `#` |
+| `\t` | Time (24h HH:MM:SS) | `14:30:45` |
+| `\A` | Time (24h HH:MM) | `14:30` |
+| `\d` | Date | `Mon Jan 15` |
 
 ## Appendix
 
