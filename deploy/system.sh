@@ -1,22 +1,22 @@
 function _system_alpine()
 {
-  local dir_root="${1:?dist is undefined}"
+  local dir_root="${1:?dir_root is undefined}"
   local dist="${2:?dist is undefined}"
+  # Clear root directory
+  rm -rf "$dir_root"
   # Un-mount in case of a failure in a previous run
   umount "$dir_root/etc/resolv.conf" "$dir_root/etc/hosts" || true
   # Pull alpine
-  rm -rf "$dir_root"
-  wget http://dl-cdn.alpinelinux.org/alpine/v3.12/main/x86_64/apk-tools-static-2.10.8-r1.apk
+  wget http://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/apk-tools-static-2.14.9-r3.apk
   tar zxf apk-tools-static-*.apk
-  ./sbin/apk.static --arch x86_64 -X http://dl-cdn.alpinelinux.org/alpine/latest-stable/main/ -U --allow-untrusted --root /tmp/"$dist" --initdb add alpine-base
+  ./sbin/apk.static --arch x86_64 -X http://dl-cdn.alpinelinux.org/alpine/latest-stable/main/ \
+    -U --allow-untrusted --root /tmp/"$dist" --initdb add alpine-base
   rm -rf "${dir_root:?dir_root is undefined}"/dev "$dir_root"/target
   # Touch sources
   { sed -E 's/^\s+://' | tee "$dir_root"/etc/apk/repositories; } <<-END
-    :http://dl-cdn.alpinelinux.org/alpine/v3.16/main
-    :http://dl-cdn.alpinelinux.org/alpine/v3.16/community
-    :#http://dl-cdn.alpinelinux.org/alpine/edge/main
-    :#http://dl-cdn.alpinelinux.org/alpine/edge/community
-    :#http://dl-cdn.alpinelinux.org/alpine/edge/testing
+    :http://dl-cdn.alpinelinux.org/alpine/v3.22/main
+    :http://dl-cdn.alpinelinux.org/alpine/v3.22/community
+    :#http://dl-cdn.alpinelinux.org/alpine/v3.22/testing
 	END
   # Include additional paths in PATH
   export PATH="$PATH:/sbin:/bin"
@@ -31,9 +31,8 @@ function _system_alpine()
   touch "$dir_root"/etc/resolv.conf "$dir_root"/etc/hosts
   mount --bind /etc/resolv.conf "$dir_root"/etc/resolv.conf
   mount --bind /etc/hosts "$dir_root"/etc/hosts
-  chroot "$dir_root" /bin/sh -c 'apk update'
-  chroot "$dir_root" /bin/sh -c 'apk upgrade'
-  chroot "$dir_root" /bin/sh -c 'apk add bash alsa-utils alsa-utils-doc alsa-lib alsaconf alsa-ucm-conf pulseaudio pulseaudio-alsa' || true
+  chroot "$dir_root" /bin/sh -c 'apk update && apk upgrade'
+  #chroot "$dir_root" /bin/sh -c 'apk add bash alsa-utils alsa-utils-doc alsa-lib alsaconf alsa-ucm-conf pulseaudio pulseaudio-alsa' || true
   umount "$dir_root"/etc/resolv.conf "$dir_root"/etc/hosts
   # Create fim dir
   mkdir -p "$dir_root"/fim
@@ -45,6 +44,8 @@ function _system_arch()
 {
   local dir_root="${1:?dir_root is undefined}"
   local dist="${2:?dist is undefined}"
+  # Clear root directory
+  rm -rf "$dir_root"
   # Fetch bootstrap
   git clone "https://github.com/ruanformigoni/arch-bootstrap.git"
   # Build
@@ -55,14 +56,7 @@ function _system_arch()
   cp "$FIM_DIR/sources/arch.list" "$dir_root"/etc/pacman.d/mirrorlist
   # Enable multilib
   gawk -i inplace '/#\[multilib\]/,/#Include = (.*)/ { sub("#", ""); } 1' "$dir_root"/etc/pacman.conf
-  chroot "$dir_root" /bin/bash -c "pacman -Syu"
-  # Audio & video
-  pkgs_va+=("alsa-lib lib32-alsa-lib alsa-plugins lib32-alsa-plugins libpulse")
-  pkgs_va+=("lib32-libpulse alsa-tools alsa-utils")
-  pkgs_va+=("pipewire lib32-pipewire pipewire-pulse")
-  pkgs_va+=("pipewire-jack lib32-pipewire-jack pipewire-alsa")
-  pkgs_va+=("wireplumber")
-  chroot "$dir_root" /bin/bash -c "pacman -S ${pkgs_va[*]} --noconfirm"
+  chroot "$dir_root" /bin/bash -c "pacman -Syu --noconfirm"
   # Required for nvidia
   chroot "$dir_root" /bin/bash -c "pacman -S --noconfirm libvdpau lib32-libvdpau"
   # Avoid segfaults on some OpenGL applications
@@ -90,8 +84,6 @@ function _system_arch()
   mkdir -p "$dir_root"/fim
   # Create config dir
   mkdir -p "$dir_root"/fim/config
-  # Compile flatimage
-  _docker_run "ARCH"
   # Remove mount dirs that may have leftover files
   rm -rf "${dir_root:?dir_root is undefined}"/{tmp,proc,sys,dev,run}
   # Create required mount points if not exists
