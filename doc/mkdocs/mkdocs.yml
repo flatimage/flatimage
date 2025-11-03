@@ -29,6 +29,7 @@ nav:
   - Portal:
     - Commands: portal/commands.md
   - Configuration:
+    - User Identity: configuration/user-identity.md
     - Prompt: configuration/prompt.md
     - Compression: configuration/compression.md
     - Binding: configuration/binding.md
