@@ -29,7 +29,7 @@ ARG FIM_FILE_META
 ENV FIM_FILE_META=$FIM_FILE_META
 
 # Setup MkDocs
-RUN pipx install mkdocs
+RUN pipx install --include-deps mkdocs mkdocs-mermaid2-plugin
 ENV PATH="${PATH}:/root/.local/bin"
 
 # Setup CMake

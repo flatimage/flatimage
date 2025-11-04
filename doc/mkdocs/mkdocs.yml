@@ -37,3 +37,6 @@ nav:
     - Environment: architecture/environment.md
     - Directories: architecture/directories.md
 theme: readthedocs
+plugins:
+  - search
+  - mermaid2
