@@ -107,16 +107,93 @@ hello world
 
 FlatImage uses a layered filesystem architecture where each layer is a compressed filesystem that overlays the previous ones.
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/flatimage/docs/master/docs/image/commit.png"/>
-</p>
+```mermaid
+flowchart TD
+    subgraph T1["Clean Image"]
+        direction LR
+        subgraph Binary1["app.flatimage"]
+            L0_1["layer-0: base system"]
+        end
+        subgraph Config1[".app.flatimage.config"]
+            Empty1["(empty)"]
+        end
+    end
+
+    subgraph T2["After Installing Firefox"]
+        direction LR
+        subgraph Binary2["app.flatimage"]
+            L0_2["layer-0: base system"]
+        end
+        subgraph Config2[".app.flatimage.config"]
+            Firefox2["firefox"]
+        end
+    end
+
+    subgraph T3["fim-layer commit - Stage 1"]
+        direction LR
+        subgraph Binary3["app.flatimage"]
+            L0_3["layer-0: base system"]
+        end
+        subgraph Config3[".app.flatimage.config"]
+            direction TB
+            Layer3["layer-1: firefox"]
+            Firefox3["firefox"]
+        end
+    end
+
+    subgraph T4["fim-layer commit - Stage 2"]
+        direction LR
+        subgraph Binary4["app.flatimage"]
+            L0_4["layer-0: base system"]
+        end
+        subgraph Config4[".app.flatimage.config"]
+            Layer4["layer-1: firefox"]
+        end
+    end
+
+    subgraph T5["fim-layer commit - Stage 3"]
+        direction LR
+        subgraph Binary5["app.flatimage"]
+            Layers5["layer-1: firefox<br/>────────────────<br/>layer-0: base system"]
+        end
+        subgraph Config5[".app.flatimage.config"]
+            Empty5["(empty)"]
+        end
+    end
+
+    T1 --> T2
+    T2 --> T3
+    T3 --> T4
+    T4 --> T5
+
+    style L0_1 fill:#e1f5ff
+    style L0_2 fill:#e1f5ff
+    style L0_3 fill:#e1f5ff
+    style L0_4 fill:#e1f5ff
+    style Layers5 fill:#e8f7ff
+    style Firefox2 fill:#ffe6e6
+    style Firefox3 fill:#ffe6e6
+    style Layer3 fill:#fff9e6
+    style Layer4 fill:#fff9e6
+    style Empty1 fill:#f0f0f0,stroke-dasharray: 5 5
+    style Empty5 fill:#f0f0f0,stroke-dasharray: 5 5
+```
 
 **Layer Stacking:**
-- Layers are stacked from oldest to newest
+
+- Layers are stacked from bottom to top (oldest to newest)
 - Files in newer layers override files in older layers
-- The topmost layer always contains uncommitted changes (your working directory)
-- Each `fim-layer commit` or `fim-layer add` creates a new layer on top of the stack
+- The `.app.flatimage.config` directory holds uncommitted changes (working directory)
+- When you run `fim-layer commit`, changes move from config to binary as a new layer
+
+**Key Concepts:**
+
+1. **Initial State** - Only base system layer exists
+2. **During Installation** - Firefox installed in config directory (temporary)
+3. **After Commit** - Firefox layer moves to binary (permanent)
+4. **After Cleanup** - Config directory cleared, layers remain in binary
 
 **Commands Comparison:**
+
 - `fim-layer commit` - Automatically creates and adds a layer from your current uncommitted changes
 - `fim-layer create` + `fim-layer add` - Manually create a layer from a specific directory, then add it. This gives you precise control over what goes into each layer
