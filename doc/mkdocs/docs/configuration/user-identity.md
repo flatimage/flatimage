@@ -8,35 +8,38 @@ FlatImage provides flexible configuration for user identity within the container
 
 ### Overview
 
-FlatImage automatically configures user identity within containers through three internal methods that work together during initialization:
-
-- **`get_uid_gid()`** - Determines the UID and GID for the container process
-- **`write_passwd()`** - Generates the `/etc/passwd` file with user information
-- **`write_bashrc()`** - Creates the shell initialization file with custom prompt
-
-These methods are called automatically during container startup and can be customized through environment variables set with `fim-env`.
+FlatImage automatically configures user identity within containers, this can be customized through environment variables set with `fim-env`.
 
 ### Configuration Priority Hierarchy
 
 FlatImage uses a clear priority system to determine user identity:
 
-```
-┌─────────────────────────────────────┐
-│ 1. Root Mode (fim-root)             │  Highest Priority
-│    → UID=0, GID=0, user=root        │
-├─────────────────────────────────────┤
-│ 2. Custom Values (environment vars) │
-│    → UID, GID, USER, HOME, SHELL    │
-├─────────────────────────────────────┤
-│ 3. Host User Defaults               │  Lowest Priority
-│    → Values from getpwuid()         │
-└─────────────────────────────────────┘
+```mermaid
+flowchart LR
+    Start[Identity Resolution] --> Priority1{Root Mode?}
+
+    Priority1 -->|Yes| Root[Priority 1<br/>UID=0, GID=0]
+    Priority1 -->|No| Priority2{Custom Values?}
+
+    Priority2 -->|Yes| Custom[Priority 2<br/>fim-env variables]
+    Priority2 -->|No| Default[Priority 3<br/>Host defaults]
+
+    Root --> Result[Configured]
+    Custom --> Result
+    Default --> Result
+
+    style Priority1 fill:#ffe6e6
+    style Priority2 fill:#fff9e6
+    style Root fill:#ffcccc
+    style Custom fill:#ffffcc
+    style Default fill:#e6f3ff
+    style Result fill:#e7f9e7
 ```
 
 This hierarchy ensures that:
 
-- Root mode always gets UID=0, regardless of other settings
-- Users can override defaults with custom values
+- Root mode always gets UID=0, GID=0, /root regardless of other settings
+- Users can override defaults with custom values via `fim-env`
 - Sensible defaults are used when nothing is specified
 
 ### Password File Format
@@ -95,11 +98,11 @@ Override the username displayed in the container:
 
 ```bash
 # Set custom username
-./app.flatimage fim-env add 'USER=appuser'
+./app.flatimage fim-env add 'USER=container_user'
 ./app.flatimage fim-exec whoami
-# Output: appuser
+# Output: container_user
 ./app.flatimage fim-exec cat /etc/passwd
-# Output: appuser:x:1000:1000:appuser:/home/username:/tmp/fim/.../bin/bash
+# Output: container_user:x:1000:1000:container_user:/home/host_user:/tmp/fim/.../bin/bash
 ```
 
 ### Setting Custom Home Directory
@@ -156,24 +159,41 @@ Combine all options for full control:
 
 ## How it works
 
-### Implementation Architecture
+### Overview
 
-User identity is implemented through three `const` methods in the `FlatimageConfig` class:
+When you execute a command in FlatImage, the system automatically configures the user identity for the containerized environment. This happens transparently before your application starts, ensuring the correct user, permissions, and environment are in place.
 
-```cpp
-// Determines UID and GID based on configuration
-Expected<UidGid> get_uid_gid() const;
+### Identity Resolution Process
 
-// Generates /etc/passwd with user information
-Expected<fs::path> write_passwd() const;
+The system resolves user identity through a three-tier priority system:
 
-// Creates bashrc with custom prompt
-Expected<fs::path> write_bashrc() const;
+#### 1. Mode-Based Override
+- **Root mode** (`fim-root`): Always uses UID=0, GID=0, username="root", home="/root"
+- **User mode** (`fim-exec`): Proceeds to check environment variables
+
+#### 2. Custom Configuration
+
+Environment variables set via `fim-env` take precedence:
+- `UID` / `GID` - Numeric user/group IDs
+- `USER` - Username string
+- `HOME` - Home directory path
+- `SHELL` - Shell executable path
+- `PS1` - Shell prompt format
+
+#### 3. Host Defaults
+
+If no custom values are set, FlatImage uses the current host user's information via `getpwuid()`.
+
+### Generated Files
+
+FlatImage creates temporary configuration files for each container instance:
+
+**`/etc/passwd` Entry**:
+
+```
+username:x:UID:GID:username:home:shell
 ```
 
-These methods:
-- Are called automatically during container initialization
-- Read configuration from the FlatImage environment database
-- Generate files in the instance-specific directory
-- Return file paths for binding into the container
-- Use error handling via `Expected<>` return types
+- Standard Unix format with single user entry
+- Bound into container at `/etc/passwd`
+- Location: `$FIM_DIR_INSTANCE/passwd`
