@@ -14,6 +14,7 @@
 #include <exception>
 #include <memory>
 #include <string>
+#include <sys/stat.h>
 #include <sys/types.h>
 #include <system_error>
 #include <unistd.h>
@@ -201,10 +202,6 @@ namespace fs = std::filesystem;
 
 struct FlatimageConfig
 {
-  private: 
-  FlatimageConfig() = default;
-
-  public:
   // Distribution name
   Distribution distribution;
   // Feature flags
@@ -213,9 +210,9 @@ struct FlatimageConfig
   bool is_debug{};
   bool is_casefold{};
   bool is_notify{};
-  // Type of overlay filesystem (bwrap,overlayfs,unionfs)  
+  // Type of overlay filesystem (bwrap,overlayfs,unionfs)
   ns_reserved::ns_overlay::OverlayType overlay_type;
-  // Offset 
+  // Offset
   uint64_t offset_reserved{};
   // Useful directories
   fs::path path_dir_global;
@@ -244,117 +241,107 @@ struct FlatimageConfig
   uint32_t layer_compression_level{};
   // PATH environment variable
   std::string env_path;
-
-  FlatimageConfig(FlatimageConfig const&) = delete;
-  FlatimageConfig& operator=(FlatimageConfig const&) = delete;
-  ~FlatimageConfig()
-  {
-    fs::path path_dir_work_bwrap = this->path_dir_work_overlayfs / "work";
-    // Clean up bwrap work directory
-    if ( fs::exists(path_dir_work_bwrap))
-    {
-      std::error_code ec;
-      fs::permissions(path_dir_work_bwrap
-        ,   fs::perms::owner_read  | fs::perms::owner_write | fs::perms::owner_exec
-          | fs::perms::group_read  | fs::perms::group_exec
-          | fs::perms::others_read | fs::perms::others_exec
-        , ec
-      );
-      elog_if(ec, "Error to modify permissions '{}': '{}'"_fmt(path_dir_work_bwrap, ec.message()));
-    }
-    // Clean up work directory
-    std::error_code ec;
-    fs::remove_all(this->path_dir_work_overlayfs, ec);
-    elog_if(ec, "Error to erase '{}': '{}'"_fmt(this->path_dir_work_overlayfs, ec.message()));
-    return;
-  }
-  friend Expected<std::shared_ptr<FlatimageConfig>> config();
 };
 
 /**
  * @brief Factory method that makes a FlatImage configuration object
- * 
+ *
  * @return Expected<FlatimageConfig> A FlatImage configuration object or the respective error
  */
 [[nodiscard]] inline Expected<std::shared_ptr<FlatimageConfig>> config()
 {
-  auto config = std::shared_ptr<FlatimageConfig>(new FlatimageConfig());
   // pid and distribution variables
   ns_env::set("FIM_PID", getpid(), ns_env::Replace::Y);
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
+
   // Standard paths
-  config->path_dir_global          = Expect(ns_env::get_expected("FIM_DIR_GLOBAL"));
-  config->path_file_binary         = Expect(ns_env::get_expected("FIM_FILE_BINARY"));
-  config->path_dir_binary          = config->path_file_binary.parent_path();
-  config->path_dir_app             = Expect(ns_env::get_expected("FIM_DIR_APP"));
-  config->path_dir_app_bin         = Expect(ns_env::get_expected("FIM_DIR_APP_BIN"));
-  config->path_dir_app_sbin        = Expect(ns_env::get_expected("FIM_DIR_APP_SBIN"));
-  config->path_dir_instance        = Expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
-  config->path_dir_mount           = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
-  config->path_file_bash           = config->path_dir_app_bin / "bash";
-  config->path_dir_mount_layers    = config->path_dir_mount / "layers";
-  config->path_dir_mount_overlayfs = config->path_dir_mount / "overlayfs";
+  fs::path path_dir_global = Expect(ns_env::get_expected("FIM_DIR_GLOBAL"));
+  fs::path path_file_binary = Expect(ns_env::get_expected("FIM_FILE_BINARY"));
+  fs::path path_dir_binary = path_file_binary.parent_path();
+  fs::path path_dir_app = Expect(ns_env::get_expected("FIM_DIR_APP"));
+  fs::path path_dir_app_bin = Expect(ns_env::get_expected("FIM_DIR_APP_BIN"));
+  fs::path path_dir_app_sbin = Expect(ns_env::get_expected("FIM_DIR_APP_SBIN"));
+  fs::path path_dir_instance = Expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
+  fs::path path_dir_mount = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
+  fs::path path_file_bash = path_dir_app_bin / "bash";
+  fs::path path_dir_mount_layers = path_dir_mount / "layers";
+  fs::path path_dir_mount_overlayfs = path_dir_mount / "overlayfs";
+
   // Distribution
-  config->distribution = Expect(Distribution::from_string(FIM_DIST));
+  Distribution distribution = Expect(Distribution::from_string(FIM_DIST));
+
   // Get built-in environment variables
-  auto hash_env = ns_db::ns_env::key_value(Expect(ns_db::ns_env::get(config->path_file_binary)));
+  auto hash_env = ns_db::ns_env::key_value(Expect(ns_db::ns_env::get(path_file_binary)));
+
   // Flags
-  config->is_root = ns_env::exists("FIM_ROOT", "1")
+  bool is_root = ns_env::exists("FIM_ROOT", "1")
     or (hash_env.contains("UID") and hash_env.at("UID") == "0");
+
   // Resolve UID/GID
-  Id id = Expect(get_id(config->is_root, hash_env));
+  Id id = Expect(get_id(is_root, hash_env));
+
   // Create bashrc and passwd files
-  config->path_file_bashrc = Expect(write_bashrc(config->path_dir_instance / "bashrc", hash_env));
-  config->path_file_passwd = Expect(write_passwd(config->path_dir_instance / "passwd", config->path_file_bashrc, id, hash_env));
+  fs::path path_file_bashrc = Expect(write_bashrc(path_dir_instance / "bashrc", hash_env));
+  fs::path path_file_passwd = Expect(write_passwd(path_dir_instance / "passwd", path_file_bashrc, id, hash_env));
+
   // Flags for readonly, debug, notify, and casefolding
-  config->is_readonly = ns_env::exists("FIM_RO", "1");
-  config->is_debug = ns_env::exists("FIM_DEBUG", "1");
-  config->is_casefold = ns_env::exists("FIM_CASEFOLD", "1")
-    or Expect(ns_reserved::ns_casefold::read(config->path_file_binary));
-  config->is_notify = Expect(ns_reserved::ns_notify::read(config->path_file_binary));
+  bool is_debug = ns_env::exists("FIM_DEBUG", "1");
+  bool is_casefold = ns_env::exists("FIM_CASEFOLD", "1")
+    or Expect(ns_reserved::ns_casefold::read(path_file_binary));
+  bool is_notify = Expect(ns_reserved::ns_notify::read(path_file_binary));
+
   // Configure overlay type
   using ns_reserved::ns_overlay::OverlayType;
-  config->overlay_type = ns_env::exists("FIM_OVERLAY", "unionfs")? ns_reserved::ns_overlay::OverlayType::UNIONFS
+  OverlayType overlay_type = ns_env::exists("FIM_OVERLAY", "unionfs")? ns_reserved::ns_overlay::OverlayType::UNIONFS
     : ns_env::exists("FIM_OVERLAY", "overlayfs")? ns_reserved::ns_overlay::OverlayType::OVERLAYFS
     : ns_env::exists("FIM_OVERLAY", "bwrap")? ns_reserved::ns_overlay::OverlayType::BWRAP
-    : ns_reserved::ns_overlay::read(config->path_file_binary).value_or(OverlayType::BWRAP).get();
+    : ns_reserved::ns_overlay::read(path_file_binary).value_or(OverlayType::BWRAP).get();
+
   // Check for case folding usage constraints
-  if(config->is_casefold and config->overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
+  if(is_casefold and overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
   {
     ns_log::warn()("casefold cannot be used with bwrap overlayfs, falling back to unionfs");
-    config->overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
+    overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
   }
+
   // Paths only available inside the container (runtime)
-  config->path_dir_runtime = "/tmp/fim/run";
-  config->path_dir_runtime_host = config->path_dir_runtime / "host";
-  ns_env::set("FIM_DIR_RUNTIME", config->path_dir_runtime, ns_env::Replace::Y);
-  ns_env::set("FIM_DIR_RUNTIME_HOST", config->path_dir_runtime_host, ns_env::Replace::Y);
+  fs::path path_dir_runtime = "/tmp/fim/run";
+  fs::path path_dir_runtime_host = path_dir_runtime / "host";
+  ns_env::set("FIM_DIR_RUNTIME", path_dir_runtime, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_RUNTIME_HOST", path_dir_runtime_host, ns_env::Replace::Y);
+
   // Home directory
-  config->path_dir_host_home = Expect(ns_env::get_expected<fs::path>("HOME")).relative_path();
+  fs::path path_dir_host_home = Expect(ns_env::get_expected<fs::path>("HOME")).relative_path();
+
   // Create host config directory
-  config->path_dir_host_config = config->path_file_binary.parent_path() / ".{}.config"_fmt(config->path_file_binary.filename());
-  config->path_dir_host_config_tmp = config->path_dir_host_config / "tmp";
-  Expect(ns_fs::create_directories(config->path_dir_host_config_tmp));
-  ns_env::set("FIM_DIR_CONFIG", config->path_dir_host_config, ns_env::Replace::Y);
+  fs::path path_dir_host_config = path_file_binary.parent_path() / ".{}.config"_fmt(path_file_binary.filename());
+  fs::path path_dir_host_config_tmp = path_dir_host_config / "tmp";
+  Expect(ns_fs::create_directories(path_dir_host_config_tmp));
+  ns_env::set("FIM_DIR_CONFIG", path_dir_host_config, ns_env::Replace::Y);
+
   // Overlayfs write data to remain on the host
-  config->path_dir_mount_ciopfs = config->path_dir_host_config / "casefold";
-  config->path_dir_data_overlayfs = config->path_dir_host_config / "overlays";
-  config->path_dir_upper_overlayfs = config->path_dir_data_overlayfs / "upperdir";
-  config->path_dir_work_overlayfs = config->path_dir_data_overlayfs / "workdir" / std::to_string(getpid());
-  Expect(ns_fs::create_directories(config->path_dir_upper_overlayfs));
-  Expect(ns_fs::create_directories(config->path_dir_work_overlayfs));
+  fs::path path_dir_mount_ciopfs = path_dir_host_config / "casefold";
+  fs::path path_dir_data_overlayfs = path_dir_host_config / "overlays";
+  fs::path path_dir_upper_overlayfs = path_dir_data_overlayfs / "upperdir";
+  fs::path path_dir_work_overlayfs = path_dir_data_overlayfs / "workdir" / std::to_string(getpid());
+  Expect(ns_fs::create_directories(path_dir_upper_overlayfs));
+  Expect(ns_fs::create_directories(path_dir_work_overlayfs));
+
   // Bwrap
-  ns_env::set("BWRAP_LOG", config->path_dir_mount.string() + ".bwrap.log", ns_env::Replace::Y);
+  ns_env::set("BWRAP_LOG", path_dir_mount.string() + ".bwrap.log", ns_env::Replace::Y);
+
   // Environment
-  config->env_path = config->path_dir_app_bin.string() + ":" + ns_env::get_expected("PATH").value_or("");
-  config->env_path += ":/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin";
-  config->env_path += ":{}"_fmt(config->path_dir_app_sbin.string());
-  ns_env::set("PATH", config->env_path, ns_env::Replace::Y);
+  std::string env_path = path_dir_app_bin.string() + ":" + ns_env::get_expected("PATH").value_or("");
+  env_path += ":/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin";
+  env_path += ":{}"_fmt(path_dir_app_sbin.string());
+  ns_env::set("PATH", env_path, ns_env::Replace::Y);
+
   // Compression level configuration (goes from 0 to 10, default is 7)
-  config->layer_compression_level  = ({
+  uint32_t layer_compression_level = ({
    std::string str_compression_level = ns_env::get_expected("FIM_COMPRESSION_LEVEL").value_or("7");
    std::ranges::all_of(str_compression_level, ::isdigit) ? std::stoi(str_compression_level) : 7;
   });
+
   // LD_LIBRARY_PATH
   if ( auto ret = ns_env::get_expected("LD_LIBRARY_PATH") )
   {
@@ -365,7 +352,57 @@ struct FlatimageConfig
     ns_env::set("LD_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu", ns_env::Replace::Y);
   }
 
-  return config;
+  // Custom deleter for cleanup logic
+  auto deleter = [](FlatimageConfig* cfg)
+  {
+    if (not cfg) { return; }
+    fs::path path_dir_work_bwrap = cfg->path_dir_work_overlayfs / "work";
+    // Clean up bwrap work directory
+    if (ns_fs::exists(path_dir_work_bwrap).value_or(false))
+    {
+      elog_if(::chmod(path_dir_work_bwrap.c_str(), 0755) < 0
+        , "Error to modify permissions '{}': '{}'"_fmt(path_dir_work_bwrap, strerror(errno))
+      );
+    }
+    // Clean up work directory
+    std::error_code ec;
+    fs::remove_all(cfg->path_dir_work_overlayfs, ec);
+    elog_if(ec, "Error to erase '{}': '{}'"_fmt(cfg->path_dir_work_overlayfs, ec.message()));
+    delete cfg;
+  };
+
+  return std::shared_ptr<FlatimageConfig>(new FlatimageConfig{
+    .distribution = distribution,
+    .is_root = is_root,
+    .is_debug = is_debug,
+    .is_casefold = is_casefold,
+    .is_notify = is_notify,
+    .overlay_type = overlay_type,
+    .path_dir_global = path_dir_global,
+    .path_dir_mount = path_dir_mount,
+    .path_dir_app = path_dir_app,
+    .path_dir_app_bin = path_dir_app_bin,
+    .path_dir_app_sbin = path_dir_app_sbin,
+    .path_dir_instance = path_dir_instance,
+    .path_file_binary = path_file_binary,
+    .path_dir_binary = path_dir_binary,
+    .path_file_bashrc = path_file_bashrc,
+    .path_file_passwd = path_file_passwd,
+    .path_file_bash = path_file_bash,
+    .path_dir_mount_layers = path_dir_mount_layers,
+    .path_dir_runtime = path_dir_runtime,
+    .path_dir_runtime_host = path_dir_runtime_host,
+    .path_dir_host_home = path_dir_host_home,
+    .path_dir_host_config = path_dir_host_config,
+    .path_dir_host_config_tmp = path_dir_host_config_tmp,
+    .path_dir_mount_ciopfs = path_dir_mount_ciopfs,
+    .path_dir_data_overlayfs = path_dir_data_overlayfs,
+    .path_dir_upper_overlayfs = path_dir_upper_overlayfs,
+    .path_dir_work_overlayfs = path_dir_work_overlayfs,
+    .path_dir_mount_overlayfs = path_dir_mount_overlayfs,
+    .layer_compression_level = layer_compression_level,
+    .env_path = env_path,
+  }, deleter);
 }
 
 /**
