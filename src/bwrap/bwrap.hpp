@@ -64,8 +64,6 @@ class Bwrap
     std::vector<std::string> m_args;
     // Run bwrap with uid and gid equal to 0
     bool m_is_root;
-    // Path to generated passwd file
-    fs::path m_path_file_passwd;
     // Bwrap native --overlay options
     void overlay(std::vector<fs::path> const& vec_path_dir_layer
       , fs::path const& path_dir_upper
@@ -76,12 +74,15 @@ class Bwrap
     Expected<fs::path> test_and_setup(fs::path const& path_file_bwrap);
 
   public:
-    Bwrap(mode_t uid
+    Bwrap(std::string_view user
+      , mode_t uid
       , mode_t gid
       , std::optional<Overlay> opt_overlay
       , fs::path const& path_dir_root
+      , fs::path const& path_dir_home
       , fs::path const& path_file_bashrc
       , fs::path const& path_file_passwd
+      , fs::path const& path_file_shell
       , fs::path const& path_file_program
       , std::vector<std::string> const& program_args
       , std::vector<std::string> const& program_env);
@@ -125,13 +126,15 @@ class Bwrap
  * @param program_args Arguments for the program launched in the sandbox
  * @param program_env Environment for the program launched in the sandbox
  */
-inline Bwrap::Bwrap(
-      mode_t uid
+inline Bwrap::Bwrap(std::string_view user
+    , mode_t uid
     , mode_t gid
     , std::optional<Overlay> opt_overlay
     , fs::path const& path_dir_root
+    , fs::path const& path_dir_home
     , fs::path const& path_file_bashrc
     , fs::path const& path_file_passwd
+    , fs::path const& path_file_shell
     , fs::path const& path_file_program
     , std::vector<std::string> const& program_args
     , std::vector<std::string> const& program_env)
@@ -139,20 +142,24 @@ inline Bwrap::Bwrap(
   , m_program_args(program_args)
   , m_opt_path_dir_work(opt_overlay.transform([](auto&& e){ return e.path_dir_work; }))
   , m_is_root(uid == 0)
-  , m_path_file_passwd(path_file_passwd)
 {
   // Push passed environment
   std::ranges::for_each(program_env, [&](auto&& e){ ns_log::info()("ENV: {}", e); m_program_env.push_back(e); });
-
   // Configure TERM
   m_program_env.push_back("TERM=xterm");
-
+  // Configure user info
+  ns_vector::push_back(m_args
+    // Configure user name
+    , "--setenv", "USER", std::string{user}
+    // Configure uid and gid
+    , "--uid", std::to_string(uid), "--gid", std::to_string(gid)
+    // Configure HOME
+    ,  "--setenv", "HOME", path_dir_home.string()
+    // Configure SHELL
+    ,  "--setenv", "SHELL", path_file_shell.string()
+  );
   // Setup .bashrc
   ns_env::set("BASHRC_FILE", path_file_bashrc.c_str(), ns_env::Replace::Y);
-
-  // Configure uid and gid
-  ns_vector::push_back(m_args, "--uid", std::to_string(uid), "--gid", std::to_string(gid));
-
   // Use native bwrap --overlay options or overlayfs
   if ( opt_overlay )
   {
@@ -160,24 +167,25 @@ inline Bwrap::Bwrap(
       , opt_overlay->path_dir_upper
       , opt_overlay->path_dir_work
     );
-  } // if
+  }
   else
   {
     elog_if(not fs::is_directory(path_dir_root)
       , "'{}' does not exist or is not a directory"_fmt(path_dir_root)
     );
     ns_vector::push_back(m_args, "--bind", path_dir_root, "/");
-  } // else
-
-  // Basic bindings
-  ns_vector::push_back(m_args, "--dev", "/dev");
-  ns_vector::push_back(m_args, "--proc", "/proc");
-  ns_vector::push_back(m_args, "--bind", "/tmp", "/tmp");
-  ns_vector::push_back(m_args, "--bind", "/sys", "/sys");
-  ns_vector::push_back(m_args, "--bind-try", "/etc/group", "/etc/group");
-  // Make it as a rw binding, because some package managers might try to update it.
-  ns_vector::push_back(m_args, "--bind-try", m_path_file_passwd, "/etc/passwd");
-
+  }
+  // System bindings
+  ns_vector::push_back(m_args
+    , "--dev", "/dev"
+    , "--proc", "/proc"
+    , "--bind", "/tmp", "/tmp"
+    , "--bind", "/sys", "/sys"
+    , "--bind-try", "/etc/group", "/etc/group"
+  );
+  // Configure passwd file, make it as a rw binding, because some package managers
+  // might try to update it.
+  ns_vector::push_back(m_args, "--bind-try", path_file_passwd, "/etc/passwd");
   // Check if XDG_RUNTIME_DIR is set or try to set it manually
   set_xdg_runtime_dir();
 }

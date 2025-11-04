@@ -86,6 +86,20 @@ struct Id
   mode_t gid;
 };
 
+struct User
+{
+  std::string name;
+  std::filesystem::path path_dir_home;
+  std::filesystem::path path_file_shell;
+  std::filesystem::path path_file_bashrc;
+  std::filesystem::path path_file_passwd;
+  Id id;
+  operator std::string()
+  {
+    return std::format("{}:x:{}:{}:{}:{}:{}", name, id.uid, id.gid, name, path_dir_home.string(), path_file_shell.string());
+  }
+};
+
 namespace
 {
 
@@ -96,7 +110,8 @@ namespace fs = std::filesystem;
  * 
  * @return Expected<fs::path> The path to the passwd file
  */
-[[nodiscard]] inline Expected<fs::path> write_passwd(fs::path const& path_file_passwd
+[[nodiscard]] inline Expected<User> write_passwd(fs::path const& path_file_passwd
+  , fs::path const& path_file_bash
   , fs::path const& path_file_bashrc
   , Id const& id
   , std::unordered_map<std::string,std::string> const& variables)
@@ -108,19 +123,25 @@ namespace fs = std::filesystem;
   std::ofstream file_passwd{path_file_passwd};
   qreturn_if(not file_passwd.is_open(), Unexpected("E::Failed to open passwd file at {}", path_file_passwd));
   // Define passwd entries
-  std::string user = (id.uid == 0)? "root"
-    : variables.contains("USER")? variables.at("USER")
-    : pw->pw_name;
-  fs::path path_dir_home = (id.uid == 0)? "/root"
-    : variables.contains("HOME")? variables.at("HOME")
-    : pw->pw_dir;
-  fs::path path_file_shell = variables.contains("SHELL")? fs::path{variables.at("SHELL")}
-    : path_file_bashrc;
-  // Write to passwd file using configured UID/GID
-  file_passwd
-    << std::format("{}:x:{}:{}:{}:{}:{}", user, id.uid, id.gid, user, path_dir_home.string(), path_file_shell.string())
-    << '\n';
-  return path_file_passwd;
+  User user
+  {
+    .name = (id.uid == 0)? "root"
+      : variables.contains("USER")? variables.at("USER")
+      : getenv("USER")?
+      : pw->pw_name,
+    .path_dir_home = (id.uid == 0)? "/root"
+      : variables.contains("HOME")? variables.at("HOME")
+      : getenv("HOME")?
+      : pw->pw_dir,
+    .path_file_shell = variables.contains("SHELL")? fs::path{variables.at("SHELL")}
+      : path_file_bash,
+    .path_file_bashrc = path_file_bashrc,
+    .path_file_passwd = path_file_passwd,
+    .id = id,
+  };
+  // Write to passwd file
+  file_passwd << std::string{user} << '\n';
+  return user;
 }
 
 /**
@@ -203,44 +224,47 @@ namespace fs = std::filesystem;
 struct FlatimageConfig
 {
   // Distribution name
-  Distribution distribution;
+  Distribution const distribution;
   // Feature flags
   bool is_root{};
-  bool is_readonly{};
   bool is_debug{};
   bool is_casefold{};
   bool is_notify{};
   // Type of overlay filesystem (bwrap,overlayfs,unionfs)
   ns_reserved::ns_overlay::OverlayType overlay_type;
-  // Offset
-  uint64_t offset_reserved{};
   // Useful directories
-  fs::path path_dir_global;
-  fs::path path_dir_mount;
-  fs::path path_dir_app;
-  fs::path path_dir_app_bin;
-  fs::path path_dir_app_sbin;
-  fs::path path_dir_instance;
-  fs::path path_file_binary;
-  fs::path path_dir_binary;
-  fs::path path_file_bashrc;
-  fs::path path_file_passwd;
-  fs::path path_file_bash;
-  fs::path path_dir_mount_layers;
-  fs::path path_dir_runtime;
-  fs::path path_dir_runtime_host;
-  fs::path path_dir_host_home;
-  fs::path path_dir_host_config;
-  fs::path path_dir_host_config_tmp;
-  fs::path path_dir_mount_ciopfs;
-  fs::path path_dir_data_overlayfs;
-  fs::path path_dir_upper_overlayfs;
-  fs::path path_dir_work_overlayfs;
-  fs::path path_dir_mount_overlayfs;
+  fs::path const path_dir_global;
+  fs::path const path_dir_mount;
+  fs::path const path_dir_app;
+  fs::path const path_dir_app_bin;
+  fs::path const path_dir_app_sbin;
+  fs::path const path_dir_instance;
+  fs::path const path_file_binary;
+  fs::path const path_dir_binary;
+  fs::path const path_file_bash;
+  fs::path const path_dir_mount_layers;
+  fs::path const path_dir_runtime;
+  fs::path const path_dir_runtime_host;
+  fs::path const path_dir_host_home;
+  fs::path const path_dir_host_config;
+  fs::path const path_dir_host_config_tmp;
+  fs::path const path_dir_mount_ciopfs;
+  fs::path const path_dir_data_overlayfs;
+  fs::path const path_dir_upper_overlayfs;
+  fs::path const path_dir_work_overlayfs;
+  fs::path const path_dir_mount_overlayfs;
   //Compression level
   uint32_t layer_compression_level{};
   // PATH environment variable
   std::string env_path;
+
+  Expected<User> configure_user()
+  {
+    auto hash_env = ns_db::ns_env::key_value(Expect(ns_db::ns_env::get(path_file_binary)));
+    Id id = Expect(get_id(is_root, hash_env));
+    fs::path path_file_bashrc = Expect(write_bashrc(path_dir_instance / "bashrc", hash_env));
+    return Expect(write_passwd(path_dir_instance / "passwd", path_file_bash, path_file_bashrc, id, hash_env));
+  }
 };
 
 /**
@@ -276,13 +300,6 @@ struct FlatimageConfig
   // Flags
   bool is_root = ns_env::exists("FIM_ROOT", "1")
     or (hash_env.contains("UID") and hash_env.at("UID") == "0");
-
-  // Resolve UID/GID
-  Id id = Expect(get_id(is_root, hash_env));
-
-  // Create bashrc and passwd files
-  fs::path path_file_bashrc = Expect(write_bashrc(path_dir_instance / "bashrc", hash_env));
-  fs::path path_file_passwd = Expect(write_passwd(path_dir_instance / "passwd", path_file_bashrc, id, hash_env));
 
   // Flags for readonly, debug, notify, and casefolding
   bool is_debug = ns_env::exists("FIM_DEBUG", "1");
@@ -386,8 +403,6 @@ struct FlatimageConfig
     .path_dir_instance = path_dir_instance,
     .path_file_binary = path_file_binary,
     .path_dir_binary = path_dir_binary,
-    .path_file_bashrc = path_file_bashrc,
-    .path_file_passwd = path_file_passwd,
     .path_file_bash = path_file_bash,
     .path_dir_mount_layers = path_dir_mount_layers,
     .path_dir_runtime = path_dir_runtime,

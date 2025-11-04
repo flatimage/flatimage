@@ -84,14 +84,19 @@ using namespace ns_parser::ns_interface;
         config.path_dir_mount_ciopfs
       : config.path_dir_mount_overlayfs;
     // Get uid and gid from config (checks environment database or uses defaults)
-    auto id = Expect(ns_config::get_id(config.is_root, hash_environment));
+    ns_config::User user = Expect(config.configure_user());
+    ns_log::debug()("User: {}", user);
     // Create bwrap command
-    ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(id.uid
-      , id.gid
+    ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(
+        user.name
+      , user.id.uid
+      , user.id.gid
       , bwrap_overlay
       , path_dir_root
-      , config.path_file_bashrc
-      , config.path_file_passwd
+      , user.path_dir_home
+      , user.path_file_bashrc
+      , user.path_file_passwd
+      , user.path_file_shell
       , program
       , args
       , environment);
