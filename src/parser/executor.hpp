@@ -21,6 +21,7 @@
 #include "../filesystems/controller.hpp"
 #include "../db/env.hpp"
 #include "../db/remote.hpp"
+#include "../db/boot.hpp"
 #include "../macro.hpp"
 #include "../reserved/overlay.hpp"
 #include "../reserved/notify.hpp"
@@ -314,33 +315,34 @@ using namespace ns_parser::ns_interface;
   {
     if(std::get_if<CmdBoot::Clear>(&(cmd->sub_cmd)))
     {
-      // Create empty database
-      ns_db::Db db;
-      // Write empty database
-      Pop(ns_reserved::ns_boot::write(config.path_file_binary, Pop(db.dump(), "E::Failed to dump boot database")), "E::Failed to clear boot configuration");
+      // Create empty boot configuration
+      ns_db::ns_boot::Boot boot;
+      // Write empty boot configuration
+      Pop(ns_reserved::ns_boot::write(config.path_file_binary, Pop(ns_db::ns_boot::serialize(boot), "E::Failed to serialize boot configuration")), "E::Failed to clear boot configuration");
     }
     else if(auto cmd_set = std::get_if<CmdBoot::Set>(&(cmd->sub_cmd)))
     {
-      // Create database
-      ns_db::Db db;
-      // Insert values
-      db("program") = cmd_set->program;
-      db("args") = cmd_set->args;
-      // Write fields
-      Pop(ns_reserved::ns_boot::write(config.path_file_binary, Pop(db.dump(), "E::Failed to dump boot database")), "E::Failed to set boot configuration");
+      // Create boot configuration
+      ns_db::ns_boot::Boot boot;
+      // Set values
+      boot.set_program(cmd_set->program);
+      boot.set_args(cmd_set->args);
+      // Write boot configuration
+      Pop(ns_reserved::ns_boot::write(config.path_file_binary, Pop(ns_db::ns_boot::serialize(boot), "E::Failed to serialize boot configuration")), "E::Failed to set boot configuration");
     }
     else if(std::get_if<CmdBoot::Show>(&(cmd->sub_cmd)))
     {
       // Read json data
       std::string data = Pop(ns_reserved::ns_boot::read(config.path_file_binary), "E::Failed to read boot configuration");
-      qreturn_if(data.empty(), {});
-      // Create database
-      ns_db::Db db = ns_db::from_string(data).value_or(ns_db::Db());
-      // Dump database
-      if(not db.empty())
+      // Deserialize boot configuration
+      ns_db::ns_boot::Boot boot = ns_db::ns_boot::deserialize(data).or_default();
+      // If no program was set, default to bash
+      if (boot.get_program().empty())
       {
-        std::cout << Pop(db.dump(), "E::Failed to dump boot configuration") << '\n';
+        boot.set_program("bash");
       }
+      // Serialize and print
+      std::cout << Pop(ns_db::ns_boot::serialize(boot), "E::Failed to serialize boot configuration") << '\n';
     }
     else
     {
@@ -496,14 +498,14 @@ using namespace ns_parser::ns_interface;
   else if ( std::get_if<ns_parser::CmdNone>(&variant_cmd) )
   {
     std::string data = Pop(ns_reserved::ns_boot::read(config.path_file_binary), "E::Failed to read boot configuration");
-    auto db = ns_db::from_string(data).value_or(ns_db::Db());
-    // Fetch default command
-    fs::path program = db("program").template value<std::string>()
-      .transform([](auto&& e){ return ns_env::expand(e).value_or(e); })
-      .value_or("bash");
-    // Fetch default arguments
-    using Args = std::vector<std::string>;
-    std::vector<std::string> args = db("args").template value<Args>().or_default();
+    // De-serialize boot command
+    auto boot = ns_db::ns_boot::deserialize(data).value_or(ns_db::ns_boot::Boot());
+    // Retrive default program
+    fs::path program = boot.get_program().empty() ? 
+        "bash"
+      : ns_env::expand(boot.get_program()).value_or(boot.get_program());
+    // Retrive default arguments
+    std::vector<std::string> args = boot.get_args();
     // Append arguments from argv
     std::copy(argv+1, argv+argc, std::back_inserter(args));
     // Run Bwrap

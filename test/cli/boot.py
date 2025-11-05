@@ -34,7 +34,7 @@ class TestFimBoot(unittest.TestCase):
     # No arguments to fim-boot
     out,err,code = self.run_cmd("fim-boot")
     self.assertEqual(out, "")
-    self.assertIn("Invalid operation for 'fim-boot' (<set|show|clear>)", err)
+    self.assertIn("Missing op for 'fim-boot' (<set|show|clear>)", err)
     self.assertEqual(code, 125)
     # Invalid argument to fim-boot
     out,err,code = self.run_cmd("fim-boot", "sett")
@@ -46,7 +46,7 @@ class TestFimBoot(unittest.TestCase):
     # No arguments to fim-boot
     out,err,code = self.run_cmd("fim-boot")
     self.assertEqual(out, "")
-    self.assertIn("Invalid operation for 'fim-boot' (<set|show|clear>)", err)
+    self.assertIn("Missing op for 'fim-boot' (<set|show|clear>)", err)
     self.assertEqual(code, 125)
     # No arguments to set
     out,err,code = self.run_cmd("fim-boot", "set", "echo")
@@ -89,7 +89,7 @@ class TestFimBoot(unittest.TestCase):
     def boot_show():
       # No arguments to show
       out,err,code = self.run_cmd("fim-boot", "show")
-      self.assertEqual(out, "")
+      self.assertEqual(out, """{\n  "args": [],\n  "program": "bash"\n}""")
       self.assertEqual(err, "")
       self.assertEqual(code, 0)
     # No arguments to show
@@ -114,29 +114,74 @@ class TestFimBoot(unittest.TestCase):
     # No arguments to show
     boot_show()
 
+  def test_boot_show_non_bash_program(self):
+    import json
+
+    # Set a non-bash program (echo) with arguments
+    out,err,code = self.run_cmd("fim-boot", "set", "echo", "hello", "world")
+    self.assertEqual(out, "")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+
+    # Verify that show displays the correct program (echo, not bash)
+    out,err,code = self.run_cmd("fim-boot", "show")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    boot = json.loads(out)
+    self.assertEqual(boot["program"], "echo")
+    self.assertEqual(boot["args"], ["hello", "world"])
+
+    # Set a different program (firefox) with different arguments
+    out,err,code = self.run_cmd("fim-boot", "set", "firefox", "--no-remote", "--private-window")
+    self.assertEqual(out, "")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+
+    # Verify that show displays firefox (not bash or echo)
+    out,err,code = self.run_cmd("fim-boot", "show")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    boot = json.loads(out)
+    self.assertEqual(boot["program"], "firefox")
+    self.assertEqual(boot["args"], ["--no-remote", "--private-window"])
+
+    # Clear the boot configuration
+    out,err,code = self.run_cmd("fim-boot", "clear")
+    self.assertEqual(out, "")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+
+    # After clearing, show should display default bash
+    out,err,code = self.run_cmd("fim-boot", "show")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+    boot = json.loads(out)
+    self.assertEqual(boot["program"], "bash")
+    self.assertEqual(boot["args"], [])
+
   def test_boot_clear(self):
     # Trailing arguments to clear
     out,err,code = self.run_cmd("fim-boot", "clear", "hello")
     self.assertEqual(out, "")
     self.assertIn("Trailing arguments for fim-boot: ['hello',]", err)
     self.assertEqual(code, 125)
-    def boot_show():
+    def boot_show(stdout="",stderr="",code=0):
       # No arguments to show
       out,err,code = self.run_cmd("fim-boot", "show")
-      self.assertEqual(out, "")
-      self.assertEqual(err, "")
-      self.assertEqual(code, 0)
+      self.assertEqual(out, stdout)
+      self.assertEqual(err, stderr)
+      self.assertEqual(code, code)
     def boot_clear():
       out,err,code = self.run_cmd("fim-boot", "clear")
       self.assertEqual(out, "")
       self.assertEqual(err, "")
       self.assertEqual(code, 0)
     # No arguments to show
-    boot_show()
+    boot_show("""{\n  "args": [],\n  "program": "bash"\n}""")
     # Clear argument
     boot_clear()
-    # No arguments to show
-    boot_show()
+    # Show default arguments
+    boot_show("""{\n  "args": [],\n  "program": "bash"\n}""")
     # Set argument
     out,err,code = self.run_cmd("fim-boot", "set", "bash", "-c", """echo "hello" "world\"""")
     self.assertEqual(out, "")
@@ -151,5 +196,5 @@ class TestFimBoot(unittest.TestCase):
     self.assertEqual(boot["args"], ["-c", """echo "hello" "world\""""])
     # Clear argument
     boot_clear()
-    # No arguments to show
-    boot_show()
+    # Show default arguments
+    boot_show("""{\n  "args": [],\n  "program": "bash"\n}""")
