@@ -174,7 +174,7 @@ class TestFimDesktop(unittest.TestCase):
     # Missing argument
     out,err,code = self.run_cmd("fim-desktop", "setup")
     self.assertEqual(out, "")
-    self.assertIn("Missing argument from 'setup' (/path/to/file.json)", err)
+    self.assertIn("Missing argument for 'setup' (/path/to/file.json)", err)
     self.assertEqual(code, 125)
     # Extra argument
     out,err,code = self.run_cmd("fim-desktop", "setup", "some-file.json", "hello")
@@ -345,7 +345,7 @@ class TestFimDesktop(unittest.TestCase):
     # Missing arguments
     out,err,code = self.run_cmd("fim-desktop", "enable")
     self.assertEqual(out, "")
-    self.assertIn("Missing arguments for 'enable' (desktop,entry,mimetype,none)", err)
+    self.assertIn("Missing arguments for 'enable' (entry,mimetype,icon,none)", err)
     self.assertEqual(code, 125)
     # Extra arguments
     out,err,code = self.run_cmd("fim-desktop", "enable", "icon", "mimetype")

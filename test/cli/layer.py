@@ -86,7 +86,7 @@ class TestFimLayer(unittest.TestCase):
     # Missing op
     out,err,code = self.run_cmd("fim-layer")
     self.assertEqual(out, "")
-    self.assertIn("Missing op for 'fim-layer' (create,add)", err)
+    self.assertIn("Missing op for 'fim-layer' (create,add,commit)", err)
     self.assertEqual(code, 125)
     # Missing source
     out,err,code = self.run_cmd("fim-layer", "create")

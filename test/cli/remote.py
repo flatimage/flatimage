@@ -34,7 +34,7 @@ class TestFimRemote(unittest.TestCase):
     # No arguments to fim-remote
     out,err,code = self.run_cmd("fim-remote")
     self.assertEqual(out, "")
-    self.assertIn("Invalid operation for 'fim-remote' (<set|show|clear>)", err)
+    self.assertIn("Missing op for 'fim-remote' (<set|show|clear>)", err)
     self.assertEqual(code, 125)
     # Invalid argument to fim-remote
     out,err,code = self.run_cmd("fim-remote", "sett")

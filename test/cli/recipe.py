@@ -73,7 +73,7 @@ class TestFimRecipe(unittest.TestCase):
     """Test fim-recipe with no subcommand"""
     out, err, code = self.run_cmd("fim-recipe")
     self.assertEqual(out, "")
-    self.assertIn("Invalid operation for 'fim-recipe'", err)
+    self.assertIn("Missing op for 'fim-recipe'", err)
     self.assertEqual(code, 125)
 
   def test_recipe_invalid_subcommand(self):
