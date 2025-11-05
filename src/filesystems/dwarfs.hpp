@@ -37,7 +37,7 @@ class Dwarfs final : public ns_filesystem::Filesystem
       , fs::path const& path_file_image
       , uint64_t offset
       , uint64_t size_image);
-    Expected<void> mount() override;
+    Value<void> mount() override;
 };
 
 /**
@@ -64,21 +64,20 @@ inline Dwarfs::Dwarfs(pid_t pid_to_die_for, fs::path const& path_dir_mount, fs::
 /**
  * @brief Mounts the filesystem
  * 
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-inline Expected<void> Dwarfs::mount()
+inline Value<void> Dwarfs::mount()
 {
-  std::error_code ec;
   // Check if image exists and is a regular file
-  qreturn_if(not fs::is_regular_file(m_path_file_image, ec)
+  qreturn_if(not Try(fs::is_regular_file(m_path_file_image))
     , std::unexpected("'{}' does not exist or is not a regular file"_fmt(m_path_file_image))
   );
   // Check if mountpoint exists and is directory
-  qreturn_if(not fs::is_directory(m_path_dir_mount, ec)
+  qreturn_if(not Try(fs::is_directory(m_path_dir_mount))
     , std::unexpected("'{}' does not exist or is not a directory"_fmt(m_path_dir_mount))
   );
   // Find command in PATH
-  auto path_file_dwarfs = Expect(ns_env::search_path("dwarfs"));
+  auto path_file_dwarfs = Pop(ns_env::search_path("dwarfs"), "E::Could not find dwarfs in PATH");
   // Create command
   m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_dwarfs);
   // Spawn command

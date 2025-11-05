@@ -9,7 +9,6 @@
 #include <filesystem>
 
 #include "../std/expected.hpp"
-#include "../std/filesystem.hpp"
 #include "../lib/log.hpp"
 #include "../lib/subprocess.hpp"
 #include "../lib/env.hpp"
@@ -34,30 +33,28 @@ int main(int argc, char const* argv[])
   fs::path path_file_log = std::string{argv[1]} + ".bwrap-apparmor.log";
   ns_log::set_sink_file(path_file_log);
   // Find apparmor_parser
-  fs::path path_file_apparmor_parser = Expect(ns_env::search_path("apparmor_parser"));
+  fs::path path_file_apparmor_parser = Pop(ns_env::search_path("apparmor_parser"));
   // Define paths
   fs::path path_file_bwrap_src{argv[2]};
   fs::path path_dir_bwrap{"/opt/flatimage"};
   fs::path path_file_bwrap_dst{path_dir_bwrap / "bwrap"};
   fs::path path_file_profile{"/etc/apparmor.d/flatimage"};
   // Try to create /opt/bwrap directory
-  Expect(ns_fs::create_directories(path_dir_bwrap));
+  Try(fs::create_directories(path_dir_bwrap));
   // Try copy bwrap to /opt/bwrap
-  Expect(ns_fs::copy_file(path_file_bwrap_src, path_file_bwrap_dst, fs::copy_options::overwrite_existing));
+  Try(fs::copy_file(path_file_bwrap_src, path_file_bwrap_dst, fs::copy_options::overwrite_existing));
   // Try to set permissions for bwrap binary ( chmod 755 )
-  ns_fs::permissions(path_file_bwrap_dst
-    ,   fs::perms::owner_all
-      | fs::perms::group_read | fs::perms::group_exec
-      | fs::perms::others_read | fs::perms::others_exec
-    , fs::perm_options::replace
-  ).discard("C::Failed to set permissions to '{}'", path_file_bwrap_dst);
+  using fs::perms;
+  auto perms = perms::owner_all | perms::group_read | perms::group_exec | perms::others_read | perms::others_exec;
+  Catch(fs::permissions(path_file_bwrap_dst, perms, fs::perm_options::replace))
+    .discard("C::Failed to set permissions to '{}'", path_file_bwrap_dst);
   // Try to create profile
   std::ofstream file_profile(path_file_profile);
   ereturn_if(not file_profile.is_open(), "Could not open profile file", EXIT_FAILURE);
   file_profile << profile_bwrap;
   file_profile.close();
   // Reload profile
-  return Expect(ns_subprocess::Subprocess(path_file_apparmor_parser)
+  return Pop(ns_subprocess::Subprocess(path_file_apparmor_parser)
     .with_args("-r", path_file_profile)
     .spawn()
     .wait()

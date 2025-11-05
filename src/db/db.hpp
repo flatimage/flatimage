@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include <exception>
 #include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
@@ -58,10 +57,10 @@ class Db
     [[maybe_unused]] [[nodiscard]] std::vector<std::string> keys() const noexcept;
     [[maybe_unused]] [[nodiscard]] std::vector<std::pair<std::string, Db>> items() const noexcept;
     template<typename V = Db>
-    [[maybe_unused]] [[nodiscard]] Expected<V> value() noexcept;
+    [[maybe_unused]] [[nodiscard]] Value<V> value() noexcept;
     template<typename F, IsString Ks>
     [[maybe_unused]] [[nodiscard]] decltype(auto) apply(F&& f, Ks&& ks);
-    [[maybe_unused]] [[nodiscard]] std::string dump();
+    [[maybe_unused]] [[nodiscard]] Value<std::string> dump();
     // Capacity
     [[maybe_unused]] [[nodiscard]] bool empty() const noexcept;
     // Lookup
@@ -168,10 +167,10 @@ inline std::vector<std::pair<std::string,Db>> Db::items() const noexcept
  * @brief Get the value of the current json entry
  * 
  * @tparam V The type to convert the entry to
- * @return Expected<V> The object of V or the respective error
+ * @return Value<V> The object of V or the respective error
  */
 template<typename V>
-Expected<V> Db::value() noexcept
+Value<V> Db::value() noexcept
 {
   json_t& json = data();
   if constexpr ( std::same_as<V,Db> )
@@ -191,7 +190,7 @@ Expected<V> Db::value() noexcept
   else if constexpr (ns_concept::StringConstructible<V>)
   {
     return ( json.is_string() )?
-        Expected<V>(std::string{json})
+        Value<V>(std::string{json})
       : std::unexpected("Json element is not a string");
   }
   else
@@ -203,19 +202,12 @@ Expected<V> Db::value() noexcept
 
 /**
  * @brief Dumps the current json into a string
- * 
- * @return std::string The corresponding string
+ *
+ * @return Value<std::string> The corresponding string or error
  */
-inline std::string Db::dump()
+inline Value<std::string> Db::dump()
 {
-  try
-  {
-    return data().dump(2);
-  }
-  catch (std::exception const& e)
-  {
-    return e.what();
-  }
+  return Try(data().dump(2));
 }
 
 /**
@@ -340,27 +332,24 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
  * @brief Creates a database from the given input file
  * 
  * @param path_file_db The json file used to create the database from
- * @return Expected<Db> The deserialized Db object
+ * @return Value<Db> The deserialized Db object
  */
-[[nodiscard]] inline Expected<Db> read_file(fs::path const& path_file_db)
+[[nodiscard]] inline Value<Db> read_file(fs::path const& path_file_db)
 {
-  std::error_code ec;
-  qreturn_if(not fs::exists(path_file_db, ec), std::unexpected("Invalid db file '{}'"_fmt(path_file_db)));
+  qreturn_if(not Try(fs::exists(path_file_db)), std::unexpected("Invalid db file '{}'"_fmt(path_file_db)));
   // Parse a file
-  auto f_parse_file = [&path_file_db](std::ifstream const& f) -> Expected<json_t>
+  auto f_parse_file = [](std::ifstream const& f) -> Value<json_t>
   {
     // Read to string
     std::string contents = ns_string::to_string(f.rdbuf());
     // Validate contents and return parsed result
-    qreturn_if (json_t::accept(contents),  json_t::parse(contents));
-    // Failed to parse
-    return std::unexpected("Failed to parse db '{}'"_fmt(path_file_db));
+    return Try(json_t::parse(contents));
   };
   // Open target file as read
   std::ifstream file(path_file_db, std::ios::in);
   qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}'"_fmt(path_file_db)));
   // Try to parse
-  return Db(Expect(f_parse_file(file)));
+  return Db(Pop(f_parse_file(file)));
 }
 
 /**
@@ -368,15 +357,15 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
  * 
  * @param path_file_db The target json file
  * @param db The database object
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> write_file(fs::path const& path_file_db, Db& db)
+[[nodiscard]] inline Value<void> write_file(fs::path const& path_file_db, Db& db)
 {
   std::ofstream file(path_file_db, std::ios::trunc);
   qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}' for writing"_fmt(path_file_db)));
-  file << std::setw(2) << db.dump();
+  file << std::setw(2) << Pop(db.dump());
   file.close();
-  return Expected<void>{};
+  return Value<void>{};
 }
 
 /**
@@ -384,15 +373,14 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
  * 
  * @tparam S The type must be representable as a string
  * @param s The string representable json data
- * @return Expected<Db> The database or the respective error
+ * @return Value<Db> The database or the respective error
  */
 template<ns_concept::StringRepresentable S>
-Expected<Db> from_string(S&& s)
+Value<Db> from_string(S&& s)
 {
-  std::string str_json = ns_string::to_string(s);
-  qreturn_if(str_json.empty(), std::unexpected("Empty json data"));
-  qreturn_if(not json_t::accept(str_json), std::unexpected("Could not parse json file"));
-  return Db(json_t::parse(str_json));
+  std::string data = ns_string::to_string(s);
+  qreturn_if(data.empty(), Error("D::Empty json data"));
+  return Try(Db{json_t::parse(data)}, "D::Could not parse json file");
 }
 
 } // namespace ns_db

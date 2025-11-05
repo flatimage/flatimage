@@ -33,18 +33,19 @@ void cleanup(int)
  * 
  * @param argc Argument count
  * @param argv Argument vector
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] Expected<void> boot(int argc, char** argv)
+[[nodiscard]] Value<void> boot(int argc, char** argv)
 {
   // Register signal handler
   signal(SIGTERM, cleanup);
   // Initialize logger
-  ns_log::set_sink_file(Expect(ns_env::get_expected("FIM_DIR_MOUNT")) + ".janitor.log");
+  ns_log::set_sink_file(Pop(ns_env::get_expected("FIM_DIR_MOUNT")) + ".janitor.log");
   // Check argc
   qreturn_if(argc < 2, std::unexpected("Incorrect usage"));
   // Get pid to wait for
-  pid_t pid_parent = std::stoi(Expect(ns_env::get_expected("PID_PARENT")));
+  std::string str_pid_parent = Pop(ns_env::get_expected("PID_PARENT"));
+  pid_t pid_parent = Try(std::stoi(str_pid_parent));
   // Create a novel session for the child process
   pid_t pid_session = setsid();
   qreturn_if(pid_session < 0, std::unexpected("Failed to create a novel session for janitor"));
@@ -67,7 +68,7 @@ void cleanup(int)
 int main(int argc, char** argv)
 {
   auto __expected_fn = [](auto&&){ return 1; };
-  Expect(boot(argc, argv), "C::Failure to start janitor");
+  Pop(boot(argc, argv), "C::Failure to start janitor");
   return EXIT_SUCCESS;
 } // main
 

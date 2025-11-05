@@ -51,13 +51,13 @@ namespace fs = std::filesystem;
  * @param entries The entries to validate
  * @return Nothing if all variables are valid or the respective error
  */
-[[nodiscard]] inline Expected<void> validate(std::vector<std::string> const& entries)
+[[nodiscard]] inline Value<void> validate(std::vector<std::string> const& entries)
 {
   for (auto&& entry : entries)
   {
     if (std::ranges::count_if(entry, [](char c){ return c == '='; }) == 0)
     {
-      return Unexpected("C::Variable assignment '{}' is invalid", entry);
+      return Error("C::Variable assignment '{}' is invalid", entry);
     }
   }
   return {};
@@ -71,9 +71,9 @@ namespace fs = std::filesystem;
  * @param path_file_binary Path to the database with environment variables
  * @param entries List of environment variables to erase
  */
-[[nodiscard]] inline Expected<void> del(fs::path const& path_file_binary, std::vector<std::string> const& entries)
+[[nodiscard]] inline Value<void> del(fs::path const& path_file_binary, std::vector<std::string> const& entries)
 {
-  ns_db::Db db = ns_db::from_string(Expect(ns_reserved::ns_env::read(path_file_binary))).value_or(ns_db::Db());
+  ns_db::Db db = ns_db::from_string(Pop(ns_reserved::ns_env::read(path_file_binary))).value_or(ns_db::Db());
   std::ranges::for_each(entries, [&](auto const& entry)
   {
     if( db.erase(entry) )
@@ -85,7 +85,7 @@ namespace fs = std::filesystem;
       ns_log::info()("Key '{}' not found for deletion", entry);
     }
   });
-  Expect(ns_reserved::ns_env::write(path_file_binary, db.dump()));
+  Pop(ns_reserved::ns_env::write(path_file_binary, Pop(db.dump())));
   return {};
 }
 
@@ -96,19 +96,19 @@ namespace fs = std::filesystem;
  * @param entries List of environment variables to append to the existing ones
  * @return Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> add(fs::path const& path_file_binary, std::vector<std::string> const& entries)
+[[nodiscard]] inline Value<void> add(fs::path const& path_file_binary, std::vector<std::string> const& entries)
 {
   // Validate entries
-  Expect(validate(entries));
+  Pop(validate(entries));
   // Insert environment variables in the database
-  ns_db::Db db = ns_db::from_string(Expect(ns_reserved::ns_env::read(path_file_binary))).value_or(ns_db::Db());
+  ns_db::Db db = ns_db::from_string(Pop(ns_reserved::ns_env::read(path_file_binary))).value_or(ns_db::Db());
   for (auto&& [key,value] : key_value(entries))
   {
     db(key) = value;
     ns_log::info()("Included variable '{}' with value '{}'", key, value);
   }
   // Write to the database
-  Expect(ns_reserved::ns_env::write(path_file_binary, db.dump()));
+  Pop(ns_reserved::ns_env::write(path_file_binary, Pop(db.dump())));
   return {};
 }
 
@@ -119,10 +119,10 @@ namespace fs = std::filesystem;
  * @param entries List of environment variables to set
  * @return Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> set(fs::path const& path_file_binary, std::vector<std::string> const& entries)
+[[nodiscard]] inline Value<void> set(fs::path const& path_file_binary, std::vector<std::string> const& entries)
 {
-  Expect(ns_reserved::ns_env::write(path_file_binary, ns_db::Db().dump()));
-  Expect(add(path_file_binary, entries));
+  Pop(ns_reserved::ns_env::write(path_file_binary, Pop(ns_db::Db().dump())));
+  Pop(add(path_file_binary, entries));
   return {};
 }
 
@@ -132,27 +132,20 @@ namespace fs = std::filesystem;
  * @param path_file_binary The path to the environment variable database
  * @return The list of environment variables, or the respective error
  */
-[[nodiscard]] inline Expected<std::vector<std::string>> get(fs::path const& path_file_binary)
+[[nodiscard]] inline Value<std::vector<std::string>> get(fs::path const& path_file_binary)
 {
   // Get environment
-  ns_db::Db db = ns_db::from_string(Expect(ns_reserved::ns_env::read(path_file_binary))).value_or(ns_db::Db());
+  ns_db::Db db = ns_db::from_string(Pop(ns_reserved::ns_env::read(path_file_binary))).value_or(ns_db::Db());
   // Merge variables with values
   std::vector<std::string> environment;
   for (auto&& [key,value] : db.items())
   {
-    environment.push_back(std::format("{}={}", key, value.template value<std::string>().value()));
+    environment.push_back(std::format("{}={}", key, Pop(value.template value<std::string>())));
   }
   // Expand variables
   for(auto& variable : environment)
   {
-    if(auto expanded = ::ns_env::expand(variable))
-    {
-      variable = *expanded;
-    }
-    else
-    {
-      ns_log::error()("Failed to expand variable: {}", expanded.error());
-    }
+    variable = ::ns_env::expand(variable).value_or(variable);
   }
   return environment;
 }

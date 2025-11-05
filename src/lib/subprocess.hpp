@@ -93,7 +93,7 @@ class Subprocess
 
     [[maybe_unused]] [[nodiscard]] Subprocess& spawn();
 
-    [[maybe_unused]] [[nodiscard]] Expected<int> wait();
+    [[maybe_unused]] [[nodiscard]] Value<int> wait();
 };
 
 /**
@@ -467,9 +467,9 @@ Subprocess& Subprocess::with_stderr_handle(F&& f)
 /**
  * @brief Waits for the spawned process to finish
  * 
- * @return Expected<int> The process return code or the respective error
+ * @return Value<int> The process return code or the respective error
  */
-inline Expected<int> Subprocess::wait()
+inline Value<int> Subprocess::wait()
 {
   // Check if pid is valid
   qreturn_if(m_pid <= 0, std::unexpected("Invalid pid to wait for"));
@@ -485,7 +485,7 @@ inline Expected<int> Subprocess::wait()
   std::ranges::for_each(m_vec_pids_pipe, [](pid_t pid){ waitpid(pid, nullptr, 0); });
 
   return (WIFEXITED(status))?
-      Expected<int>(WEXITSTATUS(status))
+      Value<int>(WEXITSTATUS(status))
     : std::unexpected("The process exited abnormally");
 }
 
@@ -588,10 +588,10 @@ inline Subprocess& Subprocess::spawn()
  * @tparam Args Types of additional arguments (variadic)
  * @param proc The process to start
  * @param args The arguments forwarded to the process
- * @return Expected<int> The process return code or the respective error
+ * @return Value<int> The process return code or the respective error
  */
 template<typename T, typename... Args>
-[[nodiscard]] inline Expected<int> wait(T&& proc, Args&&... args)
+[[nodiscard]] inline Value<int> wait(T&& proc, Args&&... args)
 {
   return Subprocess(std::forward<T>(proc))
     .with_piped_outputs()
@@ -606,7 +606,7 @@ template<typename T, typename... Args>
  * @param ret The Subprocess::wait() return value
  * @param msg The message to display on errors
  */
-[[maybe_unused]] inline void log(Expected<int> const& ret, std::string_view msg)
+[[maybe_unused]] inline void log(Value<int> const& ret, std::string_view msg)
 {
   if ( not ret )
   {

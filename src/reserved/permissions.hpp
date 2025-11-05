@@ -59,12 +59,12 @@ inline std::map<Permission,Bits> const permission_mask =
  * @param bits Permission bits
  * @param permission Permission to change in the bits
  * @param value Value to set the target permission
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> bit_set(Bits& bits, Permission const& permission, bool value) noexcept
+[[nodiscard]] inline Value<void> bit_set(Bits& bits, Permission const& permission, bool value) noexcept
 {
   auto it = permission_mask.find(permission);
-  qreturn_if(it == permission_mask.end(), Unexpected("E::Permission '{}' not found", permission));
+  qreturn_if(it == permission_mask.end(), Error("E::Permission '{}' not found", permission));
   Bits mask = it->second;
   if (value) { bits |= mask;  }
   else       { bits &= ~mask; }
@@ -97,9 +97,9 @@ inline std::map<Permission,Bits> const permission_mask =
  *
  * @param path_file_binary Binary in which to write the Bits struct
  * @param bits The bits struct to write into the binary
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-inline Expected<void> write(fs::path const& path_file_binary, Bits const& bits) noexcept
+inline Value<void> write(fs::path const& path_file_binary, Bits const& bits) noexcept
 {
   static_assert(sizeof(Bits) == sizeof(uint64_t), "Bits size must be 8 bytes");
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
@@ -113,15 +113,15 @@ inline Expected<void> write(fs::path const& path_file_binary, Bits const& bits) 
  * @param path_file_binary Binary which to read the Bits struct from
  * @return The Bits struct on success, or the respective error
  */
-inline Expected<Bits> read(fs::path const& path_file_binary) noexcept
+inline Value<Bits> read(fs::path const& path_file_binary) noexcept
 {
   static_assert(sizeof(Bits) == sizeof(uint64_t), "Bits size must be 8 bytes");
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
   uint64_t size = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_END - offset_begin;
   constexpr size_t const size_bits = sizeof(Bits);
-  qreturn_if(size_bits != size, Unexpected("E::Trying to read an exceeding number of bytes: {} vs {}", size_bits, size));
+  qreturn_if(size_bits != size, Error("E::Trying to read an exceeding number of bytes: {} vs {}", size_bits, size));
   Bits bits;
-  Expect(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&bits), size_bits));
+  Pop(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&bits), size_bits));
   return bits;
 }
 
@@ -130,22 +130,22 @@ class Permissions
   private:
     fs::path m_path_file_binary;
 
-    Expected<void> set_permissions(Bits bits, std::set<Permission> const& permissions, bool value)
+    Value<void> set_permissions(Bits bits, std::set<Permission> const& permissions, bool value)
     {
       if(permissions.contains(Permission::NONE))
       {
-        return Unexpected("E::Invalid permission 'NONE'");
+        return Error("E::Invalid permission 'NONE'");
       }
       if(permissions.contains(Permission::ALL))
       {
-        qreturn_if(permissions.size() > 1, Unexpected("E::Permission 'all' should not be used with others"));
+        qreturn_if(permissions.size() > 1, Error("E::Permission 'all' should not be used with others"));
         return this->set_all(true);
       }
       for(Permission const& permission : permissions)
       {
-        Expect(bit_set(bits, permission, value));
+        Pop(bit_set(bits, permission, value));
       };
-      Expect(write(m_path_file_binary, bits));
+      Pop(write(m_path_file_binary, bits));
       return {};
     }
   public:
@@ -153,7 +153,7 @@ class Permissions
       : m_path_file_binary(path_file_binary)
     {}
     
-    [[nodiscard]] inline Expected<void> set_all(bool value)
+    [[nodiscard]] inline Value<void> set_all(bool value)
     {
       auto permissions = permission_mask
         | std::views::transform([](auto&& e){ return e.first; })
@@ -162,19 +162,19 @@ class Permissions
       return set_permissions(Bits{}, permissions, value);
     }
 
-    [[nodiscard]] inline Expected<void> set(std::set<Permission> const& permissions)
+    [[nodiscard]] inline Value<void> set(std::set<Permission> const& permissions)
     {
       return set_permissions(Bits{}, permissions, true);
     }
 
-    [[nodiscard]] inline Expected<void> add(std::set<Permission> const& permissions)
+    [[nodiscard]] inline Value<void> add(std::set<Permission> const& permissions)
     {
-      return set_permissions(Expect(read(m_path_file_binary)), permissions, true);
+      return set_permissions(Pop(read(m_path_file_binary)), permissions, true);
     }
 
-    [[nodiscard]] inline Expected<void> del(std::set<Permission> const& permissions)
+    [[nodiscard]] inline Value<void> del(std::set<Permission> const& permissions)
     {
-      return set_permissions(Expect(read(m_path_file_binary)), permissions, false);
+      return set_permissions(Pop(read(m_path_file_binary)), permissions, false);
     }
 
     [[nodiscard]] inline bool contains(Permission const& permission) const noexcept
@@ -186,9 +186,9 @@ class Permissions
       return (bits & it->second) != 0;
     }
 
-    [[nodiscard]] inline Expected<std::set<std::string>> to_strings() const noexcept
+    [[nodiscard]] inline Value<std::set<std::string>> to_strings() const noexcept
     {
-      return ::ns_reserved::ns_permissions::to_strings(Expect(read(m_path_file_binary)));
+      return ::ns_reserved::ns_permissions::to_strings(Pop(read(m_path_file_binary)));
     }
 };
 

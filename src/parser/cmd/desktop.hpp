@@ -18,6 +18,7 @@
 #include "../../lib/subprocess.hpp"
 #include "../../lib/image.hpp"
 #include "../../lib/env.hpp"
+#include "../../std/filesystem.hpp"
 #include "../../macro.hpp"
 #include "../../config.hpp"
 #include "icon.hpp"
@@ -53,15 +54,15 @@ namespace fs = std::filesystem;
  * 
  * @param name_app The flatimage application name
  * @param size The size of the icon, e.g., 32x32, 64x64
- * @return Expected<std::pair<fs::path,fs::path>> Paths to the mime type and application icons,
+ * @return Value<std::pair<fs::path,fs::path>> Paths to the mime type and application icons,
  * or the respective error
  */
-[[nodiscard]] Expected<std::pair<fs::path,fs::path>> get_path_file_icon_png(std::string_view name_app, uint32_t size)
+[[nodiscard]] Value<std::pair<fs::path,fs::path>> get_path_file_icon_png(std::string_view name_app, uint32_t size)
 {
-  fs::path path_file_mime = Expect(ns_env::xdg_data_home<fs::path>())
+  fs::path path_file_mime = Pop(ns_env::xdg_data_home<fs::path>())
     / std::vformat(template_dir_mimetype, std::make_format_args(size, size))
     / std::vformat(template_file_mime, std::make_format_args(name_app));
-  fs::path path_file_app = Expect(ns_env::xdg_data_home<fs::path>())
+  fs::path path_file_app = Pop(ns_env::xdg_data_home<fs::path>())
     / std::vformat(template_dir_apps, std::make_format_args(size, size))
     / std::vformat(template_file_app, std::make_format_args(name_app));
   return std::make_pair(path_file_mime,path_file_app);
@@ -71,15 +72,15 @@ namespace fs = std::filesystem;
  * @brief Constructs the path to the svg icon file
  * 
  * @param name_app The flatimage application name
- * @return Expected<std::pair<fs::path,fs::path>> Paths to the mime type and application icons,
+ * @return Value<std::pair<fs::path,fs::path>> Paths to the mime type and application icons,
  * or the respective error
  */
-[[nodiscard]] Expected<std::pair<fs::path,fs::path>> get_path_file_icon_svg(std::string_view name_app)
+[[nodiscard]] Value<std::pair<fs::path,fs::path>> get_path_file_icon_svg(std::string_view name_app)
 {
-  fs::path path_file_mime = Expect(ns_env::xdg_data_home<fs::path>())
+  fs::path path_file_mime = Pop(ns_env::xdg_data_home<fs::path>())
     / template_dir_mime_scalable
     / std::vformat(template_file_mime_scalable, std::make_format_args(name_app));
-  fs::path path_file_app = Expect(ns_env::xdg_data_home<fs::path>())
+  fs::path path_file_app = Pop(ns_env::xdg_data_home<fs::path>())
     / template_dir_apps_scalable
     / std::vformat(template_file_app_scalable, std::make_format_args(name_app));
   return std::make_pair(path_file_mime,path_file_app);
@@ -88,33 +89,33 @@ namespace fs = std::filesystem;
 /**
  * @brief Get the file path to the desktop entry
  * 
- * @return Expected<fs::path> The path to the desktop entry file, or the respective error
+ * @return Value<fs::path> The path to the desktop entry file, or the respective error
  */
-[[nodiscard]] Expected<fs::path> get_path_file_desktop(ns_db::ns_desktop::Desktop const& desktop)
+[[nodiscard]] Value<fs::path> get_path_file_desktop(ns_db::ns_desktop::Desktop const& desktop)
 {
-  auto xdg_data_home = Expect(ns_env::xdg_data_home<fs::path>());
+  auto xdg_data_home = Pop(ns_env::xdg_data_home<fs::path>());
   return xdg_data_home / "applications/flatimage-{}.desktop"_fmt(desktop.get_name());
 }
 
 /**
  * @brief Get the file path to the application specific mimetype file
  * 
- * @return Expected<fs::path> The path to the mimetype file, or the respective error
+ * @return Value<fs::path> The path to the mimetype file, or the respective error
  */
-[[nodiscard]] Expected<fs::path> get_path_file_mimetype(ns_db::ns_desktop::Desktop const& desktop)
+[[nodiscard]] Value<fs::path> get_path_file_mimetype(ns_db::ns_desktop::Desktop const& desktop)
 {
-  fs::path xdg_data_home = Expect(ns_env::xdg_data_home<fs::path>());
+  fs::path xdg_data_home = Pop(ns_env::xdg_data_home<fs::path>());
   return xdg_data_home / "mime/packages/flatimage-{}.xml"_fmt(desktop.get_name());
 }
 
 /**
  * @brief Get the file path to the generic mimetype file
  * 
- * @return Expected<fs::path> The path to the generic mimetype file, or the respective error
+ * @return Value<fs::path> The path to the generic mimetype file, or the respective error
  */
-[[nodiscard]] Expected<fs::path> get_path_file_mimetype_generic()
+[[nodiscard]] Value<fs::path> get_path_file_mimetype_generic()
 {
-  fs::path xdg_data_home = Expect(ns_env::xdg_data_home<fs::path>());
+  fs::path xdg_data_home = Pop(ns_env::xdg_data_home<fs::path>());
   return xdg_data_home / "mime/packages/flatimage.xml";
 }
 
@@ -124,9 +125,9 @@ namespace fs = std::filesystem;
  * @param desktop Desktop integration class
  * @param path_file_binary Path to the flatimage binary
  * @param os The output stream in which to write the desktop entry
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] Expected<void> generate_desktop_entry(ns_db::ns_desktop::Desktop const& desktop
+[[nodiscard]] Value<void> generate_desktop_entry(ns_db::ns_desktop::Desktop const& desktop
   , fs::path const& path_file_binary
   , std::ostream& os)
 {
@@ -147,23 +148,20 @@ namespace fs = std::filesystem;
  * 
  * @param desktop Desktop integration class
  * @param path_file_binary Path to the flatimage binary
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] Expected<void> integrate_desktop_entry(ns_db::ns_desktop::Desktop const& desktop
-  , fs::path const& path_file_binary)
+[[nodiscard]] Value<void> integrate_desktop_entry(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_binary)
 {
-  std::error_code ec;
   // Create path to entry
-  fs::path path_file_desktop = Expect(get_path_file_desktop(desktop));
+  fs::path path_file_desktop = Pop(get_path_file_desktop(desktop));
   // Create parent directories for entry
-  fs::create_directories(path_file_desktop.parent_path(), ec);
-  qreturn_if(ec, Unexpected("E::Could not create directories {}", ec.message()));
+  Try(fs::create_directories(path_file_desktop.parent_path()));
   ns_log::info()("Integrating desktop entry...");
+  // Open desktop file
   std::ofstream file_desktop(path_file_desktop, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_desktop.is_open()
-    , Unexpected("E::Could not open desktop file {}", path_file_desktop)
-  );
-  Expect(generate_desktop_entry(desktop, path_file_binary, file_desktop));
+  qreturn_if(not file_desktop.is_open() , Error("E::Could not open desktop file {}", path_file_desktop));
+  // Generate entry
+  Pop(generate_desktop_entry(desktop, path_file_binary, file_desktop));
   return {};
 }
 
@@ -192,12 +190,12 @@ namespace fs = std::filesystem;
 /**
  * @brief Runs update-mime-database on the current XDG_DATA_HOME diretory
  * 
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> update_mime_database()
+[[nodiscard]] inline Value<void> update_mime_database()
 {
-  fs::path xdg_data_home = Expect(ns_env::xdg_data_home());
-  fs::path path_bin_mime = Expect(ns_env::search_path("update-mime-database"));
+  fs::path xdg_data_home = Pop(ns_env::xdg_data_home());
+  fs::path path_bin_mime = Pop(ns_env::search_path("update-mime-database"));
   ns_log::info()("Updating mime database...");
   ns_subprocess::log(ns_subprocess::wait(path_bin_mime, xdg_data_home / "mime"), "update-mime-database");
   return {};
@@ -206,12 +204,12 @@ namespace fs = std::filesystem;
 /**
  * @brief Generates the flatimage generic mime package
  */
-[[nodiscard]] inline Expected<void> integrate_mime_database_generic()
+[[nodiscard]] inline Value<void> integrate_mime_database_generic()
 {
   std::error_code ec;
-  fs::path path_file_xml_generic = Expect(get_path_file_mimetype_generic());
+  fs::path path_file_xml_generic = Pop(get_path_file_mimetype_generic());
   std::ofstream file_xml_generic(path_file_xml_generic, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_xml_generic.is_open(), Unexpected("E::Could not open '{}'", path_file_xml_generic));
+  qreturn_if(not file_xml_generic.is_open(), Error("E::Could not open '{}'", path_file_xml_generic));
   file_xml_generic << R"(<?xml version="1.0" encoding="UTF-8"?>)" << '\n';
   file_xml_generic << R"(<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">)" << '\n';
   file_xml_generic << R"(  <mime-type type="application/flatimage">)" << '\n';
@@ -241,7 +239,7 @@ namespace fs = std::filesystem;
  * @param path_file_binary The path to the flatimage binary
  * @param os The output stream in which to write the mime package
  */
-[[nodiscard]] inline Expected<void> generate_mime_database(ns_db::ns_desktop::Desktop const& desktop
+[[nodiscard]] inline Value<void> generate_mime_database(ns_db::ns_desktop::Desktop const& desktop
   , fs::path const& path_file_binary
   , std::ostream& os
 )
@@ -264,18 +262,16 @@ namespace fs = std::filesystem;
  * @param desktop The desktop object
  * @param path_file_binary The path to the flatimage binary
  */
-[[nodiscard]] inline Expected<void> integrate_mime_database(ns_db::ns_desktop::Desktop const& desktop
+[[nodiscard]] inline Value<void> integrate_mime_database(ns_db::ns_desktop::Desktop const& desktop
   , fs::path const& path_file_binary
 )
 {
-  std::error_code ec;
   // Get application specific mimetype location
-  fs::path path_file_xml = Expect(get_path_file_mimetype(desktop));
+  fs::path path_file_xml = Pop(get_path_file_mimetype(desktop));
   // Create parent directories
   fs::path path_dir_xml = path_file_xml.parent_path();
-  qreturn_if(not fs::exists(path_dir_xml, ec) and not fs::create_directories(path_dir_xml, ec),
-    (ec)? Unexpected("E::Could not create upper mimetype directories: {}", path_dir_xml)
-        : Unexpected("E::Could not create upper mimetype directories '{}': {}", path_dir_xml, ec.message())
+  Pop(ns_fs::create_directories(path_dir_xml)
+    , "E::Could not create upper mimetype directories: {}", path_dir_xml
   );
   // Check if should update mime database
   if(is_update_mime_database(path_file_binary, path_file_xml) )
@@ -289,10 +285,10 @@ namespace fs = std::filesystem;
   }
   // Create application mimetype file
   std::ofstream file_xml(path_file_xml, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_xml.is_open(), Unexpected("E::Could not open '{}'", path_file_xml));
-  Expect(generate_mime_database(desktop,  path_file_binary, file_xml));
-  Expect(integrate_mime_database_generic());
-  Expect(update_mime_database());
+  qreturn_if(not file_xml.is_open(), Error("E::Could not open '{}'", path_file_xml));
+  Pop(generate_mime_database(desktop,  path_file_binary, file_xml));
+  Pop(integrate_mime_database_generic());
+  Pop(update_mime_database());
   return {};
 }
 
@@ -302,12 +298,12 @@ namespace fs = std::filesystem;
  * @param desktop The desktop entry object
  * @param path_file_icon The path to the icon file to integrate
  */
-[[nodiscard]] inline Expected<void> integrate_icons_svg(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_icon)
+[[nodiscard]] inline Value<void> integrate_icons_svg(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_icon)
 {
   // Path to mimetype icon
-  auto [path_icon_mimetype, path_icon_app] = Expect(get_path_file_icon_svg(desktop.get_name()));
-  Expect(ns_fs::create_directories(path_icon_mimetype.parent_path()));
-  Expect(ns_fs::create_directories(path_icon_app.parent_path()));
+  auto [path_icon_mimetype, path_icon_app] = Pop(get_path_file_icon_svg(desktop.get_name()));
+  Pop(ns_fs::create_directories(path_icon_mimetype.parent_path()));
+  Pop(ns_fs::create_directories(path_icon_app.parent_path()));
   auto f_copy_icon = [](fs::path const& path_icon_src, fs::path const& path_icon_dst)
   {
     ns_log::debug()("Copy '{}' to '{}'", path_icon_src, path_icon_dst);
@@ -334,24 +330,24 @@ namespace fs = std::filesystem;
  * @param desktop The desktop entry object
  * @param path_file_icon The path to the icon file to integrate
  */
-[[nodiscard]] inline Expected<void> integrate_icons_png(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_icon)
+[[nodiscard]] inline Value<void> integrate_icons_png(ns_db::ns_desktop::Desktop const& desktop, fs::path const& path_file_icon)
 {
   std::error_code ec;
-  auto f_create_parent = [](fs::path const& path_src) -> Expected<void>
+  auto f_create_parent = [](fs::path const& path_src) -> Value<void>
   {
-    Expect(ns_fs::create_directories(path_src.parent_path()));
+    Pop(ns_fs::create_directories(path_src.parent_path()));
     return {};
   };
   for(auto&& size : arr_sizes)
   {
     // Path to mimetype and application icons
-    auto [path_icon_mimetype,path_icon_app] = Expect(get_path_file_icon_png(desktop.get_name(), size));
-    Expect(f_create_parent(path_icon_mimetype));
-    Expect(f_create_parent(path_icon_app));
+    auto [path_icon_mimetype,path_icon_app] = Pop(get_path_file_icon_png(desktop.get_name(), size));
+    Pop(f_create_parent(path_icon_mimetype));
+    Pop(f_create_parent(path_icon_app));
     // Avoid overwrite
     qcontinue_if (fs::exists(path_icon_mimetype, ec));
     // Copy icon with target widthXheight
-    Expect(ns_image::resize(path_file_icon, path_icon_mimetype, size, size));
+    Pop(ns_image::resize(path_file_icon, path_icon_mimetype, size, size));
     // Duplicate icon to app directory
     if (not fs::copy_file(path_icon_mimetype, path_icon_app, fs::copy_options::skip_existing, ec))
     {
@@ -364,26 +360,26 @@ namespace fs = std::filesystem;
 /**
  * @brief Integrates the svg icon for the 'flatimage' mimetype
  * 
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Expected<void> integrate_icon_flatimage()
+[[nodiscard]] inline Value<void> integrate_icon_flatimage()
 {
-  auto f_write_icon = [](fs::path const& path_src) -> Expected<void>
+  auto f_write_icon = [](fs::path const& path_src) -> Value<void>
   {
-    Expect(ns_fs::create_directories(path_src.parent_path()));
+    Pop(ns_fs::create_directories(path_src.parent_path()));
     std::ofstream file_src(path_src, std::ios::out | std::ios::trunc);
-    qreturn_if(not file_src.is_open(), Unexpected("E::Failed to open file '{}'", path_src));
+    qreturn_if(not file_src.is_open(), Error("E::Failed to open file '{}'", path_src));
     file_src << ns_icon::FLATIMAGE;
     file_src.close();
     return {};
   };
-  fs::path path_dir_xdg = Expect(ns_env::xdg_data_home<fs::path>());
+  fs::path path_dir_xdg = Pop(ns_env::xdg_data_home<fs::path>());
   // Path to mimetype icon
   fs::path path_icon_mime = path_dir_xdg / fs::path{template_dir_mime_scalable} / "application-flatimage.svg";
-  Expect(f_write_icon(path_icon_mime));
+  Pop(f_write_icon(path_icon_mime));
   // Path to app icon
   fs::path path_icon_app = path_dir_xdg / fs::path{template_dir_apps_scalable} / "flatimage.svg";
-  Expect(f_write_icon(path_icon_app));
+  Pop(f_write_icon(path_icon_app));
   return {};
 }
 
@@ -392,15 +388,15 @@ namespace fs = std::filesystem;
  * 
  * @param config FlatImage configuration file
  * @param desktop Desktop object
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> integrate_icons(ns_config::FlatimageConfig const& config, ns_db::ns_desktop::Desktop const& desktop)
+[[nodiscard]] inline Value<void> integrate_icons(ns_config::FlatimageConfig const& config, ns_db::ns_desktop::Desktop const& desktop)
 {
   std::error_code ec;
   // Try to get a valid icon path to a png or svg file
   fs::path path_file_icon = ({
-    fs::path path_file_icon_png = Expect(get_path_file_icon_png(desktop.get_name(), 64)).second;
-    fs::path path_file_icon_svg = Expect(get_path_file_icon_svg(desktop.get_name())).second;
+    fs::path path_file_icon_png = Pop(get_path_file_icon_png(desktop.get_name(), 64)).second;
+    fs::path path_file_icon_svg = Pop(get_path_file_icon_svg(desktop.get_name())).second;
     fs::exists(path_file_icon_png, ec)? path_file_icon_png : path_file_icon_svg;
   });
   // Check for existing integration
@@ -409,29 +405,29 @@ namespace fs = std::filesystem;
     ns_log::debug()("Icons are integrated, found {}"_fmt(path_file_icon));
     return {};
   }
-  qreturn_if(ec, Unexpected("E::Could not check if icon exists: {}", ec.message()));
+  qreturn_if(ec, Error("E::Could not check if icon exists: {}", ec.message()));
   // Read picture from flatimage binary
-  ns_reserved::ns_icon::Icon icon = Expect(ns_reserved::ns_icon::read(config.path_file_binary));
+  ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(config.path_file_binary));
   // Create temporary file to write icon to
   auto path_file_tmp_icon = config.path_dir_app / "icon.{}"_fmt(icon.m_ext);
   // Write icon to temporary file
   std::ofstream file_icon(path_file_tmp_icon, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_icon.is_open(), Unexpected("E::Could not open temporary icon file for desktop integration"));
+  qreturn_if(not file_icon.is_open(), Error("E::Could not open temporary icon file for desktop integration"));
   file_icon.write(icon.m_data, icon.m_size);
   file_icon.close();
   // Create icons
   if ( path_file_tmp_icon.string().ends_with(".svg") )
   {
-    Expect(integrate_icons_svg(desktop, path_file_tmp_icon));
+    Pop(integrate_icons_svg(desktop, path_file_tmp_icon));
   }
   else
   {
-    Expect(integrate_icons_png(desktop, path_file_tmp_icon));
+    Pop(integrate_icons_png(desktop, path_file_tmp_icon));
   }
-  Expect(integrate_icon_flatimage());
+  Pop(integrate_icon_flatimage());
   // Remove temporary file
   fs::remove(path_file_tmp_icon, ec);
-  qreturn_if(ec, Unexpected("E::Could not remove temporary icon file: {}", ec.message()));
+  qreturn_if(ec, Error("E::Could not remove temporary icon file: {}", ec.message()));
   return {};
 }
 
@@ -441,22 +437,16 @@ namespace fs = std::filesystem;
  * @brief Integrates flatimage desktop data in current system
  * 
  * @param config Flatimage configuration object
- * @return Expected<void> Nothing or success, or the respective error
+ * @return Value<void> Nothing or success, or the respective error
  */
-[[nodiscard]] inline Expected<void> integrate(ns_config::FlatimageConfig const& config)
+[[nodiscard]] inline Value<void> integrate(ns_config::FlatimageConfig const& config)
 {
   // Deserialize json from binary
-  auto str_raw_json = Expect(ns_reserved::ns_desktop::read(config.path_file_binary)
+  auto str_raw_json = Pop(ns_reserved::ns_desktop::read(config.path_file_binary)
     , "E::Could not read desktop json from binary"
   );
-  // Check if json is not empty
-  if(str_raw_json.empty())
-  {
-    ns_log::warn()("Desktop integration is not setup");
-    return {};
-  }
-  auto desktop = Expect(ns_db::ns_desktop::deserialize(str_raw_json)
-    , "E::Could not parse json data"
+  auto desktop = Pop(ns_db::ns_desktop::deserialize(str_raw_json)
+    , "D::Missing or misconfigured desktop integration"
   );
   ns_log::debug()("Json desktop data: {}", str_raw_json);
 
@@ -464,13 +454,13 @@ namespace fs = std::filesystem;
   if(desktop.get_integrations().contains(IntegrationItem::ENTRY))
   {
     ns_log::info()("Integrating desktop entry...");
-    Expect(integrate_desktop_entry(desktop, config.path_file_binary));
+    Pop(integrate_desktop_entry(desktop, config.path_file_binary));
   }
   // Create and update mime
   if(desktop.get_integrations().contains(IntegrationItem::MIMETYPE))
   {
     ns_log::info()("Integrating mime database...");
-    Expect(integrate_mime_database(desktop,  config.path_file_binary));
+    Pop(integrate_mime_database(desktop,  config.path_file_binary));
   }
   // Create desktop icons
   if(desktop.get_integrations().contains(IntegrationItem::ICON))
@@ -486,11 +476,11 @@ namespace fs = std::filesystem;
   {
     std::error_code ec;
     // Get bash binary
-    fs::path path_file_binary_bash = Expect(ns_env::search_path("bash"));
+    fs::path path_file_binary_bash = Pop(ns_env::search_path("bash"));
     // Get possible icon paths
     fs::path path_file_icon = ({
-      fs::path path_file_icon_png = Expect(get_path_file_icon_png(desktop.get_name(), 64)).second;
-      fs::path path_file_icon_svg = Expect(get_path_file_icon_svg(desktop.get_name())).second;
+      fs::path path_file_icon_png = Pop(get_path_file_icon_png(desktop.get_name(), 64)).second;
+      fs::path path_file_icon_svg = Pop(get_path_file_icon_svg(desktop.get_name())).second;
       fs::exists(path_file_icon_png, ec)? path_file_icon_png : path_file_icon_svg;
     });
     // Path to mimetype icon
@@ -514,36 +504,36 @@ namespace fs = std::filesystem;
  * 
  * @param config FlatImage configuration object
  * @param path_file_json_src Path to the json which contains configuration data
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> setup(ns_config::FlatimageConfig const& config, fs::path const& path_file_json_src)
+[[nodiscard]] inline Value<void> setup(ns_config::FlatimageConfig const& config, fs::path const& path_file_json_src)
 {
   std::error_code ec;
   // Create desktop struct with input json
   std::ifstream file_json_src{path_file_json_src};
   qreturn_if(not file_json_src.is_open()
-      , Unexpected("E::Failed to open file '{}' for desktop integration", path_file_json_src)
+      , Error("E::Failed to open file '{}' for desktop integration", path_file_json_src)
   );
-  auto desktop = Expect(ns_db::ns_desktop::deserialize(file_json_src), "E::Failed to deserialize json");
-  qreturn_if(desktop.get_name().contains('/'), Unexpected("E::Application name cannot contain the '/' character"));
+  auto desktop = Pop(ns_db::ns_desktop::deserialize(file_json_src), "E::Failed to deserialize json");
+  qreturn_if(desktop.get_name().contains('/'), Error("E::Application name cannot contain the '/' character"));
   // Validate icon
-  fs::path path_file_icon = Expect(desktop.get_path_file_icon(), "E::Could not retrieve icon path field from json");
+  fs::path path_file_icon = Pop(desktop.get_path_file_icon(), "E::Could not retrieve icon path field from json");
   std::string str_ext = (path_file_icon.extension() == ".svg")? "svg"
     : (path_file_icon.extension() == ".png")? "png"
     : (path_file_icon.extension() == ".jpg" or path_file_icon.extension() == ".jpeg")? "jpg"
     : "";
-  qreturn_if(str_ext.empty(), Unexpected("E::Icon extension '{}' is not supported", path_file_icon.extension()));
+  qreturn_if(str_ext.empty(), Error("E::Icon extension '{}' is not supported", path_file_icon.extension()));
   // Read icon into memory
   auto image_data = ({
     std::streamsize size_file_icon = fs::file_size(path_file_icon, ec);
-    qreturn_if(ec, Unexpected("E::Could not get size of file '{}': {}", path_file_icon, ec.message()));
+    qreturn_if(ec, Error("E::Could not get size of file '{}': {}", path_file_icon, ec.message()));
     qreturn_if(static_cast<uint64_t>(size_file_icon) >= ns_reserved::FIM_RESERVED_OFFSET_ICON_END - ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN
-      , Unexpected("E::File is too large, '{}' bytes", size_file_icon)
+      , Error("E::File is too large, '{}' bytes", size_file_icon)
     );
     std::unique_ptr<char[]> ptr_data = std::make_unique<char[]>(size_file_icon);
-    std::streamsize bytes = Expect(ns_reserved::read(path_file_icon, 0, ptr_data.get(), size_file_icon));
+    std::streamsize bytes = Pop(ns_reserved::read(path_file_icon, 0, ptr_data.get(), size_file_icon));
     qreturn_if(bytes != size_file_icon
-      , Unexpected("E::Icon read bytes '{}' do not match target size of '{}'", bytes, size_file_icon)
+      , Error("E::Icon read bytes '{}' do not match target size of '{}'", bytes, size_file_icon)
     );
     std::make_pair(std::move(ptr_data), bytes);
   });
@@ -554,14 +544,14 @@ namespace fs = std::filesystem;
   std::memcpy(icon.m_data, image_data.first.get(), image_data.second);
   icon.m_size = image_data.second;
   // Write icon struct to the flatimage binary
-  Expect(ns_reserved::ns_icon::write(config.path_file_binary, icon), "E::Could not write image data");
+  Pop(ns_reserved::ns_icon::write(config.path_file_binary, icon), "E::Could not write image data");
   // Write json to flatimage binary, excluding the input icon path
-  auto str_raw_json = Expect(ns_db::ns_desktop::serialize(desktop), "E::Failed to serialize desktop integration" );
-  auto db = Expect(ns_db::from_string(str_raw_json), "E::Could not parse serialized json source");
-  qreturn_if(not db.erase("icon"), Unexpected("E::Could not erase icon field"));
-  Expect(ns_reserved::ns_desktop::write(config.path_file_binary, db.dump()));
+  auto str_raw_json = Pop(ns_db::ns_desktop::serialize(desktop), "E::Failed to serialize desktop integration" );
+  auto db = Pop(ns_db::from_string(str_raw_json), "E::Could not parse serialized json source");
+  qreturn_if(not db.erase("icon"), Error("E::Could not erase icon field"));
+  Pop(ns_reserved::ns_desktop::write(config.path_file_binary, Pop(db.dump())));
   // Print written json
-  std::println("{}", db.dump());
+  std::println("{}", Pop(db.dump()));
   return {};
 }
 
@@ -570,14 +560,14 @@ namespace fs = std::filesystem;
  * 
  * @param config The FlatImage configuration object
  * @param set_integrations The set with integrations to enable
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Expected<void> enable(ns_config::FlatimageConfig const& config, std::set<IntegrationItem> set_integrations)
+[[nodiscard]] inline Value<void> enable(ns_config::FlatimageConfig const& config, std::set<IntegrationItem> set_integrations)
 {
   // Read json
-  auto str_json = Expect(ns_reserved::ns_desktop::read(config.path_file_binary));
+  auto str_json = Pop(ns_reserved::ns_desktop::read(config.path_file_binary));
   // Deserialize json
-  auto desktop = Expect(ns_db::ns_desktop::deserialize(str_json));
+  auto desktop = Pop(ns_db::ns_desktop::deserialize(str_json));
   // Update integrations value
   desktop.set_integrations(set_integrations);
   // Print to standard output
@@ -586,9 +576,9 @@ namespace fs = std::filesystem;
     std::println("{}", std::string{str_integration});
   }
   // Serialize json
-  auto str_raw_json = Expect(ns_db::ns_desktop::serialize(desktop));
+  auto str_raw_json = Pop(ns_db::ns_desktop::serialize(desktop));
   // Write json
-  Expect(ns_reserved::ns_desktop::write(config.path_file_binary, str_raw_json));
+  Pop(ns_reserved::ns_desktop::write(config.path_file_binary, str_raw_json));
   return {};
 }
 
@@ -596,14 +586,14 @@ namespace fs = std::filesystem;
  * @brief Cleans desktop integration files
  * 
  * @param config The FlatImage configuration object
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Expected<void> clean(ns_config::FlatimageConfig const& config)
+[[nodiscard]] inline Value<void> clean(ns_config::FlatimageConfig const& config)
 {
   // Read json
-  auto str_json = Expect(ns_reserved::ns_desktop::read(config.path_file_binary));
+  auto str_json = Pop(ns_reserved::ns_desktop::read(config.path_file_binary), "E::Failed to read from reserved space");
   // Deserialize json
-  auto desktop = Expect(ns_db::ns_desktop::deserialize(str_json));
+  auto desktop = Pop(ns_db::ns_desktop::deserialize(str_json), "E::Failed to de-serialize desktop integration");
   // Get integrations
   auto integrations = desktop.get_integrations();
   auto f_try_erase = [](fs::path const& path)
@@ -622,30 +612,30 @@ namespace fs = std::filesystem;
   // Remove entry
   if( integrations.contains(ns_db::ns_desktop::IntegrationItem::ENTRY))
   {
-    f_try_erase(Expect(get_path_file_desktop(desktop)));
+    f_try_erase(Pop(get_path_file_desktop(desktop)));
   }
   // Remove mimetype database
   if(integrations.contains(ns_db::ns_desktop::IntegrationItem::MIMETYPE))
   {
-    f_try_erase(Expect(get_path_file_mimetype(desktop)));
-    Expect(update_mime_database());
+    f_try_erase(Pop(get_path_file_mimetype(desktop)));
+    Pop(update_mime_database());
   }
   // Remove icons
   if(integrations.contains(ns_db::ns_desktop::IntegrationItem::ICON))
   {
-    ns_reserved::ns_icon::Icon icon = Expect(ns_reserved::ns_icon::read(config.path_file_binary));
+    ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(config.path_file_binary));
     if(std::string_view(icon.m_ext) == "png")
     {
       for(auto size : arr_sizes)
       {
-        auto [path_icon_mime,path_icon_app] = Expect(get_path_file_icon_png(desktop.get_name(), size));
+        auto [path_icon_mime,path_icon_app] = Pop(get_path_file_icon_png(desktop.get_name(), size));
         f_try_erase(path_icon_mime);
         f_try_erase(path_icon_app);
       }
     }
     else
     {
-      auto [path_icon_mime,path_icon_app] = Expect(get_path_file_icon_svg(desktop.get_name()));
+      auto [path_icon_mime,path_icon_app] = Pop(get_path_file_icon_svg(desktop.get_name()));
       f_try_erase(path_icon_mime);
       f_try_erase(path_icon_app);
     }
@@ -658,20 +648,20 @@ namespace fs = std::filesystem;
  * 
  * @param config The FlatImage configuration object
  * @param path_file_dst The destination file to write the icon to
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Expected<void> dump_icon(ns_config::FlatimageConfig const& config, fs::path path_file_dst)
+[[nodiscard]] inline Value<void> dump_icon(ns_config::FlatimageConfig const& config, fs::path path_file_dst)
 {
   // Read icon data
-  ns_reserved::ns_icon::Icon icon = Expect(ns_reserved::ns_icon::read(config.path_file_binary));
+  ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(config.path_file_binary));
   // Make sure it has valid data
   qreturn_if(std::all_of(icon.m_data, icon.m_data+sizeof(icon.m_data), [](char c){ return c == 0; })
-    , Unexpected("E::Empty icon data");
+    , Error("E::Empty icon data");
   );
   // Get extension
   std::string_view ext = icon.m_ext;
   // Check if extension is valid
-  qreturn_if(ext != "png" and ext != "svg", Unexpected("E::Invalid file extension saved in desktop configuration"));
+  qreturn_if(ext != "png" and ext != "svg", Error("E::Invalid file extension saved in desktop configuration"));
   // Append extension to output destination file
   if(not path_file_dst.extension().string().ends_with(ext))
   {
@@ -679,12 +669,12 @@ namespace fs = std::filesystem;
   }
   // Open output file
   std::fstream file_dst(path_file_dst, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_dst.is_open(), Unexpected("E::Could not open output file '{}'", path_file_dst));
+  qreturn_if(not file_dst.is_open(), Error("E::Could not open output file '{}'", path_file_dst));
   // Write data to output file
   file_dst.write(icon.m_data, icon.m_size);
   // Check bytes written
   qreturn_if(not file_dst
-    , Unexpected("E::Could not write all '{}' bytes to output file", icon.m_size)
+    , Error("E::Could not write all '{}' bytes to output file", icon.m_size)
   );
   return {};
 }
@@ -693,17 +683,17 @@ namespace fs = std::filesystem;
  * @brief Dumps the desktop entry if integration is configured
  * 
  * @param config The FlatImage configuration object
- * @return Expected<std::string> The desktop entry or the respective error
+ * @return Value<std::string> The desktop entry or the respective error
  */
-[[nodiscard]] inline Expected<std::string> dump_entry(ns_config::FlatimageConfig const& config)
+[[nodiscard]] inline Value<std::string> dump_entry(ns_config::FlatimageConfig const& config)
 {
   // Get desktop object
-  auto desktop = Expect(ns_db::ns_desktop::deserialize(
-    Expect(ns_reserved::ns_desktop::read(config.path_file_binary))
+  auto desktop = Pop(ns_db::ns_desktop::deserialize(
+    Pop(ns_reserved::ns_desktop::read(config.path_file_binary))
   ));
   // Generate desktop entry
   std::stringstream ss;
-  Expect(generate_desktop_entry(desktop, config.path_file_binary, ss));
+  Pop(generate_desktop_entry(desktop, config.path_file_binary, ss));
   // Dump contents
   return ss.str();
 }
@@ -712,17 +702,17 @@ namespace fs = std::filesystem;
  * @brief Dumps the application mime type file if integration is configured
  * 
  * @param config The FlatImage configuration object
- * @return Expected<std::string> The mime type data or the respective error
+ * @return Value<std::string> The mime type data or the respective error
  */
-[[nodiscard]] inline Expected<std::string> dump_mimetype(ns_config::FlatimageConfig const& config)
+[[nodiscard]] inline Value<std::string> dump_mimetype(ns_config::FlatimageConfig const& config)
 {
   // Get desktop object
-  auto desktop = Expect(ns_db::ns_desktop::deserialize(
-    Expect(ns_reserved::ns_desktop::read(config.path_file_binary))
+  auto desktop = Pop(ns_db::ns_desktop::deserialize(
+    Pop(ns_reserved::ns_desktop::read(config.path_file_binary))
   ));
   // Generate mime database
   std::stringstream ss;
-  Expect(generate_mime_database(desktop, config.path_file_binary, ss));
+  Pop(generate_mime_database(desktop, config.path_file_binary, ss));
   // Dump contents
   return ss.str();
 }

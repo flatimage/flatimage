@@ -10,6 +10,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <print>
 
 #include "../common.hpp"
 #include "../std/concept.hpp"
@@ -70,14 +71,14 @@ inline void Logger::set_sink_file(fs::path const& path_file_sink)
   // File to save logs into
   if ( const char* var = std::getenv("FIM_DEBUG"); var && std::string_view{var} == "1" )
   {
-    "Logger file: {}\n"_print(path_file_sink);
+    std::println("I::Logger file: {}", path_file_sink.string());
   }
   // File output stream
   m_opt_os = std::ofstream(path_file_sink, std::ios::out | std::ios::trunc);
   // Check if file was opened successfully  
   if(not m_opt_os->is_open())
   {
-    std::cerr << ("Could not open file '{}'\n"_fmt(path_file_sink));
+    std::println("E::Could not open file '{}'", path_file_sink.string());
   }
 }
 

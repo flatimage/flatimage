@@ -32,7 +32,7 @@ namespace fs = std::filesystem;
  * @param url The remote URL to set
  * @return Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> set(fs::path const& path_file_binary, std::string const& url)
+[[nodiscard]] inline Value<void> set(fs::path const& path_file_binary, std::string const& url)
 {
   // Create database
   ns_db::Db db;
@@ -40,7 +40,7 @@ namespace fs = std::filesystem;
   db("url") = url;
   ns_log::info()("Set remote URL to '{}'", url);
   // Write to the database
-  Expect(ns_reserved::ns_remote::write(path_file_binary, db.dump()));
+  Pop(ns_reserved::ns_remote::write(path_file_binary, Pop(db.dump())));
   return {};
 }
 
@@ -50,19 +50,19 @@ namespace fs = std::filesystem;
  * @param path_file_binary Path to the binary with remote URL database
  * @return The remote URL on success, or the respective error
  */
-[[nodiscard]] inline Expected<std::string> get(fs::path const& path_file_binary)
+[[nodiscard]] inline Value<std::string> get(fs::path const& path_file_binary)
 {
   // Read database
   ns_db::Db db = ns_db::from_string(
-    Expect(ns_reserved::ns_remote::read(path_file_binary))
+    Pop(ns_reserved::ns_remote::read(path_file_binary))
   ).value_or(ns_db::Db());
   // Check if URL exists
   if (db.empty() or not db.contains("url"))
   {
-    return Unexpected("E::No remote URL configured");
+    return Error("E::No remote URL configured");
   }
   // Return URL
-  return Expect(db("url").value<std::string>(), "E::Could not read URL");
+  return Pop(db("url").value<std::string>(), "E::Could not read URL");
 }
 
 /**
@@ -71,12 +71,12 @@ namespace fs = std::filesystem;
  * @param path_file_binary Path to the binary with remote URL database
  * @return Nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> clear(fs::path const& path_file_binary)
+[[nodiscard]] inline Value<void> clear(fs::path const& path_file_binary)
 {
   // Create empty database
   ns_db::Db db;
   // Write empty database
-  Expect(ns_reserved::ns_remote::write(path_file_binary, db.dump()));
+  Pop(ns_reserved::ns_remote::write(path_file_binary, Pop(db.dump())));
   ns_log::info()("Cleared remote URL");
   return {};
 }

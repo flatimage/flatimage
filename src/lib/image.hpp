@@ -30,7 +30,7 @@ namespace fs = std::filesystem;
 
 ENUM(ImageFormat, JPG, PNG);
 
-inline Expected<void> resize_impl(fs::path const& path_file_src
+inline Value<void> resize_impl(fs::path const& path_file_src
   , fs::path const& path_file_dst
   , uint32_t width
   , uint32_t height)
@@ -45,9 +45,9 @@ inline Expected<void> resize_impl(fs::path const& path_file_src
   std::string ext = path_file_src.extension().string();
   std::ranges::transform(ext, ext.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
 
-  ImageFormat format = Expect(
-    (ext == ".jpg" || ext == ".jpeg") ? Expected<ImageFormat>(ImageFormat::JPG) :
-    (ext == ".png") ? Expected<ImageFormat>(ImageFormat::PNG) :
+  ImageFormat format = Pop(
+    (ext == ".jpg" || ext == ".jpeg") ? Value<ImageFormat>(ImageFormat::JPG) :
+    (ext == ".png") ? Value<ImageFormat>(ImageFormat::PNG) :
     std::unexpected("Input image of invalid format: '{}'"_fmt(ext))
   );
 
@@ -64,9 +64,9 @@ inline Expected<void> resize_impl(fs::path const& path_file_src
   ns_log::info()("Image size is {}x{}", std::to_string(img.width()), std::to_string(img.height()));
   ns_log::info()("Saving image to {}", path_file_dst);
   // Search for imagemagick
-  fs::path path_bin_magick = Expect(ns_env::search_path("magick"));
+  fs::path path_bin_magick = Pop(ns_env::search_path("magick"));
   // Resize
-  int code = Expect(ns_subprocess::Subprocess(path_bin_magick)
+  int code = Pop(ns_subprocess::Subprocess(path_bin_magick)
     .with_args(path_file_src)
     .with_args("-resize", (img.width() > img.height())? "{}x"_fmt(width) : "x{}"_fmt(height))
     .with_args(path_file_dst)
@@ -89,9 +89,9 @@ inline Expected<void> resize_impl(fs::path const& path_file_src
  * @param path_file_dst Path to the output image file
  * @param width Target width of the output image
  * @param height Target height of the output image
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-inline Expected<void> resize(fs::path const& path_file_src
+inline Value<void> resize(fs::path const& path_file_src
   , fs::path const& path_file_dst
   , uint32_t width
   , uint32_t height)

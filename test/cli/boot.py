@@ -39,7 +39,7 @@ class TestFimBoot(unittest.TestCase):
     # Invalid argument to fim-boot
     out,err,code = self.run_cmd("fim-boot", "sett")
     self.assertEqual(out, "")
-    self.assertIn("Could not determine enum entry from 'SETT'", err)
+    self.assertIn("Invalid boot operation", err)
     self.assertEqual(code, 125)
 
   def test_boot_set(self):

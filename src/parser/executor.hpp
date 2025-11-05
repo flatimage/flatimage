@@ -54,14 +54,14 @@ using namespace ns_parser::ns_interface;
  * @param config FlatImage configuration object
  * @param argc Argument counter
  * @param argv Argument vector
- * @return Expected<int> The exit code on success or the respective error
+ * @return Value<int> The exit code on success or the respective error
  */
-[[nodiscard]] inline Expected<int> execute_command(ns_config::FlatimageConfig& config, int argc, char** argv)
+[[nodiscard]] inline Value<int> execute_command(ns_config::FlatimageConfig& config, int argc, char** argv)
 {
   // Parse args
-  CmdType variant_cmd = Expect(ns_parser::parse(argc, argv));
+  CmdType variant_cmd = Pop(ns_parser::parse(argc, argv), "C::Could not parse arguments");
 
-  auto f_bwrap_impl = [&](auto&& program, auto&& args) -> Expected<ns_bwrap::bwrap_run_ret_t>
+  auto f_bwrap_impl = [&](auto&& program, auto&& args) -> Value<ns_bwrap::bwrap_run_ret_t>
   {
     // Initialize permissions
     ns_reserved::ns_permissions::Permissions permissions(config.path_file_binary);
@@ -84,7 +84,7 @@ using namespace ns_parser::ns_interface;
         config.path_dir_mount_ciopfs
       : config.path_dir_mount_overlayfs;
     // Get uid and gid from config (checks environment database or uses defaults)
-    ns_config::User user = Expect(config.configure_user());
+    ns_config::User user = Pop(config.configure_user(), "E::Failed to configure user data");
     ns_log::debug()("User: {}", user);
     // Create bwrap command
     ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(
@@ -103,7 +103,7 @@ using namespace ns_parser::ns_interface;
     // Include root binding and custom user-defined bindings
     std::ignore = bwrap
       .with_bind_ro("/", config.path_dir_runtime_host)
-      .with_binds(Expect(ns_cmd::ns_bind::db_read(config.path_file_binary)));
+      .with_binds(Pop(ns_cmd::ns_bind::db_read(config.path_file_binary), "E::Failed to configure bindings"));
     // Check if should enable GPU
     if (permissions.contains(ns_reserved::ns_permissions::Permission::GPU))
     {
@@ -114,15 +114,12 @@ using namespace ns_parser::ns_interface;
   };
 
 
-  auto f_bwrap = [&]<typename T, typename U>(T&& program, U&& args) -> Expected<int>
+  auto f_bwrap = [&]<typename T, typename U>(T&& program, U&& args) -> Value<int>
   {
     // Setup desktop integration, permissive
-    if(auto ret = ns_desktop::integrate(config); not ret)
-    {
-      ns_log::error()("Could not perform desktop integration: {}", ret.error());
-    }
+    ns_desktop::integrate(config).discard("W::Could not perform desktop integration");
     // Run bwrap
-    ns_bwrap::bwrap_run_ret_t bwrap_run_ret = Expect(f_bwrap_impl(program, args));
+    ns_bwrap::bwrap_run_ret_t bwrap_run_ret = Pop(f_bwrap_impl(program, args), "E::Failed to execute bwrap");
     // Log bwrap errors
     elog_if(bwrap_run_ret.errno_nr > 0
       , "Bwrap failed syscall '{}' with errno '{}'"_fmt(bwrap_run_ret.syscall_nr, bwrap_run_ret.errno_nr)
@@ -132,7 +129,7 @@ using namespace ns_parser::ns_interface;
     {
       ns_log::error()("Bwrap failed SYS_mount, retrying with fuse-unionfs...");
       config.overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
-      bwrap_run_ret = Expect(f_bwrap_impl(program, args));
+      bwrap_run_ret = Pop(f_bwrap_impl(program, args), "E::Failed to execute bwrap");
     } // if
     return bwrap_run_ret.code;
   };
@@ -156,29 +153,29 @@ using namespace ns_parser::ns_interface;
     // Determine permission operation
     if(auto cmd_add = std::get_if<CmdPerms::Add>(&(cmd->sub_cmd)))
     {
-      Expect(permissions.add(cmd_add->permissions));
+      Pop(permissions.add(cmd_add->permissions), "E::Failed to add permissions");
     }
     else if(std::get_if<CmdPerms::Clear>(&(cmd->sub_cmd)))
     {
-      Expect(permissions.set_all(false));
+      Pop(permissions.set_all(false), "E::Failed to clear permissions");
     }
     else if(auto cmd_del = std::get_if<CmdPerms::Del>(&(cmd->sub_cmd)))
     {
-      Expect(permissions.del(cmd_del->permissions));
+      Pop(permissions.del(cmd_del->permissions), "E::Failed to delete permissions");
     }
     else if(std::get_if<CmdPerms::List>(&(cmd->sub_cmd)))
     {
-      std::ranges::copy(Expect(permissions.to_strings())
+      std::ranges::copy(Pop(permissions.to_strings(), "E::Failed to stringfy permissions")
         , std::ostream_iterator<std::string>(std::cout, "\n")
       );
     }
     else if(auto cmd_set = std::get_if<CmdPerms::Set>(&(cmd->sub_cmd)))
     {
-      Expect(permissions.set(cmd_set->permissions));
+      Pop(permissions.set(cmd_set->permissions), "E::Failed to set permissions");
     }
     else
     {
-      return Unexpected("C::Invalid permissions sub-command");
+      return Error("C::Invalid permissions sub-command");
     }
   }
   // Configure environment
@@ -186,29 +183,29 @@ using namespace ns_parser::ns_interface;
   {
     if(auto cmd_add = std::get_if<CmdEnv::Add>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_env::add(config.path_file_binary, cmd_add->variables));
+      Pop(ns_db::ns_env::add(config.path_file_binary, cmd_add->variables), "E::Failed to add variables");
     }
     else if(std::get_if<CmdEnv::Clear>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_env::set(config.path_file_binary, std::vector<std::string>()));
+      Pop(ns_db::ns_env::set(config.path_file_binary, std::vector<std::string>()), "E::Failed to clear variables");
     }
     else if(auto cmd_del = std::get_if<CmdEnv::Del>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_env::del(config.path_file_binary, cmd_del->variables));
+      Pop(ns_db::ns_env::del(config.path_file_binary, cmd_del->variables), "E::Failed to delete variables");
     }
     else if(std::get_if<CmdEnv::List>(&(cmd->sub_cmd)))
     {
-      std::ranges::copy(Expect(ns_db::ns_env::get(config.path_file_binary))
+      std::ranges::copy(Pop(ns_db::ns_env::get(config.path_file_binary), "E::Failed to list variables")
         , std::ostream_iterator<std::string>(std::cout, "\n")
       );
     }
     else if(auto cmd_set = std::get_if<CmdEnv::Set>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_env::set(config.path_file_binary, cmd_set->variables));
+      Pop(ns_db::ns_env::set(config.path_file_binary, cmd_set->variables), "E::Failed to set variables");
     }
     else
     {
-      return Unexpected("C::Invalid environment sub-command");
+      return Error("C::Invalid environment sub-command");
     }
   }
   // Configure desktop integration
@@ -216,38 +213,38 @@ using namespace ns_parser::ns_interface;
   {
     if(auto cmd_setup = std::get_if<CmdDesktop::Setup>(&(cmd->sub_cmd)))
     {
-      Expect(ns_desktop::setup(config, cmd_setup->path_file_setup));
+      Pop(ns_desktop::setup(config, cmd_setup->path_file_setup), "E::Failed to setup desktop integration");
     }
     else if(auto cmd_enable = std::get_if<CmdDesktop::Enable>(&(cmd->sub_cmd)))
     {
-      Expect(ns_desktop::enable(config, cmd_enable->set_enable));
+      Pop(ns_desktop::enable(config, cmd_enable->set_enable), "E::Failed to enable desktop integration");
     }
     else if(std::get_if<CmdDesktop::Clean>(&(cmd->sub_cmd)))
     {
-      Expect(ns_desktop::clean(config));
+      Pop(ns_desktop::clean(config), "E::Failed to clean desktop integration");
     }
     else if(auto cmd_dump = std::get_if<CmdDesktop::Dump>(&(cmd->sub_cmd)))
     {
       if(auto cmd_icon = std::get_if<CmdDesktop::Dump::Icon>(&(cmd_dump->sub_cmd)))
       {
-        Expect(ns_desktop::dump_icon(config, cmd_icon->path_file_icon));
+        Pop(ns_desktop::dump_icon(config, cmd_icon->path_file_icon), "E::Failed to dump desktop icon");
       }
       else if(std::get_if<CmdDesktop::Dump::Entry>(&(cmd_dump->sub_cmd)))
       {
-        std::println("{}", Expect(ns_desktop::dump_entry(config)));
+        std::println("{}", Pop(ns_desktop::dump_entry(config), "E::Failed to dump desktop entry"));
       }
       else if(std::get_if<CmdDesktop::Dump::MimeType>(&(cmd_dump->sub_cmd)))
       {
-        std::println("{}", Expect(ns_desktop::dump_mimetype(config)));
+        std::println("{}", Pop(ns_desktop::dump_mimetype(config), "E::Failed to dump MIME type"));
       }
       else
       {
-        return Unexpected("C::Invalid dump sub-command");
+        return Error("C::Invalid dump sub-command");
       }
     }
     else
     {
-      return Unexpected("C::Invalid desktop sub-command");
+      return Error("C::Invalid desktop sub-command");
     }
   }
   // Manager layers
@@ -255,28 +252,28 @@ using namespace ns_parser::ns_interface;
   {
     if(auto cmd_add = std::get_if<CmdLayer::Add>(&(cmd->sub_cmd)))
     {
-      Expect(ns_layers::add(config.path_file_binary, cmd_add->path_file_src));
+      Pop(ns_layers::add(config.path_file_binary, cmd_add->path_file_src), "E::Failed to add layer");
     }
     else if(std::get_if<CmdLayer::Commit>(&(cmd->sub_cmd)))
     {
-      Expect(ns_layers::commit(config.path_file_binary
+      Pop(ns_layers::commit(config.path_file_binary
         , config.path_dir_upper_overlayfs
         , config.path_dir_host_config_tmp / "layer.tmp"
         , config.path_dir_host_config_tmp / "compression.list"
         , config.layer_compression_level
-      ));
+      ), "E::Failed to commit layer");
     }
     else if(auto cmd_create = std::get_if<CmdLayer::Create>(&(cmd->sub_cmd)))
     {
-      Expect(ns_layers::create(cmd_create->path_dir_src
+      Pop(ns_layers::create(cmd_create->path_dir_src
         , cmd_create->path_file_target
         , config.path_dir_host_config_tmp / "compression.list"
         , config.layer_compression_level
-      ));
+      ), "E::Failed to create layer");
     }
     else
     {
-      return Unexpected("C::Invalid layer operation");
+      return Error("C::Invalid layer operation");
     }
   }
   // Bind a device or file to the flatimage
@@ -284,33 +281,33 @@ using namespace ns_parser::ns_interface;
   {
     if(auto cmd_add = std::get_if<CmdBind::Add>(&(cmd->sub_cmd)))
     {
-      Expect(ns_cmd::ns_bind::add(config.path_file_binary
+      Pop(ns_cmd::ns_bind::add(config.path_file_binary
         , cmd_add->type
         , cmd_add->path_src
         , cmd_add->path_dst)
-      );
+      , "E::Failed to add binding");
     }
     else if(auto cmd_del = std::get_if<CmdBind::Del>(&(cmd->sub_cmd)))
     {
-      Expect(ns_cmd::ns_bind::del(config.path_file_binary, cmd_del->index));
+      Pop(ns_cmd::ns_bind::del(config.path_file_binary, cmd_del->index), "E::Failed to delete binding");
     }
     else if(std::get_if<CmdBind::List>(&(cmd->sub_cmd)))
     {
-      Expect(ns_cmd::ns_bind::list(config.path_file_binary));
+      Pop(ns_cmd::ns_bind::list(config.path_file_binary), "E::Failed to list bindings");
     }
     else
     {
-      return Unexpected("C::Invalid bind operation");
+      return Error("C::Invalid bind operation");
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdNotify>(&variant_cmd) )
   {
-    Expect(ns_reserved::ns_notify::write(config.path_file_binary, cmd->status == CmdNotifySwitch::ON));
+    Pop(ns_reserved::ns_notify::write(config.path_file_binary, cmd->status == CmdNotifySwitch::ON), "E::Failed to write notify status");
   } // else if
   // Enable or disable casefold (useful for wine)
   else if ( auto cmd = std::get_if<ns_parser::CmdCaseFold>(&variant_cmd) )
   {
-    Expect(ns_reserved::ns_casefold::write(config.path_file_binary, cmd->status == CmdCaseFoldSwitch::ON));
+    Pop(ns_reserved::ns_casefold::write(config.path_file_binary, cmd->status == CmdCaseFoldSwitch::ON), "E::Failed to write casefold status");
   } // else if
   // Update default command on database
   else if ( auto cmd = std::get_if<ns_parser::CmdBoot>(&variant_cmd) )
@@ -320,7 +317,7 @@ using namespace ns_parser::ns_interface;
       // Create empty database
       ns_db::Db db;
       // Write empty database
-      Expect(ns_reserved::ns_boot::write(config.path_file_binary, db.dump()));
+      Pop(ns_reserved::ns_boot::write(config.path_file_binary, Pop(db.dump(), "E::Failed to dump boot database")), "E::Failed to clear boot configuration");
     }
     else if(auto cmd_set = std::get_if<CmdBoot::Set>(&(cmd->sub_cmd)))
     {
@@ -330,23 +327,24 @@ using namespace ns_parser::ns_interface;
       db("program") = cmd_set->program;
       db("args") = cmd_set->args;
       // Write fields
-      Expect(ns_reserved::ns_boot::write(config.path_file_binary, db.dump()));
+      Pop(ns_reserved::ns_boot::write(config.path_file_binary, Pop(db.dump(), "E::Failed to dump boot database")), "E::Failed to set boot configuration");
     }
     else if(std::get_if<CmdBoot::Show>(&(cmd->sub_cmd)))
     {
-      // Read database
-      ns_db::Db db = ns_db::from_string(
-        Expect(ns_reserved::ns_boot::read(config.path_file_binary))
-      ).value_or(ns_db::Db());
-      // Print database
+      // Read json data
+      std::string data = Pop(ns_reserved::ns_boot::read(config.path_file_binary), "E::Failed to read boot configuration");
+      qreturn_if(data.empty(), {});
+      // Create database
+      ns_db::Db db = ns_db::from_string(data).value_or(ns_db::Db());
+      // Dump database
       if(not db.empty())
       {
-        std::cout << db.dump() << '\n';
+        std::cout << Pop(db.dump(), "E::Failed to dump boot configuration") << '\n';
       }
     }
     else
     {
-      return Unexpected("C::Invalid boot sub-command");
+      return Error("C::Invalid boot sub-command");
     }
   }
   // Configure remote URL
@@ -354,29 +352,29 @@ using namespace ns_parser::ns_interface;
   {
     if(std::get_if<CmdRemote::Clear>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_remote::clear(config.path_file_binary));
+      Pop(ns_db::ns_remote::clear(config.path_file_binary), "E::Failed to clear remote URL");
     }
     else if(auto cmd_set = std::get_if<CmdRemote::Set>(&(cmd->sub_cmd)))
     {
-      Expect(ns_db::ns_remote::set(config.path_file_binary, cmd_set->url));
+      Pop(ns_db::ns_remote::set(config.path_file_binary, cmd_set->url), "E::Failed to set remote URL");
     }
     else if(std::get_if<CmdRemote::Show>(&(cmd->sub_cmd)))
     {
-      std::println("{}", Expect(ns_db::ns_remote::get(config.path_file_binary)));
+      std::println("{}", Pop(ns_db::ns_remote::get(config.path_file_binary), "E::Failed to get remote URL"));
     }
     else
     {
-      return Unexpected("C::Invalid remote sub-command");
+      return Error("C::Invalid remote sub-command");
     }
   }
   // Fetch and install recipes
   else if ( auto cmd = std::get_if<ns_parser::CmdRecipe>(&variant_cmd) )
   {
-    auto f_fetch = [&config](std::string const& recipe, bool use_existing) -> Expected<std::vector<std::string>>
+    auto f_fetch = [&config](std::string const& recipe, bool use_existing) -> Value<std::vector<std::string>>
     {
       return ns_recipe::fetch(
           config.distribution
-        , Expect(ns_db::ns_remote::get(config.path_file_binary))
+        , Pop(ns_db::ns_remote::get(config.path_file_binary), "E::Failed to get remote URL")
         , config.path_dir_app_sbin / "wget"
         , config.path_dir_host_config
         , recipe
@@ -389,14 +387,14 @@ using namespace ns_parser::ns_interface;
       // Fetch recipes with dependencies, always download when fetch command is called directly
       for(auto const& recipe : cmd_fetch->recipes)
       {
-        Expect(f_fetch(recipe, false));
+        Pop(f_fetch(recipe, false), "E::Failed to fetch recipe");
       }
     }
     else if(auto cmd_info = std::get_if<CmdRecipe::Info>(&(cmd->sub_cmd)))
     {
       for(auto const& recipe : cmd_info->recipes)
       {
-        Expect(ns_recipe::info(config.distribution, config.path_dir_host_config, recipe));
+        Pop(ns_recipe::info(config.distribution, config.path_dir_host_config, recipe), "E::Failed to get recipe info");
       }
     }
     else if(auto cmd_install = std::get_if<CmdRecipe::Install>(&(cmd->sub_cmd)))
@@ -405,7 +403,7 @@ using namespace ns_parser::ns_interface;
       // Fetch all recipes and dependencies, overwrite existing
       for(auto const& recipe : cmd_install->recipes)
       {
-        std::vector<std::string> sub_recipes = Expect(f_fetch(recipe, true));
+        std::vector<std::string> sub_recipes = Pop(f_fetch(recipe, true), "E::Failed to fetch recipe");
         std::ranges::copy(sub_recipes, std::back_inserter(all_recipes));
       }
       config.is_root = 1;
@@ -414,7 +412,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("C::Invalid recipe sub-command");
+      return Error("C::Invalid recipe sub-command");
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )
@@ -424,16 +422,22 @@ using namespace ns_parser::ns_interface;
     // Get instances
     auto instances = fs::directory_iterator(config.path_dir_app / "instance")
       | std::views::filter([&](auto&& e){ return fs::exists(fs::path{"/proc"} / f_filename(e)); })
-      | std::views::filter([&](auto&& e){ return std::stoi(f_filename(e)) != getpid(); })
+      | std::views::filter([&](auto&& e){
+          auto pid_result = Catch(std::stoi(f_filename(e)));
+          return pid_result && pid_result.value() != getpid();
+        })
       | std::views::transform([](auto&& e){ return e.path(); })
       | std::ranges::to<std::vector<fs::path>>();
     // Sort by pid (filename is a directory named as the pid of that instance)
-    std::ranges::sort(instances, {}, [](auto&& e){ return std::stoi(e.filename().string()); });
+    std::ranges::sort(instances, {}, [](auto&& e){
+      auto pid_result = Catch(std::stoi(e.filename().string()));
+      return pid_result ? pid_result.value() : 0;
+    });
     if(auto cmd_exec = std::get_if<CmdInstance::Exec>(&(cmd->sub_cmd)))
     {
-      qreturn_if(instances.size() == 0, Unexpected("C::No instances are running"));
+      qreturn_if(instances.size() == 0, Error("C::No instances are running"));
       qreturn_if(cmd_exec->id < 0 or static_cast<size_t>(cmd_exec->id) >= instances.size()
-        , Unexpected("C::Instance index out of bounds")
+        , Error("C::Instance index out of bounds")
       );
       return ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
         .with_args("--connect", instances.at(cmd_exec->id))
@@ -451,14 +455,14 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("C::Invalid instance operation");
+      return Error("C::Invalid instance operation");
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdOverlay>(&variant_cmd) )
   {
     if(auto cmd_set = std::get_if<CmdOverlay::Set>(&(cmd->sub_cmd)))
     {
-      Expect(ns_reserved::ns_overlay::write(config.path_file_binary, cmd_set->overlay));
+      Pop(ns_reserved::ns_overlay::write(config.path_file_binary, cmd_set->overlay), "E::Failed to set overlay type");
     }
     else if(std::get_if<CmdOverlay::Show>(&(cmd->sub_cmd)))
     {
@@ -466,7 +470,7 @@ using namespace ns_parser::ns_interface;
     }
     else
     {
-      return Unexpected("C::Invalid operation for fim-overlay");
+      return Error("C::Invalid operation for fim-overlay");
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdVersion>(&variant_cmd) )
@@ -477,38 +481,31 @@ using namespace ns_parser::ns_interface;
     }
     else if(auto cmd_full = std::get_if<CmdVersion::Full>(&(cmd->sub_cmd)))
     {
-      std::println("{}", cmd_full->dump());
+      std::println("{}", Pop(cmd_full->dump(), "E::Failed to dump full version info"));
     }
     else if(auto cmd_deps = std::get_if<CmdVersion::Deps>(&(cmd->sub_cmd)))
     {
-      std::println("{}", Expect(cmd_deps->dump()));
+      std::println("{}", Pop(cmd_deps->dump(), "E::Failed to dump dependencies info"));
     }
     else
     {
-      return Unexpected("C::Invalid operation for fim-version");
+      return Error("C::Invalid operation for fim-version");
     }
   }
   // Update default command on database
   else if ( std::get_if<ns_parser::CmdNone>(&variant_cmd) )
   {
-    auto db = ns_db::from_string(Expect(ns_reserved::ns_boot::read(config.path_file_binary)))
-      .value_or(ns_db::Db());
+    std::string data = Pop(ns_reserved::ns_boot::read(config.path_file_binary), "E::Failed to read boot configuration");
+    auto db = ns_db::from_string(data).value_or(ns_db::Db());
     // Fetch default command
-    fs::path program = [&] -> Expected<fs::path> {
-      // Read startup program
-      auto program = Expect(db("program").template value<std::string>());
-      // Expand program if it is an environment variable or shell expression
-      return ns_env::expand(program).value_or(program);
-    }().value_or("bash");
+    fs::path program = db("program").template value<std::string>()
+      .transform([](auto&& e){ return ns_env::expand(e).value_or(e); })
+      .value_or("bash");
     // Fetch default arguments
-    std::vector<std::string> args = [&] -> Expected<std::vector<std::string>> {
-      using Args = std::vector<std::string>;
-      // Read arguments
-      Args args = Expect(db("args").template value<Args>());
-      // Append arguments from argv
-      std::copy(argv+1, argv+argc, std::back_inserter(args));
-      return Expected<Args>(args);
-    }().value_or(std::vector<std::string>{});
+    using Args = std::vector<std::string>;
+    std::vector<std::string> args = db("args").template value<Args>().or_default();
+    // Append arguments from argv
+    std::copy(argv+1, argv+argc, std::back_inserter(args));
     // Run Bwrap
     return f_bwrap(program, args);
   } // else if
@@ -518,7 +515,7 @@ using namespace ns_parser::ns_interface;
   }
   else
   {
-    return Unexpected("C::Unknown command");
+    return Error("C::Unknown command");
   }
 
   return EXIT_SUCCESS;

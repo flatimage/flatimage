@@ -47,7 +47,7 @@ class Controller
       , fs::path const& path_dir_workdir
     );
     // In case the parent process fails to clean the mountpoints, this child does it
-    [[nodiscard]] Expected<void> spawn_janitor();
+    [[nodiscard]] Value<void> spawn_janitor();
 
   public:
     Controller(ns_config::FlatimageConfig const& config);
@@ -145,10 +145,10 @@ inline Controller::~Controller()
  * @brief Spawns the janitor.
  * In case the parent process fails to clean the mountpoints, this child does it
  */
-[[nodiscard]] inline Expected<void> Controller::spawn_janitor()
+[[nodiscard]] inline Value<void> Controller::spawn_janitor()
 {
   // Find janitor binary
-  fs::path path_file_janitor = fs::path{Expect(ns_env::get_expected("FIM_DIR_APP_BIN"))} / "fim_janitor";
+  fs::path path_file_janitor = fs::path{Pop(ns_env::get_expected("FIM_DIR_APP_BIN"))} / "fim_janitor";
 
   // Fork and execve into the janitor process
   pid_t pid_parent = getpid();
@@ -163,8 +163,8 @@ inline Controller::~Controller()
   }
 
   // Redirect stdout/stderr to a log file
-  fs::path path_stdout = std::string{Expect(ns_env::get_expected("FIM_DIR_MOUNT"))} + ".janitor.stdout.log";
-  fs::path path_stderr = std::string{Expect(ns_env::get_expected("FIM_DIR_MOUNT"))} + ".janitor.stderr.log";
+  fs::path path_stdout = std::string{Pop(ns_env::get_expected("FIM_DIR_MOUNT"))} + ".janitor.stdout.log";
+  fs::path path_stderr = std::string{Pop(ns_env::get_expected("FIM_DIR_MOUNT"))} + ".janitor.stderr.log";
   int fd_stdout = open(path_stdout.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
   int fd_stderr = open(path_stderr.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
   e_exitif(fd_stdout < 0, "Failed to open stdout janitor file", 1);
@@ -210,18 +210,18 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
   // Filesystem index
   uint64_t index_fs{};
 
-  auto f_mount = [this](fs::path const& _path_file_binary, fs::path const& _path_dir_mount, uint64_t _index_fs, uint64_t _offset, uint64_t _size_fs)
+  auto f_mount = [this](fs::path const& _path_file_binary, fs::path const& _path_dir_mount, uint64_t _index_fs, uint64_t _offset, uint64_t _size_fs) -> Value<void>
   {
-    std::error_code ec;
     ns_log::debug()("Offset to filesystem is '{}'", _offset);
     // Create mountpoint
     fs::path path_dir_mount_index = _path_dir_mount / std::to_string(_index_fs);
-    fs::create_directories(path_dir_mount_index, ec);
+    Try(fs::create_directories(path_dir_mount_index));
     // Configure and mount the filesystem
     // Keep the object alive in the filesystems vector
     this->m_layers.emplace_back(std::make_unique<ns_dwarfs::Dwarfs>(getpid(), path_dir_mount_index, _path_file_binary, _offset, _size_fs));
     // Include current mountpoint in the mountpoints vector
     m_vec_path_dir_mountpoints.push_back(path_dir_mount_index);
+    return {};
   };
 
   // Advance offset
@@ -239,7 +239,9 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     // Check if filesystem is of type 'DWARFS'
     ebreak_if(not ns_dwarfs::is_dwarfs(path_file_binary, offset), "Invalid dwarfs filesystem appended on the image");
     // Mount filesystem
-    f_mount(path_file_binary, path_dir_mount, index_fs, offset, size_fs);
+    ebreak_if(not f_mount(path_file_binary, path_dir_mount, index_fs, offset, size_fs)
+      , "Failed to mount filesystem at index {}"_fmt(index_fs)
+    );
     // Go to next filesystem if exists
     index_fs += 1;
     offset += size_fs;
@@ -281,7 +283,18 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     // Check if filesystem is of type 'DWARFS'
     econtinue_if(not ns_dwarfs::is_dwarfs(path_file_layer, 0), "Invalid dwarfs filesystem appended on the image");
     // Mount file as a filesystem
-    f_mount(path_file_layer, path_dir_mount, index_fs, 0, fs::file_size(path_file_layer));
+    auto size_result = Catch(fs::file_size(path_file_layer));
+    if (!size_result)
+    {
+      ns_log::error()("Failed to get file size for layer: {}", path_file_layer.string());
+      continue;
+    }
+    auto mount_result = f_mount(path_file_layer, path_dir_mount, index_fs, 0, size_result.value());
+    if (!mount_result)
+    {
+      ns_log::error()("Failed to mount filesystem at index {}", index_fs);
+      continue;
+    }
     // Go to next filesystem if exists
     index_fs += 1;
   } // for

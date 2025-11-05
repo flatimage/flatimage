@@ -11,7 +11,6 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
-#include <exception>
 #include <memory>
 #include <string>
 #include <sys/stat.h>
@@ -32,7 +31,6 @@
 #include "lib/log.hpp"
 #include "macro.hpp"
 #include "std/expected.hpp"
-#include "std/filesystem.hpp"
 #include "std/enum.hpp"
 #include "reserved/casefold.hpp"
 #include "reserved/notify.hpp"
@@ -108,9 +106,9 @@ namespace fs = std::filesystem;
 /**
  * @brief Writes the passwd file and returns its path
  * 
- * @return Expected<fs::path> The path to the passwd file
+ * @return Value<fs::path> The path to the passwd file
  */
-[[nodiscard]] inline Expected<User> write_passwd(fs::path const& path_file_passwd
+[[nodiscard]] inline Value<User> write_passwd(fs::path const& path_file_passwd
   , fs::path const& path_file_bash
   , fs::path const& path_file_bashrc
   , Id const& id
@@ -118,10 +116,10 @@ namespace fs = std::filesystem;
 {
   // Get user info
   struct passwd *pw = getpwuid(getuid());
-  qreturn_if(not pw, Unexpected("E::Failed to get current user info"));
+  qreturn_if(not pw, Error("E::Failed to get current user info"));
   // Open passwd file
   std::ofstream file_passwd{path_file_passwd};
-  qreturn_if(not file_passwd.is_open(), Unexpected("E::Failed to open passwd file at {}", path_file_passwd));
+  qreturn_if(not file_passwd.is_open(), Error("E::Failed to open passwd file at {}", path_file_passwd));
   // Define passwd entries
   User user
   {
@@ -147,14 +145,14 @@ namespace fs = std::filesystem;
 /**
  * @brief Writes the bashrc file and returns its path
  *
- * @return Expected<fs::path> The path to the bashrc file
+ * @return Value<fs::path> The path to the bashrc file
  */
-[[nodiscard]] inline Expected<fs::path> write_bashrc(fs::path const& path_file_bashrc
+[[nodiscard]] inline Value<fs::path> write_bashrc(fs::path const& path_file_bashrc
   , std::unordered_map<std::string,std::string> const& variables)
 {
   // Open new bashrc file
   std::ofstream file_bashrc{path_file_bashrc};
-  qreturn_if(not file_bashrc.is_open(), Unexpected("E::Failed to open bashrc file at {}", path_file_bashrc));
+  qreturn_if(not file_bashrc.is_open(), Error("E::Failed to open bashrc file at {}", path_file_bashrc));
   // Write custom PS1 or default value
   if(variables.contains("PS1"))
   {
@@ -173,9 +171,9 @@ namespace fs = std::filesystem;
  * Checks environment database for custom UID/GID values, falls back to current user's values.
  * If is_root flag is set, returns 0:0.
  *
- * @return Expected<Id> The UID and GID pair
+ * @return Value<Id> The UID and GID pair
  */
-[[nodiscard]] inline Expected<Id> get_id(bool is_root , std::unordered_map<std::string,std::string> const& hash_env)
+[[nodiscard]] inline Value<Id> get_id(bool is_root , std::unordered_map<std::string,std::string> const& hash_env)
 {
   // If root mode is requested, return 0:0
   if (is_root)
@@ -184,39 +182,12 @@ namespace fs = std::filesystem;
   }
   // Get user info for defaults
   struct passwd *pw = getpwuid(getuid());
-  qreturn_if(not pw, Unexpected("E::Failed to get current user info"));
-  // Default to actual host user UID/GID
-  mode_t uid = pw->pw_uid;
-  mode_t gid = pw->pw_gid;
-  // Check for custom UID in environment
-  if (hash_env.contains("UID"))
+  qreturn_if(not pw, Error("E::Failed to get current user info"));
+  return Id
   {
-    try
-    {
-      uid = std::stoul(hash_env.at("UID"));
-      ns_log::debug()("Using custom UID from environment: {}", uid);
-    }
-    catch (std::exception const& e)
-    {
-      ns_log::warn()("Invalid UID in environment '{}', using default: {}", hash_env.at("UID"), pw->pw_uid);
-      uid = pw->pw_uid;
-    }
-  }
-  // Check for custom GID in environment
-  if (hash_env.contains("GID"))
-  {
-    try
-    {
-      gid = std::stoul(hash_env.at("GID"));
-      ns_log::debug()("Using custom GID from environment: {}", gid);
-    }
-    catch (std::exception const& e)
-    {
-      ns_log::warn()("Invalid GID in environment '{}', using default: {}", hash_env.at("GID"), pw->pw_gid);
-      gid = pw->pw_gid;
-    }
-  }
-  return Id{.uid = uid, .gid = gid};
+    .uid = static_cast<mode_t>(Catch(std::stoul(Catch(hash_env.at("UID")).or_default())).value_or(pw->pw_uid)),
+    .gid = static_cast<mode_t>(Catch(std::stoul(Catch(hash_env.at("GID")).or_default())).value_or(pw->pw_gid)),
+  };
 }
 
 } // namespace
@@ -258,44 +229,44 @@ struct FlatimageConfig
   // PATH environment variable
   std::string env_path;
 
-  Expected<User> configure_user()
+  Value<User> configure_user()
   {
-    auto hash_env = ns_db::ns_env::key_value(Expect(ns_db::ns_env::get(path_file_binary)));
-    Id id = Expect(get_id(is_root, hash_env));
-    fs::path path_file_bashrc = Expect(write_bashrc(path_dir_instance / "bashrc", hash_env));
-    return Expect(write_passwd(path_dir_instance / "passwd", path_file_bash, path_file_bashrc, id, hash_env));
+    auto hash_env = ns_db::ns_env::key_value(Pop(ns_db::ns_env::get(path_file_binary)));
+    Id id = Pop(get_id(is_root, hash_env));
+    fs::path path_file_bashrc = Pop(write_bashrc(path_dir_instance / "bashrc", hash_env));
+    return Pop(write_passwd(path_dir_instance / "passwd", path_file_bash, path_file_bashrc, id, hash_env));
   }
 };
 
 /**
  * @brief Factory method that makes a FlatImage configuration object
  *
- * @return Expected<FlatimageConfig> A FlatImage configuration object or the respective error
+ * @return Value<FlatimageConfig> A FlatImage configuration object or the respective error
  */
-[[nodiscard]] inline Expected<std::shared_ptr<FlatimageConfig>> config()
+[[nodiscard]] inline Value<std::shared_ptr<FlatimageConfig>> config()
 {
   // pid and distribution variables
   ns_env::set("FIM_PID", getpid(), ns_env::Replace::Y);
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
 
   // Standard paths
-  fs::path path_dir_global = Expect(ns_env::get_expected("FIM_DIR_GLOBAL"));
-  fs::path path_file_binary = Expect(ns_env::get_expected("FIM_FILE_BINARY"));
+  fs::path path_dir_global = Pop(ns_env::get_expected("FIM_DIR_GLOBAL"));
+  fs::path path_file_binary = Pop(ns_env::get_expected("FIM_FILE_BINARY"));
   fs::path path_dir_binary = path_file_binary.parent_path();
-  fs::path path_dir_app = Expect(ns_env::get_expected("FIM_DIR_APP"));
-  fs::path path_dir_app_bin = Expect(ns_env::get_expected("FIM_DIR_APP_BIN"));
-  fs::path path_dir_app_sbin = Expect(ns_env::get_expected("FIM_DIR_APP_SBIN"));
-  fs::path path_dir_instance = Expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
-  fs::path path_dir_mount = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
+  fs::path path_dir_app = Pop(ns_env::get_expected("FIM_DIR_APP"));
+  fs::path path_dir_app_bin = Pop(ns_env::get_expected("FIM_DIR_APP_BIN"));
+  fs::path path_dir_app_sbin = Pop(ns_env::get_expected("FIM_DIR_APP_SBIN"));
+  fs::path path_dir_instance = Pop(ns_env::get_expected("FIM_DIR_INSTANCE"));
+  fs::path path_dir_mount = Pop(ns_env::get_expected("FIM_DIR_MOUNT"));
   fs::path path_file_bash = path_dir_app_bin / "bash";
   fs::path path_dir_mount_layers = path_dir_mount / "layers";
   fs::path path_dir_mount_overlayfs = path_dir_mount / "overlayfs";
 
   // Distribution
-  Distribution distribution = Expect(Distribution::from_string(FIM_DIST));
+  Distribution distribution = Pop(Distribution::from_string(FIM_DIST));
 
   // Get built-in environment variables
-  auto hash_env = ns_db::ns_env::key_value(Expect(ns_db::ns_env::get(path_file_binary)));
+  auto hash_env = ns_db::ns_env::key_value(Pop(ns_db::ns_env::get(path_file_binary)));
 
   // Flags
   bool is_root = ns_env::exists("FIM_ROOT", "1")
@@ -304,8 +275,8 @@ struct FlatimageConfig
   // Flags for readonly, debug, notify, and casefolding
   bool is_debug = ns_env::exists("FIM_DEBUG", "1");
   bool is_casefold = ns_env::exists("FIM_CASEFOLD", "1")
-    or Expect(ns_reserved::ns_casefold::read(path_file_binary));
-  bool is_notify = Expect(ns_reserved::ns_notify::read(path_file_binary));
+    or Pop(ns_reserved::ns_casefold::read(path_file_binary));
+  bool is_notify = Pop(ns_reserved::ns_notify::read(path_file_binary));
 
   // Configure overlay type
   using ns_reserved::ns_overlay::OverlayType;
@@ -328,12 +299,12 @@ struct FlatimageConfig
   ns_env::set("FIM_DIR_RUNTIME_HOST", path_dir_runtime_host, ns_env::Replace::Y);
 
   // Home directory
-  fs::path path_dir_host_home = Expect(ns_env::get_expected<fs::path>("HOME")).relative_path();
+  fs::path path_dir_host_home = Pop(ns_env::get_expected<fs::path>("HOME")).relative_path();
 
   // Create host config directory
   fs::path path_dir_host_config = path_file_binary.parent_path() / ".{}.config"_fmt(path_file_binary.filename());
   fs::path path_dir_host_config_tmp = path_dir_host_config / "tmp";
-  Expect(ns_fs::create_directories(path_dir_host_config_tmp));
+  Try(fs::create_directories(path_dir_host_config_tmp));
   ns_env::set("FIM_DIR_CONFIG", path_dir_host_config, ns_env::Replace::Y);
 
   // Overlayfs write data to remain on the host
@@ -341,8 +312,8 @@ struct FlatimageConfig
   fs::path path_dir_data_overlayfs = path_dir_host_config / "overlays";
   fs::path path_dir_upper_overlayfs = path_dir_data_overlayfs / "upperdir";
   fs::path path_dir_work_overlayfs = path_dir_data_overlayfs / "workdir" / std::to_string(getpid());
-  Expect(ns_fs::create_directories(path_dir_upper_overlayfs));
-  Expect(ns_fs::create_directories(path_dir_work_overlayfs));
+  Try(fs::create_directories(path_dir_upper_overlayfs));
+  Try(fs::create_directories(path_dir_work_overlayfs));
 
   // Bwrap
   ns_env::set("BWRAP_LOG", path_dir_mount.string() + ".bwrap.log", ns_env::Replace::Y);
@@ -355,8 +326,8 @@ struct FlatimageConfig
 
   // Compression level configuration (goes from 0 to 10, default is 7)
   uint32_t layer_compression_level = ({
-   std::string str_compression_level = ns_env::get_expected("FIM_COMPRESSION_LEVEL").value_or("7");
-   std::ranges::all_of(str_compression_level, ::isdigit) ? std::stoi(str_compression_level) : 7;
+    std::string str_compression_level = ns_env::get_expected("FIM_COMPRESSION_LEVEL").value_or("7");
+    Catch(std::stoi(str_compression_level)).value_or(7);
   });
 
   // LD_LIBRARY_PATH
@@ -374,15 +345,16 @@ struct FlatimageConfig
   {
     if (not cfg) { return; }
     fs::path path_dir_work_bwrap = cfg->path_dir_work_overlayfs / "work";
+    std::error_code ec;
     // Clean up bwrap work directory
-    if (ns_fs::exists(path_dir_work_bwrap).value_or(false))
+    if (fs::exists(path_dir_work_bwrap, ec) && !ec)
     {
       elog_if(::chmod(path_dir_work_bwrap.c_str(), 0755) < 0
         , "Error to modify permissions '{}': '{}'"_fmt(path_dir_work_bwrap, strerror(errno))
       );
     }
     // Clean up work directory
-    std::error_code ec;
+    ec.clear();
     fs::remove_all(cfg->path_dir_work_overlayfs, ec);
     elog_if(ec, "Error to erase '{}': '{}'"_fmt(cfg->path_dir_work_overlayfs, ec.message()));
     delete cfg;

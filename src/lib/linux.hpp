@@ -46,7 +46,7 @@ class InterruptTimer
       clean();
     }
 
-    Expected<void> start(std::chrono::milliseconds const& timeout)
+    Value<void> start(std::chrono::milliseconds const& timeout)
     {
       struct sigaction  old_sa;
       struct itimerval  old_timer;
@@ -115,7 +115,7 @@ class InterruptTimer
  * @param buf The buffer in which to store the read data
  * @return ssize_t The number of read bytes or -1 and errno is set
  *
- * @todo Make this return Expected due to timer
+ * @todo Make this return Value due to timer
  */
 template<typename Data>
 [[nodiscard]] inline ssize_t read_with_timeout(int fd
@@ -140,7 +140,7 @@ template<typename Data>
  * @param oflag The open flags O_*
  * @return int The file descriptor or -1 on error and errno is set
  *
- * @todo Make this return Expected due to timer
+ * @todo Make this return Value due to timer
  */
 [[nodiscard]] inline int open_with_timeout(
   fs::path const&            path_file_src,
@@ -203,9 +203,9 @@ template<typename Data>
  * @brief Checks if the linux kernel has a module loaded that matches the input name
  * 
  * @param str_name Name of the module to check for
- * @return Expected<bool> The boolean result, or the respective internal error
+ * @return Value<bool> The boolean result, or the respective internal error
  */
-[[nodiscard]] inline Expected<bool> module_check(std::string_view str_name)
+[[nodiscard]] inline Value<bool> module_check(std::string_view str_name)
 {
   std::ifstream file_modules("/proc/modules");
   qreturn_if(not file_modules.is_open(), std::unexpected("Could not open modules file"));

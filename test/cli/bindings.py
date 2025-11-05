@@ -58,7 +58,7 @@ class TestFimBind(unittest.TestCase):
     # Invalid option
     out,err,code = self.run_cmd("fim-bind", "add", "roo")
     self.assertEqual(out, "")
-    self.assertIn("Could not determine enum entry from 'ROO'", err)
+    self.assertIn("Invalid bind type", err)
     self.assertEqual(code, 125)
     # No source
     out,err,code = self.run_cmd("fim-bind", "add", "ro")

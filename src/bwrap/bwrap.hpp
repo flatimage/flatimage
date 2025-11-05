@@ -19,7 +19,6 @@
 #include "../reserved/permissions.hpp"
 #include "../std/expected.hpp"
 #include "../std/vector.hpp"
-#include "../std/filesystem.hpp"
 #include "../lib/log.hpp"
 #include "../lib/subprocess.hpp"
 #include "../lib/env.hpp"
@@ -71,7 +70,7 @@ class Bwrap
     // Set XDG_RUNTIME_DIR
     void set_xdg_runtime_dir();
     // Setup
-    Expected<fs::path> test_and_setup(fs::path const& path_file_bwrap);
+    Value<fs::path> test_and_setup(fs::path const& path_file_bwrap);
 
   public:
     Bwrap(std::string_view user
@@ -110,7 +109,7 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind(fs::path const& src, fs::path const& dst);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
-    [[maybe_unused]] [[nodiscard]] Expected<bwrap_run_ret_t> run(Permissions const& permissions
+    [[maybe_unused]] [[nodiscard]] Value<bwrap_run_ret_t> run(Permissions const& permissions
       , fs::path const& path_dir_app_bin);
 };
 
@@ -234,7 +233,7 @@ inline void Bwrap::set_xdg_runtime_dir()
  * @param path_file_bwrap_src Path to the bubblewrap binary
  * @return The path of the bubblewrap binary greenlit in apparmor
  */
-inline Expected<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src)
+inline Value<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src)
 {
   // Test current bwrap binary
   auto ret = ns_subprocess::Subprocess(path_file_bwrap_src)
@@ -252,15 +251,15 @@ inline Expected<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_
     .wait();
   qreturn_if (ret and *ret == 0, path_file_bwrap_opt);
   // Error might be EACCES, try to integrate with apparmor
-  fs::path path_file_pkexec = Expect(ns_env::search_path("pkexec"));
-  fs::path path_file_bwrap_apparmor = Expect(ns_env::search_path("fim_bwrap_apparmor"));
-  fs::path path_dir_mount = Expect(ns_env::get_expected("FIM_DIR_MOUNT"));
+  fs::path path_file_pkexec = Pop(ns_env::search_path("pkexec"));
+  fs::path path_file_bwrap_apparmor = Pop(ns_env::search_path("fim_bwrap_apparmor"));
+  fs::path path_dir_mount = Pop(ns_env::get_expected("FIM_DIR_MOUNT"));
   ret = ns_subprocess::Subprocess(path_file_pkexec)
     .with_args(path_file_bwrap_apparmor, path_dir_mount, path_file_bwrap_src)
     .spawn()
     .wait();
-  qreturn_if(not ret, Unexpected("E::Could not find create profile (abnormal exit)"));
-  qreturn_if(ret and *ret != 0, Unexpected("E::Could not find create profile with exit code '{}'", *ret));
+  qreturn_if(not ret, Error("E::Could not find create profile (abnormal exit)"));
+  qreturn_if(ret and *ret != 0, Error("E::Could not find create profile with exit code '{}'", *ret));
   return path_file_bwrap_opt;
 }
 
@@ -288,7 +287,7 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
       // Skip files that do not match keywords
       qcontinue_if(not std::ranges::any_of(keywords, [&](auto&& f){ return path_file_entry.filename().string().contains(f); }));
       // Symlink target is the file and the end of the symlink chain
-      auto path_file_entry_realpath = ns_fs::realpath(path_file_entry);
+      auto path_file_entry_realpath = Catch(fs::canonical(path_file_entry));
       econtinue_if(not path_file_entry_realpath, "Broken symlink: '{}'"_fmt(path_file_entry));
       // Create target and symlink names
       fs::path path_link_target = path_dir_root_host / path_file_entry_realpath->relative_path();
@@ -694,7 +693,7 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
  * @param path_dir_app_bin Path to the binary directory of flatimage's binary files
  * @return bwrap_run_ret_t 
  */
-inline Expected<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
+inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   , fs::path const& path_dir_app_bin)
 {
   std::error_code ec;
@@ -716,28 +715,28 @@ inline Expected<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   if(permissions.contains(Permission::DEV)){ std::ignore = bind_dev(); };
 
   // Search for bash
-  fs::path path_file_bash = Expect(ns_env::search_path("bash"));
+  fs::path path_file_bash = Pop(ns_env::search_path("bash"));
 
   // Use builtin bwrap or native if exists
-  fs::path path_file_bwrap = Expect(ns_env::search_path("bwrap"));
+  fs::path path_file_bwrap = Pop(ns_env::search_path("bwrap"));
 
   // Test bwrap and setup apparmor if it is required
   // Adjust the bwrap path to the one integrated with apparmor if needed
-  path_file_bwrap = Expect(test_and_setup(path_file_bwrap));
+  path_file_bwrap = Pop(test_and_setup(path_file_bwrap));
 
   // Pipe to receive errors from bwrap
   int pipe_error[2];
-  qreturn_if(pipe(pipe_error) == -1, strerror(errno), Unexpected("E::Could not open bwrap error pipe"));
+  qreturn_if(pipe(pipe_error) == -1, strerror(errno), Error("E::Could not open bwrap error pipe"));
 
   // Configure pipe read end as non-blocking
   if(fcntl(pipe_error[0], F_SETFL, fcntl(pipe_error[0], F_GETFL, 0) | O_NONBLOCK) < 0)
   {
-    return Unexpected("E::Could not configure bwrap pipe to be non-blocking");
+    return Error("E::Could not configure bwrap pipe to be non-blocking");
   }
 
   // Get path to daemon
   fs::path path_file_daemon = path_dir_app_bin / "fim_portal_daemon";
-  qreturn_if(not fs::exists(path_file_daemon, ec), Unexpected("E::Missing portal daemon to run binary file path"));
+  qreturn_if(not fs::exists(path_file_daemon, ec), Error("E::Missing portal daemon to run binary file path"));
 
   // Run Bwrap
   auto code = ns_subprocess::Subprocess(path_file_bash)

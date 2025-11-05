@@ -118,12 +118,12 @@ class TestFimPerms(unittest.TestCase):
     # Invalid permission
     out,err,code = self.run_cmd("fim-perms", "add", "hello")
     self.assertEqual(out, "")
-    self.assertIn("Could not determine enum entry from 'HELLO'", err)
+    self.assertIn("Invalid permission", err)
     self.assertEqual(code, 125)
     # Invalid permission mixed with valid permission
     out,err,code = self.run_cmd("fim-perms", "add", "home,hello")
     self.assertEqual(out, "")
-    self.assertIn("Could not determine enum entry from 'HELLO'", err)
+    self.assertIn("Invalid permission", err)
     self.assertEqual(code, 125)
     # Trying to add 'none' as a permission
     out,err,code = self.run_cmd("fim-perms", "add", "none")
@@ -224,12 +224,12 @@ class TestFimPerms(unittest.TestCase):
     self.assertEqual(code, 125)
     # Invalid permission
     out,err,code = self.run_cmd("fim-perms", "del", "hello")
-    self.assertIn("Could not determine enum entry from 'HELLO'", err)
+    self.assertIn("Invalid permission", err)
     self.assertEqual(out, "")
     self.assertEqual(code, 125)
     # Invalid permission mixed with valid permission
     out,err,code = self.run_cmd("fim-perms", "del", "home,hello")
-    self.assertIn("Could not determine enum entry from 'HELLO'", err)
+    self.assertIn("Invalid permission", err)
     self.assertEqual(out, "")
     self.assertEqual(code, 125)
     # Extra arguments
@@ -252,12 +252,12 @@ class TestFimPerms(unittest.TestCase):
     # Invalid permission
     out,err,code = self.run_cmd("fim-perms", "set", "hello")
     self.assertEqual(out, "")
-    self.assertIn("Could not determine enum entry from 'HELLO'", err)
+    self.assertIn("Invalid permission", err)
     self.assertEqual(code, 125)
     # Invalid permission mixed with valid permission
     out,err,code = self.run_cmd("fim-perms", "set", "home,hello")
     self.assertEqual(out, "")
-    self.assertIn("Could not determine enum entry from 'HELLO'", err)
+    self.assertIn("Invalid permission", err)
     self.assertEqual(code, 125)
     # Extra arguments
     out,err,code = self.run_cmd("fim-perms", "set", "home", "world")

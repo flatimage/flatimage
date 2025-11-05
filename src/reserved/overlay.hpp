@@ -33,9 +33,9 @@ ENUM(OverlayType, BWRAP, OVERLAYFS, UNIONFS)
  * 
  * @param path_file_binary Path to the flatimage binary
  * @param overlay Overlay type enumeration
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-inline Expected<void> write(fs::path const& path_file_binary, OverlayType const& overlay)
+inline Value<void> write(fs::path const& path_file_binary, OverlayType const& overlay)
 {
   uint8_t mask{};
   switch(overlay)
@@ -44,12 +44,12 @@ inline Expected<void> write(fs::path const& path_file_binary, OverlayType const&
     case OverlayType::OVERLAYFS: mask = 1 << 2; break;
     case OverlayType::UNIONFS: mask = 1 << 3; break;
     case OverlayType::NONE:
-    default: return Unexpected("E::Invalid overlay option");
+    default: return Error("E::Invalid overlay option");
   }
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_OVERLAY_BEGIN;
   uint64_t offset_end = ns_reserved::FIM_RESERVED_OFFSET_OVERLAY_END;
   uint64_t size = offset_end - offset_begin;
-  qreturn_if(size != sizeof(uint8_t), Unexpected("E::Incorrect number of bytes to write overlay mask: {} vs {}", size, sizeof(uint8_t)));
+  qreturn_if(size != sizeof(uint8_t), Error("E::Incorrect number of bytes to write overlay mask: {} vs {}", size, sizeof(uint8_t)));
   return ns_reserved::write(path_file_binary, offset_begin, offset_end, reinterpret_cast<char*>(&mask), sizeof(uint8_t));
 }
 
@@ -59,11 +59,11 @@ inline Expected<void> write(fs::path const& path_file_binary, OverlayType const&
  * @param path_file_binary Path to the flatimage binary
  * @return On success, returns the type of overlay currently in use. Or the respective error.
  */
-inline Expected<OverlayType> read(fs::path const& path_file_binary)
+inline Value<OverlayType> read(fs::path const& path_file_binary)
 {
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_OVERLAY_BEGIN;
   uint8_t mask;
-  ssize_t bytes = Expect(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&mask), sizeof(uint8_t)));
+  ssize_t bytes = Pop(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&mask), sizeof(uint8_t)));
   elog_if(bytes != 1, "Possible error to read overlay byte, count is {}"_fmt(bytes));
   switch(mask)
   {

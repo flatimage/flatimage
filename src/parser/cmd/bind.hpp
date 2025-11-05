@@ -44,11 +44,11 @@ namespace fs = std::filesystem;
  * @brief Reads data from the reserved space
  * 
  * @param path_file_binary Path to the flatimage binary
- * @return Expected<ns_db::ns_bind::Binds> The structured data or the respective error
+ * @return Value<ns_db::ns_bind::Binds> The structured data or the respective error
  */
-inline Expected<ns_db::ns_bind::Binds> db_read(fs::path const& path_file_binary)
+inline Value<ns_db::ns_bind::Binds> db_read(fs::path const& path_file_binary)
 {
-  auto reserved_data = Expect(ns_reserved::ns_bind::read(path_file_binary));
+  auto reserved_data = Pop(ns_reserved::ns_bind::read(path_file_binary));
   return ns_db::ns_bind::deserialize(
     reserved_data.empty()? "{}" : reserved_data
   ).value_or(ns_db::ns_bind::Binds{});
@@ -58,12 +58,12 @@ inline Expected<ns_db::ns_bind::Binds> db_read(fs::path const& path_file_binary)
  * @brief Writes data to the reserved space
  * 
  * @param path_file_binary Path to the flatimage binary
- * @return Expected<void> Nothing on success, or the respective error
+ * @return Value<void> Nothing on success, or the respective error
  */
-inline Expected<void> db_write(fs::path const& path_file_binary, ns_db::ns_bind::Binds const& binds)
+inline Value<void> db_write(fs::path const& path_file_binary, ns_db::ns_bind::Binds const& binds)
 {
-  Expect(ns_reserved::ns_bind::write(path_file_binary
-    , Expect(ns_db::ns_bind::serialize(binds)).dump()
+  Pop(ns_reserved::ns_bind::write(path_file_binary
+    , Pop(Pop(ns_db::ns_bind::serialize(binds)).dump())
   ));
   return {};
 }
@@ -73,16 +73,16 @@ inline Expected<void> db_write(fs::path const& path_file_binary, ns_db::ns_bind:
  * 
  * @param path_file_binary Path to the flatimage binary
  * @param cmd Binding instructions
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Expected<void> add(fs::path const& path_file_binary
+[[nodiscard]] inline Value<void> add(fs::path const& path_file_binary
   , ns_db::ns_bind::Type bind_type
   , fs::path const& path_src
   , fs::path const& path_dst
 )
 {
   // Deserialize bindings
-  ns_db::ns_bind::Binds binds = Expect(db_read(path_file_binary));
+  ns_db::ns_bind::Binds binds = Pop(db_read(path_file_binary));
   // Find out the highest bind index
   ns_db::ns_bind::Bind bind
   {
@@ -94,7 +94,7 @@ inline Expected<void> db_write(fs::path const& path_file_binary, ns_db::ns_bind:
   binds.push_back(bind);
   ns_log::info()("Binding index is '{}'", bind.index);
   // Write database
-  Expect(db_write(path_file_binary, binds));
+  Pop(db_write(path_file_binary, binds));
   return {};
 }
 
@@ -103,17 +103,17 @@ inline Expected<void> db_write(fs::path const& path_file_binary, ns_db::ns_bind:
  * 
  * @param path_file_binary Path to the flatimage binary
  * @param index Index of the binding to erase
- * @return Expected<void> Returns nothing on success, or the respective error
+ * @return Value<void> Returns nothing on success, or the respective error
  */
-[[nodiscard]] inline Expected<void> del(fs::path const& path_file_binary, uint64_t index)
+[[nodiscard]] inline Value<void> del(fs::path const& path_file_binary, uint64_t index)
 {
   std::error_code ec;
   // Deserialize bindings
-  ns_db::ns_bind::Binds binds = Expect(db_read(path_file_binary));
+  ns_db::ns_bind::Binds binds = Pop(db_read(path_file_binary));
   // Erase index if exists
   binds.erase(index);
   // Write database
-  Expect(db_write(path_file_binary, binds));
+  Pop(db_write(path_file_binary, binds));
   return {};
 }
 
@@ -122,13 +122,13 @@ inline Expected<void> db_write(fs::path const& path_file_binary, ns_db::ns_bind:
  * 
  * @param path_file_binary Path to the flatimage binary
  */
-[[nodiscard]] inline Expected<void> list(fs::path const& path_file_binary)
+[[nodiscard]] inline Value<void> list(fs::path const& path_file_binary)
 {
   // Deserialize bindings
-  ns_db::ns_bind::Binds binds = Expect(db_read(path_file_binary));
+  ns_db::ns_bind::Binds binds = Pop(db_read(path_file_binary));
   if(not binds.empty())
   {
-    std::println("{}", Expect(ns_db::ns_bind::serialize(binds)).dump());
+    std::println("{}", Pop(Pop(ns_db::ns_bind::serialize(binds)).dump()));
   }
   return {};
 }

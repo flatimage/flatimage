@@ -29,15 +29,15 @@ namespace fs = std::filesystem;
  * @brief Create a fifo object
  * 
  * @param path_file_fifo Where to saved the fifo to
- * @return Expected<fs::path> The path to the created fifo, or the respective error
+ * @return Value<fs::path> The path to the created fifo, or the respective error
  */
-[[nodiscard]] inline Expected<fs::path> create_fifo(fs::path const& path_file_fifo)
+[[nodiscard]] inline Value<fs::path> create_fifo(fs::path const& path_file_fifo)
 {
   std::error_code ec;
   fs::path path_dir_parent = path_file_fifo.parent_path();
   // Create parent directory(ies)
   qreturn_if(not fs::exists(path_dir_parent, ec) and not fs::create_directories(path_dir_parent, ec)
-    , Unexpected("E::Failed to create upper directories for fifo")
+    , Error("E::Failed to create upper directories for fifo")
   );
   // Replace old fifo if exists
   if (fs::exists(path_file_fifo, ec))
@@ -46,7 +46,7 @@ namespace fs = std::filesystem;
   }
   // Create fifo
   qreturn_if(mkfifo(path_file_fifo.c_str(), 0666) < 0
-    , Unexpected("E::{}", strerror(errno))
+    , Error("E::{}", strerror(errno))
   );
   return path_file_fifo;
 }

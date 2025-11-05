@@ -51,17 +51,17 @@ void signal_handler(int sig)
  * @brief Populates the input file with the current environment
  * 
  * @param path_file_env Path to the environment file to create, discards existing contents
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] Expected<void> set_environment(fs::path const& path_file_env)
+[[nodiscard]] Value<void> set_environment(fs::path const& path_file_env)
 {
   std::error_code ec;
   fs::path path_dir_env = path_file_env.parent_path();
   qreturn_if(not fs::exists(path_dir_env, ec) and not fs::create_directories(path_dir_env, ec)
-    , Unexpected("E::Could not create upper directories of file '{}': '{}'", path_file_env.string(), ec.message())
+    , Error("E::Could not create upper directories of file '{}': '{}'", path_file_env.string(), ec.message())
   );
   std::ofstream ofile_env(path_file_env, std::ios::out | std::ios::trunc);
-  qreturn_if(not ofile_env.is_open(), Unexpected("E::Could not open file '{}'", path_file_env));
+  qreturn_if(not ofile_env.is_open(), Error("E::Could not open file '{}'", path_file_env));
   for(char **env = environ; *env != NULL; ++env) { ofile_env << *env << '\n'; }
   ofile_env.close();
   return {};
@@ -75,9 +75,9 @@ void signal_handler(int sig)
  * @param hash_name_fifo The hash with process pipes to write/read to/from
  * @param path_file_log Path to the log file of the requested child process
  * @param path_file_env Path to the environment to use in the child process
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] Expected<void> send_message(fs::path const& path_daemon_fifo
+[[nodiscard]] Value<void> send_message(fs::path const& path_daemon_fifo
   , std::vector<std::string> command
   , std::unordered_map<std::string, fs::path> const& hash_name_fifo
   , fs::path const& path_file_log
@@ -95,7 +95,7 @@ void signal_handler(int sig)
   db("log") = path_file_log.c_str();
   db("environment") = path_file_env;
   // Get json string
-  std::string data = db.dump();
+  std::string data = Pop(db.dump());
   ns_log::debug()(data);
   // Write to fifo
   ssize_t size_writen = ns_linux::open_write_with_timeout(path_daemon_fifo
@@ -104,8 +104,8 @@ void signal_handler(int sig)
   );
   // Check for errors
   return (static_cast<size_t>(size_writen) != data.length())?
-      Unexpected("E::Could not write data to daemon({}): {}", size_writen, strerror(errno))
-    : Expected<void>{};
+      Error("E::Could not write data to daemon({}): {}", size_writen, strerror(errno))
+    : Value<void>{};
 }
 
 /**
@@ -114,16 +114,16 @@ void signal_handler(int sig)
  * Forwards the child's stdin/stdout/stderr to itself
  * 
  * @param hash_name_fifo The hash with process pipes to write/read to/from
- * @return Expected<int> Nothing on success or the respective error
+ * @return Value<int> Nothing on success or the respective error
  */
-[[nodiscard]] Expected<int> process_wait(std::unordered_map<std::string, fs::path> const& hash_name_fifo)
+[[nodiscard]] Value<int> process_wait(std::unordered_map<std::string, fs::path> const& hash_name_fifo)
 {
   pid_t pid_child;
   ssize_t bytes_read = ns_linux::open_read_with_timeout(hash_name_fifo.at("pid")
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , std::span<pid_t>(&pid_child, 1)
   );
-  qreturn_if(bytes_read != sizeof(pid_child), Unexpected("E::{}", strerror(errno)));
+  qreturn_if(bytes_read != sizeof(pid_child), Error("E::{}", strerror(errno)));
   opt_child = pid_child;
   ns_log::debug()("Child pid: {}", pid_child);
   // Connect to stdin, stdout, and stderr with fifos
@@ -141,7 +141,7 @@ void signal_handler(int sig)
     , std::chrono::seconds{SECONDS_TIMEOUT}
     , std::span<int>(&code_exit, 1)
   );
-  qreturn_if(bytes_exit != sizeof(code_exit), Unexpected("E::Incorrect number of bytes '{}' read", bytes_exit));
+  qreturn_if(bytes_exit != sizeof(code_exit), Error("E::Incorrect number of bytes '{}' read", bytes_exit));
   return code_exit;
 }
 
@@ -151,9 +151,9 @@ void signal_handler(int sig)
  * @param cmd Command to request, with it's respective arguments
  * @param daemon_target "host" sends a command to the 'host' daemon and "guest" sends a command to the 'guest' daemon
  * @param path_dir_instance Path to the instance directory to use
- * @return Expected<int> The process return code or the respective error
+ * @return Value<int> The process return code or the respective error
  */
-[[nodiscard]] Expected<int> process_request(std::vector<std::string> const& cmd
+[[nodiscard]] Value<int> process_request(std::vector<std::string> const& cmd
   , std::string const& daemon_target
   , fs::path const& path_dir_instance)
 {
@@ -180,30 +180,30 @@ void signal_handler(int sig)
   // Create define log file for child
   fs::path path_file_log = path_dir_portal / "cli.log";
   qreturn_if(std::error_code ec; (fs::create_directories(path_file_log.parent_path(), ec))
-    , Unexpected("E::Error to create log file: {}", ec.message())
+    , Error("E::Error to create log file: {}", ec.message())
   );
   // Create fifos
   fs::path path_dir_fifo = path_dir_portal / "fifo";
   std::unordered_map<std::string, fs::path> hash_name_fifo =
   {{
-      {"stdin" ,  Expect(create_fifo(path_dir_fifo / "stdin"))}
-    , {"stdout",  Expect(create_fifo(path_dir_fifo / "stdout"))}
-    , {"stderr",  Expect(create_fifo(path_dir_fifo / "stderr"))}
-    , {"exit"  ,  Expect(create_fifo(path_dir_fifo / "exit"))}
-    , {"pid"   ,  Expect(create_fifo(path_dir_fifo / "pid"))}
+      {"stdin" ,  Pop(create_fifo(path_dir_fifo / "stdin"))}
+    , {"stdout",  Pop(create_fifo(path_dir_fifo / "stdout"))}
+    , {"stderr",  Pop(create_fifo(path_dir_fifo / "stderr"))}
+    , {"exit"  ,  Pop(create_fifo(path_dir_fifo / "exit"))}
+    , {"pid"   ,  Pop(create_fifo(path_dir_fifo / "pid"))}
   }};
   // Save environment
   fs::path path_file_env = path_dir_portal / "environment";
-  Expect(set_environment(path_file_env));
+  Pop(set_environment(path_file_env));
   // Send message to daemon
-  Expect(send_message(path_dir_portal / "daemon.{}.fifo"_fmt(daemon_target)
+  Pop(send_message(path_dir_portal / "daemon.{}.fifo"_fmt(daemon_target)
     , cmd
     , hash_name_fifo
     , path_file_log
     , path_file_env
   ));
   // Retrieve child pid
-  return Expect(process_wait(hash_name_fifo));
+  return Pop(process_wait(hash_name_fifo));
 }
 
 int main(int argc, char** argv)

@@ -14,6 +14,7 @@
 #include "../lib/subprocess.hpp"
 #include "../lib/env.hpp"
 #include "../lib/fuse.hpp"
+#include "../std/filesystem.hpp"
 #include "filesystem.hpp"
 
 namespace
@@ -40,7 +41,7 @@ class Overlayfs final : public ns_filesystem::Filesystem
         , fs::path const& path_dir_workdir
         , std::vector<fs::path> const& vec_path_dir_layers
     );
-    Expected<void> mount() override;
+    Value<void> mount() override;
 };
 
 
@@ -73,20 +74,15 @@ inline Overlayfs::Overlayfs(pid_t pid_to_die_for
 /**
  * @brief Mounts the filesystem
  * 
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-inline Expected<void> Overlayfs::mount()
+inline Value<void> Overlayfs::mount()
 {
-  std::error_code ec;
   // Validate directories
-  qreturn_if(not fs::exists(m_path_dir_upper, ec) and not fs::create_directories(m_path_dir_upper, ec)
-    , std::unexpected("Could not create modifications dir for overlayfs")
-  );
-  qreturn_if(not fs::exists(m_path_dir_mount, ec) and not fs::create_directories(m_path_dir_mount, ec)
-    , std::unexpected("Could not create mountpoint for overlayfs")
-  );
+  Pop(ns_fs::create_directories(m_path_dir_upper), "E::Failed to create upper directory");
+  Pop(ns_fs::create_directories(m_path_dir_mount), "E::Failed to create mount directory");
   // Find overlayfs
-  auto path_file_overlayfs = Expect(ns_env::search_path("overlayfs"));
+  auto path_file_overlayfs = Pop(ns_env::search_path("overlayfs"), "E::Could not find overlayfs in PATH");
   // Create subprocess
   m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_overlayfs);
   // Get user and group ids

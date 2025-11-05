@@ -41,7 +41,7 @@ struct Binds
     void push_back(Bind const& bind);
     void erase(size_t index);
     bool empty() const noexcept;
-    friend Expected<Binds> deserialize(std::string_view raw_json);
+    friend Value<Binds> deserialize(std::string_view raw_json);
 };
 
 /**
@@ -98,25 +98,33 @@ inline bool Binds::empty() const noexcept
  * @param raw_json The json string
  * @return The `Binds` class or the respective error
  */
-[[nodiscard]] inline Expected<Binds> deserialize(std::string_view raw_json)
+[[nodiscard]] inline Value<Binds> deserialize(std::string_view raw_json)
 {
   Binds binds;
 
-  auto db = Expect(ns_db::from_string(raw_json));
+  auto db = Pop(ns_db::from_string(raw_json));
 
   for(auto [key,value] : db.items())
   {
-    auto type = Expect(value("type").template value<std::string>());
-    binds.m_binds.push_back(Bind
+    auto type = Pop(value("type").template value<std::string>());
+    if (auto index_result = Catch(std::stoull(key)))
     {
-      .index = std::stoull(key),
-      .path_src = Expect(value("src").template value<std::string>()),
-      .path_dst = Expect(value("dst").template value<std::string>()),
-      .type = (type == "ro")? Type::RO
-        : (type == "rw")? Type::RW
-        : (type == "rw")? Type::DEV
-        : Type::NONE
-    });
+      binds.m_binds.push_back(Bind
+      {
+        .index = index_result.value(),
+        .path_src = Pop(value("src").template value<std::string>()),
+        .path_dst = Pop(value("dst").template value<std::string>()),
+        .type = (type == "ro")? Type::RO
+          : (type == "rw")? Type::RW
+          : (type == "rw")? Type::DEV
+          : Type::NONE
+      });
+    }
+    else
+    {
+      ns_log::warn()("Failed to parse bind index '{}'", key);
+      continue;
+    }
   }
   return binds;
 }
@@ -127,7 +135,7 @@ inline bool Binds::empty() const noexcept
  * @param stream_raw_json The stream which contains the json data 
  * @return The `Binds` class or the respective error
  */
-[[nodiscard]] inline Expected<Binds> deserialize(std::ifstream& stream_raw_json) noexcept
+[[nodiscard]] inline Value<Binds> deserialize(std::ifstream& stream_raw_json) noexcept
 {
   std::stringstream ss;
   ss << stream_raw_json.rdbuf();
@@ -140,7 +148,7 @@ inline bool Binds::empty() const noexcept
  * @param binds The bindings which to serialize
  * @return The json database or the respective error
  */
-[[nodiscard]] inline Expected<Db> serialize(Binds const& binds) noexcept
+[[nodiscard]] inline Value<Db> serialize(Binds const& binds) noexcept
 {
   ns_db::Db db;
   for (auto&& bind : binds.get())

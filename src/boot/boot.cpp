@@ -40,18 +40,18 @@ extern char** environ;
  * @param argv Argument vector
  * @return The return code of the process or an internal flatimage error '125'
  */
-[[nodiscard]] Expected<int> boot(int argc, char** argv)
+[[nodiscard]] Value<int> boot(int argc, char** argv)
 {
   // Create configuration object
-  std::shared_ptr<ns_config::FlatimageConfig> config = Expect(ns_config::config());
-  qreturn_if(config == nullptr, Unexpected("E::Failed to initialize configuration"));
+  std::shared_ptr<ns_config::FlatimageConfig> config = Pop(ns_config::config());
+  qreturn_if(config == nullptr, Error("E::Failed to initialize configuration"));
   // Set log file, permissive
   ns_log::set_sink_file(config->path_dir_mount.string() + ".boot.log");
   // Start host portal, permissive
   [[maybe_unused]] auto portal = ns_portal::create(getpid(), "host")
     .forward("E::Could not start portal daemon");
   // Execute flatimage command if exists
-  return Expect(ns_parser::execute_command(*config, argc, argv));
+  return Pop(ns_parser::execute_command(*config, argc, argv));
 }
 
 /**
@@ -95,9 +95,9 @@ int main(int argc, char** argv)
   // Check if linux has the fuse module loaded
   ns_linux::module_check("fuse").discard("W::'fuse' module might not be loaded");
   // If it is outside /tmp, move the binary
-  Expect(ns_relocate::relocate(argv, FIM_RESERVED_OFFSET), "C::Failure to relocate binary");
+  Pop(ns_relocate::relocate(argv, FIM_RESERVED_OFFSET), "C::Failure to relocate binary");
   // Launch flatimage
-  return Expect(boot(argc, argv), "C::Program exited with error");
+  return Pop(boot(argc, argv), "C::The program exited with an error");
 }
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

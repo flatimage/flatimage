@@ -72,7 +72,7 @@ class TestFimOverlay(unittest.TestCase):
     # Invalid arguments
     out,err,code = self.run_cmd("fim-overlay", "set", "foo")
     self.assertEqual(out, "")
-    self.assertIn("Could not determine enum entry from 'FOO'", err)
+    self.assertIn("Invalid overlay type", err)
     self.assertEqual(code, 125)
     # Trailing arguments
     out,err,code = self.run_cmd("fim-overlay", "show", "foo")

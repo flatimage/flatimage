@@ -52,15 +52,15 @@ void set(T&& name, U&& value, Replace replace)
  * 
  * @tparam T The output type of the function
  * @param name The name of the variable
- * @return Expected<std::string> The value of the variable or the respective error
+ * @return Value<std::string> The value of the variable or the respective error
  */
 template<typename T = std::string>
 requires std::convertible_to<std::string, T>
-inline Expected<T> get_expected(std::string_view name)
+inline Value<T> get_expected(std::string_view name)
 {
   const char * var = std::getenv(name.data());
   return (var != nullptr)?
-      Expected<T>(std::string{var})
+      Value<T>(std::string{var})
     : std::unexpected("Could not read variable '{}'"_fmt(name));
 }
 
@@ -68,7 +68,7 @@ inline Expected<T> get_expected(std::string_view name)
  * @brief Checks if variable exists and equals value
  * 
  * @param name Name of the variable
- * @param value Expected value of the variable
+ * @param value Value value of the variable
  * @return True if it exists and matches the expected value, or false otherwise
  */
 inline bool exists(std::string_view name, std::string_view value)
@@ -83,9 +83,9 @@ inline bool exists(std::string_view name, std::string_view value)
  *
  * @tparam auto Type that is string representable (constrained by concept)
  * @param var Source string to expand
- * @return Expected<std::string> The expanded value or the respective error
+ * @return Value<std::string> The expanded value or the respective error
  */
-inline Expected<std::string> expand(ns_concept::StringRepresentable auto&& var)
+inline Value<std::string> expand(ns_concept::StringRepresentable auto&& var)
 {
   std::string expanded = ns_string::to_string(var);
 
@@ -111,7 +111,7 @@ inline Expected<std::string> expand(ns_concept::StringRepresentable auto&& var)
       case WRDE_SYNTAX: error = "WRDE_SYNTAX"; break;
       default: error = "unknown";
     } // switch
-    return Unexpected("E::{}", error);
+    return Error("E::{}", error);
   } // else
 
   return expanded;
@@ -121,15 +121,15 @@ inline Expected<std::string> expand(ns_concept::StringRepresentable auto&& var)
  * @brief Returns or computes the value of XDG_DATA_HOME
  * 
   * @tparam T The return type, defaults to std::string
- * @return Expected<T> The path to XDG_DATA_HOME or the respective error
+ * @return Value<T> The path to XDG_DATA_HOME or the respective error
  */
 template<typename T = std::string>
-inline Expected<T> xdg_data_home() noexcept
+inline Value<T> xdg_data_home() noexcept
 {
   const char* var = std::getenv("XDG_DATA_HOME");
   qreturn_if(var, var);
   const char* home = std::getenv("HOME");
-  qreturn_if(not home, Unexpected("E::HOME is undefined"));
+  qreturn_if(not home, Error("E::HOME is undefined"));
   return std::string{home} + "/.local/share";
 }
 
@@ -137,18 +137,18 @@ inline Expected<T> xdg_data_home() noexcept
  * @brief Search the directories in the PATH variable for the given input file name
  * 
  * @param query The file name to search for in PATH directories
- * @return Expected<fs::path> The path of the found file or the respective error
+ * @return Value<fs::path> The path of the found file or the respective error
  */
-[[nodiscard]] inline Expected<fs::path> search_path(std::string const& query)
+[[nodiscard]] inline Value<fs::path> search_path(std::string const& query)
 {
-  std::string env_path = Expect(ns_env::get_expected("PATH"));
+  std::string env_path = Pop(ns_env::get_expected("PATH"));
   // Avoid searching in these directories in they exist in PATH
-  Expected<fs::path> env_dir_global_bin = ns_env::get_expected("FIM_DIR_GLOBAL_BIN");
-  Expected<fs::path> env_dir_static = ns_env::get_expected("FIM_DIR_STATIC");
+  Value<fs::path> env_dir_global_bin = ns_env::get_expected("FIM_DIR_GLOBAL_BIN");
+  Value<fs::path> env_dir_static = ns_env::get_expected("FIM_DIR_STATIC");
   // Query should be a file name
   if ( fs::path{query}.is_absolute() )
   {
-    return Unexpected("E::Query should be a file name, not an absolute path");
+    return Error("E::Query should be a file name, not an absolute path");
   }
   // Search directories in PATH
   for(fs::path directory : env_path
@@ -160,7 +160,7 @@ inline Expected<T> xdg_data_home() noexcept
     fs::path path_full = directory / query;
     qreturn_if(fs::exists(path_full), path_full);
   }
-  return Unexpected("E::File not found in PATH");
+  return Error("E::File not found in PATH");
 }
 
 } // namespace ns_env

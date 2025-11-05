@@ -260,26 +260,26 @@ struct CmdVersion
   };
   struct Full
   {
-    std::string dump()
+    Value<std::string> dump()
     {
       ns_db::Db db;
       db("VERSION") = FIM_VERSION;
       db("COMMIT") = FIM_COMMIT;
       db("DISTRIBUTION") = FIM_DIST;
       db("TIMESTAMP") = FIM_TIMESTAMP;
-      return db.dump();
+      return Pop(db.dump());
     }
   };
   struct Deps
   {
     // This placeholder is replaced before compiling
-    Expected<std::string> dump()
+    Value<std::string> dump()
     {
       constexpr static char str_raw_json[] =
       {
         #embed FIM_FILE_META
       };
-      return Expect(ns_db::from_string(str_raw_json)).dump();
+      return Pop(Pop(ns_db::from_string(str_raw_json)).dump());
     }
   };
   std::variant<Short,Full,Deps> sub_cmd;

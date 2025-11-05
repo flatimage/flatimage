@@ -14,6 +14,7 @@
 #include "../lib/subprocess.hpp"
 #include "../lib/env.hpp"
 #include "../lib/fuse.hpp"
+#include "../std/filesystem.hpp"
 #include "filesystem.hpp"
 
 namespace
@@ -37,7 +38,7 @@ class UnionFs final : public ns_filesystem::Filesystem
       , fs::path const& path_dir_upper
       , std::vector<fs::path> const& vec_path_dir_layer
     );
-    Expected<void> mount() override;
+    Value<void> mount() override;
 };
 
 /**
@@ -66,20 +67,15 @@ inline UnionFs::UnionFs(pid_t pid_to_die_for
 /**
  * @brief Mounts the filesystem
  * 
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-inline Expected<void> UnionFs::mount()
+inline Value<void> UnionFs::mount()
 {
-  std::error_code ec;
   // Validate directories
-  qreturn_if(not fs::exists(m_path_dir_upper, ec) and not fs::create_directories(m_path_dir_upper, ec)
-    , std::unexpected("Could not create modifications dir for unionfs")
-  );
-  qreturn_if (not fs::exists(m_path_dir_mount, ec) and not fs::create_directories(m_path_dir_mount, ec)
-    , std::unexpected("Could not create mountpoint for unionfs")
-  );
+  Pop(ns_fs::create_directories(m_path_dir_upper), "E::Could not create upper directory");
+  Pop(ns_fs::create_directories(m_path_dir_mount), "E::Could not create lower directory");
   // Find unionfs
-  auto path_file_unionfs = Expect(ns_env::search_path("unionfs"));
+  auto path_file_unionfs = Pop(ns_env::search_path("unionfs"), "E::Could not find unionfs in PATH");
   // Create subprocess
   m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_unionfs);
   // Create string to represent layers argumnet

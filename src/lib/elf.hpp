@@ -39,17 +39,17 @@ namespace fs = std::filesystem;
  * @param path_file_input The source file where to read the bytes from
  * @param path_file_output The target file where to write the bytes to
  * @param section The section[start,end] The section to read from the input and write to the output
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Expected<void> copy_binary(fs::path const& path_file_input
+[[nodiscard]] inline Value<void> copy_binary(fs::path const& path_file_input
   , fs::path const& path_file_output
   , std::pair<uint64_t,uint64_t> section)
 {
   // Open source and output files
   std::ifstream f_in{path_file_input, std::ios::binary};
-  qreturn_if(not f_in.is_open() , Unexpected("E::Failed to open in file {}", path_file_input));
+  qreturn_if(not f_in.is_open() , Error("E::Failed to open in file {}", path_file_input));
   std::ofstream f_out{path_file_output, std::ios::binary};
-  qreturn_if(not f_out.is_open(), Unexpected("E::Failed to open out file {}", path_file_output));
+  qreturn_if(not f_out.is_open(), Error("E::Failed to open out file {}", path_file_output));
   // Calculate the size of the data to read
   uint64_t size = section.second - section.first;
   // Seek to the start offset in the input file
@@ -72,9 +72,9 @@ namespace fs = std::filesystem;
  *
  * @param path_file_elf Path to the respective elf file
  * @param offset Offset where the elf section starts
- * @return Expected<uint64_t> The offset to the first byte after the ELF header, or the respective error
+ * @return Value<uint64_t> The offset to the first byte after the ELF header, or the respective error
  */
-[[nodiscard]] inline Expected<uint64_t> skip_elf_header(fs::path const& path_file_elf
+[[nodiscard]] inline Value<uint64_t> skip_elf_header(fs::path const& path_file_elf
   , uint64_t offset = 0)
 {
   struct File
@@ -87,18 +87,18 @@ namespace fs = std::filesystem;
   ElfW(Ehdr) header;
   // Try to open header file
   File file(fopen(path_file_elf.c_str(), "rb"));
-  qreturn_if(file.ptr == nullptr, Unexpected("E::Could not open file '{}': {}", path_file_elf, strerror(errno)));
+  qreturn_if(file.ptr == nullptr, Error("E::Could not open file '{}': {}", path_file_elf, strerror(errno)));
   // Seek the position to read the header
   qreturn_if(fseek(file.ptr, offset, SEEK_SET) < 0
-    , Unexpected("E::Could not seek in file '{}': {}", path_file_elf, strerror(errno))
+    , Error("E::Could not seek in file '{}': {}", path_file_elf, strerror(errno))
   )
   // read the header
   qreturn_if(fread(&header, sizeof(header), 1, file.ptr) != 1
-    , Unexpected("E::Could not read elf header")
+    , Error("E::Could not read elf header")
   );
   // check so its really an elf file
   qreturn_if (std::memcmp(header.e_ident, ELFMAG, SELFMAG) != 0
-    , Unexpected("E::'{}' not an elf file", path_file_elf);
+    , Error("E::'{}' not an elf file", path_file_elf);
   );
   offset = header.e_shoff + (header.e_ehsize * header.e_shnum);
   return offset;

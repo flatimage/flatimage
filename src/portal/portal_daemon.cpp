@@ -37,12 +37,12 @@ extern char** environ;
  * @brief Validates the received message to contain the expected fields with proper types
  * 
  * @param msg The message to validate
- * @return Expected<bool> The boolean result or the respective error
+ * @return Value<bool> The boolean result or the respective error
  */
-[[nodiscard]] Expected<bool> validate(std::string_view msg) noexcept
+[[nodiscard]] Value<bool> validate(std::string_view msg) noexcept
 {
   // Open database
-  auto db = Expect(ns_db::from_string(msg));
+  auto db = Pop(ns_db::from_string(msg));
   // Define keys and types
   std::unordered_map<std::string, ns_db::KeyType> hash_key_type {{
       {"command", ns_db::KeyType::array}
@@ -67,7 +67,7 @@ int main(int argc, char** argv)
 {
   auto __expected_fn = [](auto&&){ return 1; };
   // Create directory for the portal data
-  fs::path path_dir_instance = Expect(ns_env::get_expected("FIM_DIR_INSTANCE"));
+  fs::path path_dir_instance = Pop(ns_env::get_expected("FIM_DIR_INSTANCE"));
   fs::path path_dir_portal = path_dir_instance / "portal";
   ereturn_if(std::error_code ec;
       not fs::exists(path_dir_portal, ec) and not fs::create_directories(path_dir_portal, ec)
@@ -77,8 +77,7 @@ int main(int argc, char** argv)
 
   // Retrieve referece pid argument, run the loop as long as it exists
   ereturn_if(argc < 3, "Missing PID argument", EXIT_FAILURE);
-  pid_t pid_reference = std::stoi(argv[1]);
-  
+  pid_t pid_reference = Try(std::stoi(argv[1]));
   // Operation mode
   // host == Runs on host
   // guest == Runs on container
@@ -89,7 +88,7 @@ int main(int argc, char** argv)
   ns_log::set_sink_file(path_file_log);
   ns_log::set_level((ns_env::exists("FIM_DEBUG", "1"))? ns_log::Level::DEBUG : ns_log::Level::CRITICAL);
   // Create a fifo to receive commands from
-  fs::path path_fifo_in = Expect(create_fifo(path_dir_portal / "daemon.{}.fifo"_fmt(mode)));
+  fs::path path_fifo_in = Pop(create_fifo(path_dir_portal / "daemon.{}.fifo"_fmt(mode)));
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
   ereturn_if(fd_fifo < 0, strerror(errno), EXIT_FAILURE);
 

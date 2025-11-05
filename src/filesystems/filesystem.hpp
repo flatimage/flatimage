@@ -28,7 +28,7 @@ class Filesystem
     
   public:
     virtual ~Filesystem();
-    [[nodiscard]] virtual Expected<void> mount() = 0;
+    [[nodiscard]] virtual Value<void> mount() = 0;
     Filesystem(Filesystem&&) = default;
     Filesystem(Filesystem const&) = delete;
     Filesystem& operator=(Filesystem&&) = default;

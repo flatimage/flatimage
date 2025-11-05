@@ -80,7 +80,7 @@ class TestFimRecipe(unittest.TestCase):
     """Test fim-recipe with invalid subcommand"""
     out, err, code = self.run_cmd("fim-recipe", "invalid-cmd")
     self.assertEqual(out, "")
-    self.assertIn("Could not determine enum entry", err)
+    self.assertIn("Invalid recipe operation", err)
     self.assertEqual(code, 125)
 
   def test_recipe_missing_recipe_name(self):
@@ -210,12 +210,10 @@ class TestFimRecipe(unittest.TestCase):
     # Get recipe info
     out, err, code = self.run_cmd("fim-recipe", "info", "minimal-recipe")
     # Check fields
-    self.assertIn("Recipe: minimal-recipe", out)
-    self.assertNotIn("Description", out)
-    self.assertIn("package1", out)
-    self.assertIn("package2", out)
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
+    self.assertIn("Recipe:", out)
+    self.assertIn("Location:", out)
+    self.assertIn("Missing 'description' field", err)
+    self.assertEqual(code, 125)
 
   def test_info_recipe_without_packages(self):
     """Test info on recipe without packages field"""
@@ -227,9 +225,9 @@ class TestFimRecipe(unittest.TestCase):
     out, err, code = self.run_cmd("fim-recipe", "info", "empty-recipe")
     # Check fields
     self.assertIn("Recipe: empty-recipe", out)
-    self.assertIn("Recipe with no packages", out)
-    self.assertEqual(err, "")
-    self.assertEqual(code, 0)
+    self.assertIn("Description: Recipe with no packages", out)
+    self.assertIn("Missing 'packages' field", err)
+    self.assertEqual(code, 125)
 
   def test_info_multiple_recipes_comma_separated(self):
     """Test info on multiple recipes with comma-separated names"""
@@ -249,6 +247,31 @@ class TestFimRecipe(unittest.TestCase):
     self.assertIn("Second recipe", out)
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
+
+  def test_json_missing_fields(self):
+    """Test info on a recipe with missing JSON fields"""
+    cache_path = self.get_recipe_cache_path(self.get_distribution(), "nofields-recipe")
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(cache_path, 'w') as f:
+      f.write("{}")
+    # Get recipe info
+    out, err, code = self.run_cmd("fim-recipe", "info", "nofields-recipe")
+    # Check fields
+    self.assertIn("Recipe: nofields-recipe", out)
+    self.assertIn("Missing 'description' field", err)
+    self.assertEqual(code, 125)
+
+  def test_empty_json(self):
+    """Test info on a recipe with an empty JSON"""
+    cache_path = self.get_recipe_cache_path(self.get_distribution(), "empty-recipe")
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    Path(cache_path).touch()
+    # Get recipe info
+    out, err, code = self.run_cmd("fim-recipe", "info", "empty-recipe")
+    # Check fields
+    self.assertEqual(out, "")
+    self.assertIn("Empty json file", err)
+    self.assertEqual(code, 125)
 
   def test_info_malformed_json(self):
     """Test info on a recipe with malformed JSON"""
@@ -270,7 +293,7 @@ class TestFimRecipe(unittest.TestCase):
     cache_path.touch() 
     out, err, code = self.run_cmd("fim-recipe", "info", "empty-file")
     self.assertEqual(out, "")
-    self.assertIn("Empty json data", err)
+    self.assertIn("Empty json file", err)
     self.assertEqual(code, 125)
 
   # ===========================================================================
@@ -293,7 +316,7 @@ class TestFimRecipe(unittest.TestCase):
   def test_install_recipe_cached(self):
     """Test that install uses cached recipe if available"""
     # Create a mock recipe
-    mock_content = {"packages": ["htop"]}
+    mock_content = {"description": "mock", "packages": ["htop"]}
     self.create_mock_recipe(self.get_distribution(), "htop", mock_content)
     # Install
     out, err, code = self.run_cmd("fim-recipe", "install", "htop")
@@ -303,8 +326,8 @@ class TestFimRecipe(unittest.TestCase):
 
   def test_install_multiple_recipes(self):
     """Test installing multiple recipes"""
-    mock1 = {"packages": ["htop"]}
-    mock2 = {"packages": ["bmon"]}
+    mock1 = {"description": "htop", "packages": ["htop"]}
+    mock2 = {"description": "bmon", "packages": ["bmon"]}
     self.create_mock_recipe(self.get_distribution(), "htop", mock1)
     self.create_mock_recipe(self.get_distribution(), "bmon", mock2)
     out, err, code = self.run_cmd("fim-recipe", "install", "htop,bmon")
@@ -340,20 +363,21 @@ class TestFimRecipe(unittest.TestCase):
 
   def test_recipe_comma_separated_with_spaces(self):
     """Test comma-separated recipes with spaces"""
-    mock1 = {"packages": ["pkg1"]}
-    mock2 = {"packages": ["pkg2"]}
+    mock1 = {"description": "recipe-a", "packages": ["pkg1"]}
+    mock2 = {"description": "recipe-b", "packages": ["pkg2"]}
     self.create_mock_recipe(self.get_distribution(), "recipe-a", mock1)
     self.create_mock_recipe(self.get_distribution(), "recipe-b", mock2)
     # Test with spaces around commas
     out, err, code = self.run_cmd("fim-recipe", "info", "recipe-a, recipe-b")
     self.assertIn("Recipe: recipe-a", out)
+    self.assertIn("Description: recipe-a", out)
     self.assertIn("Recipe ' recipe-b' not found locally", err)
     self.assertEqual(code, 125)
 
   def test_recipe_comma_separated_empty_entries(self):
     """Test comma-separated list with empty entries"""
-    mock1 = {"packages": ["pkg1"]}
-    mock2 = {"packages": ["pkg2"]}
+    mock1 = {"description": "foo", "packages": ["pkg1"]}
+    mock2 = {"description": "bar", "packages": ["pkg2"]}
     self.create_mock_recipe(self.get_distribution(), "recipe-a", mock1)
     self.create_mock_recipe(self.get_distribution(), "recipe-b", mock2)
     out, err, code = self.run_cmd("fim-recipe", "info", "recipe-a,,recipe-b")
@@ -462,7 +486,7 @@ class TestFimRecipe(unittest.TestCase):
     self.create_mock_recipe(self.get_distribution(), "bad-deps-type", recipe)
     # Info should handle gracefully or error
     _, err, code = self.run_cmd("fim-recipe", "info", "bad-deps-type")
-    self.assertIn("Tried to create array with non-array entry", err)
+    self.assertIn("Failed to get recipe info", err)
     # Should either skip the field or error
     self.assertTrue(code == 125)
 
@@ -474,5 +498,5 @@ class TestFimRecipe(unittest.TestCase):
     # Info should work
     out, err, code = self.run_cmd("fim-recipe", "install", "foo")
     self.assertRegex(out, "Downloading recipe from.*xorg.json")
-    self.assertIn("Tried to create array with non-array entry", err)
+    self.assertIn("Invalid json recipe", err)
     self.assertEqual(code, 125)

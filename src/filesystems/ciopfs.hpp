@@ -13,6 +13,7 @@
 
 #include "../lib/subprocess.hpp"
 #include "../lib/env.hpp"
+#include "../std/filesystem.hpp"
 #include "filesystem.hpp"
 
 namespace ns_filesystems::ns_ciopfs
@@ -34,7 +35,7 @@ class Ciopfs final : public ns_filesystem::Filesystem
 
   public:
     Ciopfs(pid_t pid_to_die_for, fs::path const& path_dir_lower, fs::path const& path_dir_upper);
-    Expected<void> mount() override;
+    Value<void> mount() override;
 };
 
 inline Ciopfs::Ciopfs(pid_t pid_to_die_for, fs::path const& path_dir_lower, fs::path const& path_dir_upper)
@@ -51,18 +52,15 @@ inline Ciopfs::Ciopfs(pid_t pid_to_die_for, fs::path const& path_dir_lower, fs::
 /**
  * @brief Mounts the filesystem
  * 
- * @return Expected<void> Nothing on success or the respective error
+ * @return Value<void> Nothing on success or the respective error
  */
-inline Expected<void> Ciopfs::mount()
+inline Value<void> Ciopfs::mount()
 {
-  std::error_code ec;
-  // Check if paths exist
-  qreturn_if(not fs::exists(m_path_dir_lower, ec), std::unexpected("Lowerdir does not exist for ciopfs"));
-  qreturn_if(not fs::exists(m_path_dir_upper, ec) and not fs::create_directories(m_path_dir_upper, ec)
-    , std::unexpected("Upperdir does not exist for ciopfs: {}"_fmt(ec.message()))
-  );
+  // Validate directories
+  Pop(ns_fs::create_directories(m_path_dir_lower), "E::Failed to create lower directory");
+  Pop(ns_fs::create_directories(m_path_dir_upper), "E::Failed to create upper directory");
   // Find Ciopfs
-  auto path_file_ciopfs = Expect(ns_env::search_path("ciopfs"));
+  auto path_file_ciopfs = Pop(ns_env::search_path("ciopfs"), "E::Could not find ciopfs in PATH");
   // Create subprocess
   m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_ciopfs);
   // Include arguments and spawn process

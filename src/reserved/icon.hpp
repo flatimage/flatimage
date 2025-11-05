@@ -53,14 +53,14 @@ struct Icon
  *
  * @param path_file_binary Target binary to write the struct to
  * @param icon Struct to write to the target file as binary data
- * @return Expected<void> Nothing on success, or the respective error message
+ * @return Value<void> Nothing on success, or the respective error message
  */
-inline Expected<void> write(fs::path const& path_file_binary, Icon const& icon)
+inline Value<void> write(fs::path const& path_file_binary, Icon const& icon)
 {
   uint64_t space_available = ns_reserved::FIM_RESERVED_OFFSET_ICON_END - ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN;
   uint64_t space_required = sizeof(Icon);
-  qreturn_if(space_available < space_required, Unexpected("E::Not enough space to fit icon data: {} vs {}", space_available, space_required));
-  Expect(ns_reserved::write(path_file_binary
+  qreturn_if(space_available < space_required, Error("E::Not enough space to fit icon data: {} vs {}", space_available, space_required));
+  Pop(ns_reserved::write(path_file_binary
     , ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN
     , ns_reserved::FIM_RESERVED_OFFSET_ICON_END
     , reinterpret_cast<char const*>(&icon)
@@ -75,12 +75,12 @@ inline Expected<void> write(fs::path const& path_file_binary, Icon const& icon)
  * @param path_file_binary Target binary to write the struct from
  * @return On success it returns the read Icon struct, or the respective error message
  */
-inline Expected<Icon> read(fs::path const& path_file_binary)
+inline Value<Icon> read(fs::path const& path_file_binary)
 {
   Icon icon;
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN;
   uint64_t size = ns_reserved::FIM_RESERVED_OFFSET_ICON_END - offset_begin;
-  Expect(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&icon), size));
+  Pop(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&icon), size));
   return icon;
 }
 

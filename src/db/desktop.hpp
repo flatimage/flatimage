@@ -24,20 +24,20 @@ class Desktop
 {
   private:
     std::string m_name;
-    Expected<fs::path> m_path_file_icon;
+    Value<fs::path> m_path_file_icon;
     std::set<IntegrationItem> m_set_integrations;
     std::set<std::string> m_set_categories;
   public:
     Desktop();
     [[maybe_unused]] std::string const& get_name() const { return m_name; }
-    [[maybe_unused]] Expected<fs::path> const& get_path_file_icon() const { return m_path_file_icon; }
+    [[maybe_unused]] Value<fs::path> const& get_path_file_icon() const { return m_path_file_icon; }
     [[maybe_unused]] std::set<IntegrationItem> const& get_integrations() const { return m_set_integrations; }
     [[maybe_unused]] std::set<std::string> const& get_categories() const { return m_set_categories; }
     [[maybe_unused]] void set_name(std::string_view str_name) { m_name = str_name; }
     [[maybe_unused]] void set_integrations(std::set<IntegrationItem> const& set_integrations) { m_set_integrations = set_integrations; }
     [[maybe_unused]] void set_categories(std::set<std::string> const& set_categories) { m_set_categories = set_categories; }
-  friend Expected<Desktop> deserialize(std::string_view raw_json) noexcept;
-  friend Expected<std::string> serialize(Desktop const& desktop) noexcept;
+  friend Value<Desktop> deserialize(std::string_view raw_json) noexcept;
+  friend Value<std::string> serialize(Desktop const& desktop) noexcept;
 }; // Desktop }}}
 
 
@@ -57,22 +57,23 @@ inline Desktop::Desktop()
  * @param raw_json The json string which to deserialize
  * @return The `Desktop` class or the respective error
  */
-[[maybe_unused]] [[nodiscard]] inline Expected<Desktop> deserialize(std::string_view str_raw_json) noexcept
+[[maybe_unused]] [[nodiscard]] inline Value<Desktop> deserialize(std::string_view str_raw_json) noexcept
 {
   Desktop desktop;
+  qreturn_if(str_raw_json.empty(), Error("W::Empty json data"));
   // Open DB
-  auto db = Expect(ns_db::from_string(str_raw_json));
+  auto db = Pop(ns_db::from_string(str_raw_json));
   // Parse name (required)
-  desktop.m_name = Expect(db("name").template value<std::string>());
+  desktop.m_name = Pop(db("name").template value<std::string>());
   // Parse icon path (optional)
   desktop.m_path_file_icon = db("icon").template value<std::string>();
   // Parse enabled integrations (optional)
   for(auto&& item : db("integrations").value<std::vector<std::string>>().or_default())
   {
-    desktop.m_set_integrations.insert(Expect(IntegrationItem::from_string(item)));
+    desktop.m_set_integrations.insert(Pop(IntegrationItem::from_string(item)));
   }
   // Parse categories (required)
-  auto db_categories = Expect(db("categories").template value<std::vector<std::string>>());
+  auto db_categories = Pop(db("categories").template value<std::vector<std::string>>());
   std::ranges::for_each(db_categories, [&](auto&& e){ desktop.m_set_categories.insert(e); });
   return desktop;
 }
@@ -83,7 +84,7 @@ inline Desktop::Desktop()
  * @param stream_raw_json The json string which to deserialize
  * @return The `Desktop` class or the respective error
  */
-[[maybe_unused]] [[nodiscard]] inline Expected<Desktop> deserialize(std::ifstream& stream_raw_json) noexcept
+[[maybe_unused]] [[nodiscard]] inline Value<Desktop> deserialize(std::ifstream& stream_raw_json) noexcept
 {
   std::stringstream ss;
   ss << stream_raw_json.rdbuf();
@@ -96,14 +97,14 @@ inline Desktop::Desktop()
  * @param desktop The `Desktop` object to deserialize
  * @return The serialized json data;
  */
-[[maybe_unused]] [[nodiscard]] inline Expected<std::string> serialize(Desktop const& desktop) noexcept
+[[maybe_unused]] [[nodiscard]] inline Value<std::string> serialize(Desktop const& desktop) noexcept
 {
   auto db = ns_db::Db();
   db("name") = desktop.m_name;
   db("integrations") = desktop.m_set_integrations;
   if (desktop.m_path_file_icon)
   {
-    db("icon") = Expect(desktop.m_path_file_icon);
+    db("icon") = Pop(desktop.m_path_file_icon);
   }
   db("categories") = desktop.m_set_categories;
   return db.dump();

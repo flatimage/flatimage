@@ -188,7 +188,7 @@ class TestFimEnv(unittest.TestCase):
     # Invalid variable
     out,err,code = self.run_cmd("fim-env", "addd")
     self.assertEqual(out, "")
-    self.assertIn("Could not determine enum entry from 'ADDD'", err)
+    self.assertIn("Invalid env operation", err)
     self.assertEqual(code, 125)
 
   # =============================================================================
