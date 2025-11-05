@@ -453,8 +453,6 @@ class TestFimRecipe(unittest.TestCase):
     self.create_mock_recipe(self.get_distribution(), "foo", recipe)
     # Install should fail
     out, err, code = self.run_cmd("fim-recipe", "install", "foo")
-    print(out)
-    print(err)
     self.assertRegex(out, "Downloading recipe from.*nonexistent-dep.json")
     self.assertIn("HTTP/1.1 404 Not Found", err)
     self.assertEqual(code, 125)
