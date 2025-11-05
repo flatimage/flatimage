@@ -50,10 +50,10 @@ struct Icon
 
 /**
  * @brief Writes the Icon struct to the target binary
- * 
+ *
  * @param path_file_binary Target binary to write the struct to
  * @param icon Struct to write to the target file as binary data
- * @return On success void, or the respective error message
+ * @return Expected<void> Nothing on success, or the respective error message
  */
 inline Expected<void> write(fs::path const& path_file_binary, Icon const& icon)
 {

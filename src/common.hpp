@@ -36,7 +36,13 @@ struct format_args
 
 } // namespace
 
-// Print to stdout
+/**
+ * @brief Print to stdout with a user-defined literal
+ *
+ * @param c_str The C-string format
+ * @param std::size_t The length of the string (unused, required by literal operator)
+ * @return Lambda that accepts variadic arguments and prints formatted output
+ */
 inline auto operator""_print(const char* c_str, std::size_t) noexcept
 {
   return [=]<typename... Args>(Args&&... args)
@@ -47,8 +53,9 @@ inline auto operator""_print(const char* c_str, std::size_t) noexcept
 
 /**
  * @brief Format strings with a user-defined literal
- * 
+ *
  * @param format Format of the string
+ * @param size_t The length of the string (unused, required by literal operator)
  * @return decltype(auto) Formatter functor
  */
 inline decltype(auto) operator ""_fmt(const char* format, size_t) noexcept
@@ -60,10 +67,10 @@ inline decltype(auto) operator ""_fmt(const char* format, size_t) noexcept
 }
 
 /**
- * @brief Multiplies the value by 1 kibibyte
- * 
+ * @brief Multiplies the value by 1 kibibyte (1024 bytes)
+ *
  * @param value The value to multiply with
- * @return The result of the operation
+ * @return unsigned long long The result of the operation (value * 1024)
  */
 constexpr inline decltype(auto) operator ""_kib(unsigned long long value) noexcept
 {
@@ -71,10 +78,10 @@ constexpr inline decltype(auto) operator ""_kib(unsigned long long value) noexce
 }
 
 /**
- * @brief Multiplies the value by 1 mebibyte
- * 
+ * @brief Multiplies the value by 1 mebibyte (1048576 bytes)
+ *
  * @param value The value to multiply with
- * @return The result of the operation
+ * @return unsigned long long The result of the operation (value * 1048576)
  */
 constexpr inline decltype(auto) operator ""_mib(unsigned long long value) noexcept
 {

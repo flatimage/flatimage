@@ -30,7 +30,7 @@ namespace fs = std::filesystem;
  *
  * @param path_file_binary Target binary to write the URL string
  * @param url URL string to write to the target file as binary data
- * @return On success void, or the respective error message
+ * @return Expected<void> Nothing on success, or the respective error message
  */
 inline Expected<void> write(fs::path const& path_file_binary, std::string_view const& url)
 {

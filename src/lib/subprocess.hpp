@@ -98,7 +98,8 @@ class Subprocess
 
 /**
  * @brief Construct a new Subprocess:: Subprocess object
- * 
+ *
+ * @tparam T Type that is string representable
  * @param t A string representable object
  */
 template<ns_concept::StringRepresentable T>
@@ -143,7 +144,9 @@ inline Subprocess& Subprocess::env_clear()
 
 /**
  * @brief Adds an environment variable in the process
- * 
+ *
+ * @tparam K Type that is string representable for the key
+ * @tparam V Type that is string representable for the value
  * @param k The name of the environment variable
  * @param v The value of the environment variable
  * @return Subprocess& A reference to *this
@@ -158,7 +161,8 @@ Subprocess& Subprocess::with_var(K&& k, V&& v)
 
 /**
  * @brief Removes an environment variable from the process environment
- * 
+ *
+ * @tparam K Type that is string representable
  * @param k The name of the variable to remove
  * @return Subprocess& A reference to *this
  */
@@ -208,7 +212,9 @@ inline void Subprocess::kill(int signal)
 
 /**
  * @brief Arguments forwarded as the process' arguments
- * 
+ *
+ * @tparam Arg Type of the first argument
+ * @tparam Args Types of additional arguments (variadic)
  * @param arg The argument to forward
  * @param args More arguments to forward (optional)
  * @return Subprocess& A reference to *this
@@ -222,8 +228,10 @@ Subprocess& Subprocess::with_args(Arg&& arg, Args&&... args)
 
 /**
  * @brief Arguments forwarded as the process' arguments
- * 
+ *
+ * @tparam T Type of the argument (can be string, iterable, or string representable)
  * @param arg The argument to forward
+ * @return Subprocess& A reference to *this
  */
 template<typename T>
 Subprocess& Subprocess::with_args(T&& arg)
@@ -250,9 +258,12 @@ Subprocess& Subprocess::with_args(T&& arg)
 
 /**
  * @brief Includes environment variables with the format 'NAME=VALUE' in the environment
- * 
+ *
+ * @tparam Arg Type of the first argument
+ * @tparam Args Types of additional arguments (variadic)
  * @param arg Variable to include
  * @param args Additional variables to include (optional)
+ * @return Subprocess& A reference to *this
  */
 template<typename Arg, typename... Args>
 requires (sizeof...(Args) > 0)
@@ -263,8 +274,10 @@ Subprocess& Subprocess::with_env(Arg&& arg, Args&&... args)
 
 /**
  * @brief Includes an environment variable with the format 'NAME=VALUE' in the environment
- * 
+ *
+ * @tparam T Type of the argument (can be string, iterable, or string representable)
  * @param arg Variable to include
+ * @return Subprocess& A reference to *this
  */
 template<typename T>
 Subprocess& Subprocess::with_env(T&& arg)
@@ -425,7 +438,8 @@ inline void Subprocess::die_on_pid(pid_t pid)
 
 /**
  * @brief Pipes the process STDOUT to f
- * 
+ *
+ * @tparam F Function type (std::function<void(std::string)>)
  * @param f A lambda std::function<void(std::string)>
  * @return Subprocess& A reference to *this
  */
@@ -438,7 +452,8 @@ Subprocess& Subprocess::with_stdout_handle(F&& f)
 
 /**
  * @brief Pipes the process STDERR to f
- * 
+ *
+ * @tparam F Function type (std::function<void(std::string)>)
  * @param f A lambda std::function<void(std::string)>
  * @return Subprocess& A reference to *this
  */
@@ -567,11 +582,13 @@ inline Subprocess& Subprocess::spawn()
 }
 
 /**
- * @brief Sapwns the process and waits for it to finish
- * 
+ * @brief Spawns the process and waits for it to finish
+ *
+ * @tparam T Type of the process (string representable)
+ * @tparam Args Types of additional arguments (variadic)
  * @param proc The process to start
  * @param args The arguments forwarded to the process
- * @return std::optional<int> 
+ * @return Expected<int> The process return code or the respective error
  */
 template<typename T, typename... Args>
 [[nodiscard]] inline Expected<int> wait(T&& proc, Args&&... args)

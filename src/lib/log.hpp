@@ -175,7 +175,8 @@ struct Location
 
 /**
  * @brief Workaround make_format_args only taking references
- * 
+ *
+ * @tparam Ts Types of format arguments (variadic)
  * @param fmt Format of the string
  * @param ts Arguments to the input format
  * @return std::string The formatted string
@@ -202,6 +203,14 @@ class Writer
       , m_prefix(prefix)
       , ostream(ostream)
     {}
+    /**
+     * @brief Writes a formatted log message
+     *
+     * @tparam T Type of the format string (string representable)
+     * @tparam Args Types of format arguments (variadic, string representable or iterable)
+     * @param format The format string
+     * @param args The format arguments
+     */
     template<ns_concept::StringRepresentable T, typename... Args>
     requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
     void operator()(T&& format, Args&&... args)
@@ -283,6 +292,13 @@ class critical : public Writer
 #define logger(fmt, ...) ns_log::impl_log<fmt>(ns_log::Location{})(__VA_ARGS__);
 #define logger_loc(loc, fmt, ...) ns_log::impl_log<fmt>(loc)(__VA_ARGS__);
 
+/**
+ * @brief Implementation function for compile-time log level dispatch
+ *
+ * @tparam str Static string containing the log level prefix (D::, I::, W::, E::, C::, Q::)
+ * @param loc Source location of the log call
+ * @return Lambda that accepts variadic arguments and dispatches to the appropriate logger
+ */
 template<ns_string::static_string str>
 constexpr decltype(auto) impl_log(Location loc)
 {

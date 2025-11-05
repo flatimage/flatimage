@@ -84,12 +84,11 @@ inline Expected<void> resize_impl(fs::path const& path_file_src
 
 /**
  * @brief Resizes an input image to the specified width and height
- * 
+ *
  * @param path_file_src Path to the input image file
  * @param path_file_dst Path to the output image file
  * @param width Target width of the output image
  * @param height Target height of the output image
- * @param is_preserve_aspect_ratio Whether to preserve the aspect ratio or not in the output
  * @return Expected<void> Nothing on success, or the respective error
  */
 inline Expected<void> resize(fs::path const& path_file_src

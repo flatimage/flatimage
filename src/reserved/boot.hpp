@@ -27,10 +27,10 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Writes the boot json string to the target binary
- * 
+ *
  * @param path_file_binary Target binary to write the json string
  * @param json Json string to write to the target file as binary data
- * @return On success void, or the respective error message
+ * @return Expected<void> Nothing on success, or the respective error message
  */
 inline Expected<void> write(fs::path const& path_file_binary, std::string_view const& json)
 {

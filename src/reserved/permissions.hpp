@@ -94,10 +94,10 @@ inline std::map<Permission,Bits> const permission_mask =
 
 /**
  * @brief Write the Bits struct to the given binary
- * 
+ *
  * @param path_file_binary Binary in which to write the Bits struct
  * @param bits The bits struct to write into the binary
- * @return void on success, or the respective error
+ * @return Expected<void> Nothing on success, or the respective error
  */
 inline Expected<void> write(fs::path const& path_file_binary, Bits const& bits) noexcept
 {

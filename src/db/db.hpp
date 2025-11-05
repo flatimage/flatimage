@@ -91,7 +91,8 @@ inline Db::Db() noexcept : m_json(json_t::object())
 
 /**
  * @brief Construct a new Db:: Db object
- * 
+ *
+ * @tparam T Type that is same as json_t (after removing cv and ref qualifiers)
  * @param json Constructs a new Db with the nlohmann_json underlying type
  */
 template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
@@ -101,7 +102,8 @@ inline Db::Db(std::reference_wrapper<T> const& json) noexcept : m_json(json)
 
 /**
  * @brief Construct a new Db:: Db object
- * 
+ *
+ * @tparam T Type that is same as json_t (after removing cv and ref qualifiers)
  * @param json Constructs a new Db with the nlohmann_json underlying type
  */
 template<typename T> requires std::same_as<std::remove_cvref_t<T>, json_t>
@@ -228,9 +230,10 @@ inline bool Db::empty() const noexcept
 
 /**
  * @brief Checks if the json contains the provided key
- * 
- * @param key 
- * @return The boolean result
+ *
+ * @tparam T Type that satisfies IsString concept
+ * @param key The key to check for existence
+ * @return bool True if the key exists, false otherwise
  */
 template<IsString T>
 bool Db::contains(T&& key) const noexcept
@@ -290,7 +293,8 @@ inline void Db::clear()
 
 /**
  * @brief Assigns a value to the current json entry
- * 
+ *
+ * @tparam T Type of the value to assign
  * @param value The value to assign
  * @return Db& A reference to *this
  */

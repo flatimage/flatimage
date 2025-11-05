@@ -69,10 +69,10 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Skips the elf header starting from 'offset' and returns the offset to the first byte afterwards
- * 
+ *
  * @param path_file_elf Path to the respective elf file
  * @param offset Offset where the elf section starts
- * @return Expected<uint64_t> 
+ * @return Expected<uint64_t> The offset to the first byte after the ELF header, or the respective error
  */
 [[nodiscard]] inline Expected<uint64_t> skip_elf_header(fs::path const& path_file_elf
   , uint64_t offset = 0)

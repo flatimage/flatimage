@@ -108,7 +108,8 @@ class InterruptTimer
 
 /**
  * @brief Reads from the file descriptor or exits within a timeout
- * 
+ *
+ * @tparam Data Type of data elements in the buffer
  * @param fd The file descriptor
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer in which to store the read data
@@ -157,7 +158,8 @@ template<typename Data>
 
 /**
  * @brief Opens and reads from the given input file
- * 
+ *
+ * @tparam Data Type of data elements in the buffer
  * @param path_file_src Path to the file to open and read
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer in which to store the read data
@@ -177,13 +179,13 @@ template<typename Data>
 
 /**
  * @brief Opens and writes to the given input file
- * 
+ *
+ * @tparam Data Type of data elements in the buffer
  * @param path_file_src Path to the file to open and write
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer with the data to write
  * @return ssize_t The number of bytes written or -1 on error
  */
-
 template<typename Data>
 [[nodiscard]] inline ssize_t open_write_with_timeout(fs::path const& path_file_src
   , std::chrono::milliseconds const& timeout

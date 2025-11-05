@@ -80,7 +80,8 @@ inline bool exists(std::string_view name, std::string_view value)
 
 /**
  * @brief Performs variable expansion analogous to a POSIX shell
- * 
+ *
+ * @tparam auto Type that is string representable (constrained by concept)
  * @param var Source string to expand
  * @return Expected<std::string> The expanded value or the respective error
  */
