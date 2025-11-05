@@ -278,32 +278,35 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
   {
     std::vector<std::string_view> keywords{std::forward<Args>(args)...};
     ireturn_if(not fs::exists(path_dir_search), "Search path does not exist: '{}'"_fmt(path_dir_search));
-    for(auto&& path_file_entry : fs::directory_iterator(path_dir_search) | std::views::transform([](auto&& e){ return e.path(); }))
+    auto f_process_entry = [&](fs::path const& path_file_entry) -> void
     {
       // Skip ignored matches
-      dcontinue_if(std::regex_search(path_file_entry.c_str(), regex_exclude), "Ignoring match '{}'"_fmt(path_file_entry));
+      qreturn_if(std::regex_search(path_file_entry.c_str(), regex_exclude));
       // Skip directories
-      qcontinue_if(fs::is_directory(path_file_entry));
+      qreturn_if(fs::is_directory(path_file_entry));
       // Skip files that do not match keywords
-      qcontinue_if(not std::ranges::any_of(keywords, [&](auto&& f){ return path_file_entry.filename().string().contains(f); }));
+      qreturn_if(not std::ranges::any_of(keywords, [&](auto&& f){ return path_file_entry.filename().string().contains(f); }));
       // Symlink target is the file and the end of the symlink chain
-      auto path_file_entry_realpath = Catch(fs::canonical(path_file_entry));
-      econtinue_if(not path_file_entry_realpath, "Broken symlink: '{}'"_fmt(path_file_entry));
+      // fs::canonical throws if path_file_entry does not exist
+      auto path_file_entry_realpath = fs::canonical(path_file_entry);
       // Create target and symlink names
-      fs::path path_link_target = path_dir_root_host / path_file_entry_realpath->relative_path();
+      fs::path path_link_target = path_dir_root_host / path_file_entry_realpath.relative_path();
       fs::path path_link_name = path_dir_root_guest / path_file_entry.relative_path();
       // File already exists in the container as a regular file or directory, skip
-      qcontinue_if(fs::exists(path_link_name) and not fs::is_symlink(path_link_name));
+      qreturn_if(fs::exists(path_link_name) and not fs::is_symlink(path_link_name));
       // Create parent directories
-      std::error_code ec;
-      fs::create_directories(path_link_name.parent_path(), ec);
-      econtinue_if (ec, ec.message());
+      fs::create_directories(path_link_name.parent_path());
       // Remove existing link
-      fs::remove(path_link_name, ec);
+      fs::remove(path_link_name);
       // Symlink
-      econtinue_if(symlink(path_link_target.c_str(), path_link_name.c_str()) < 0, "{}: {}"_fmt(strerror(errno), path_link_name));
+      fs::create_symlink(path_link_target.c_str(), path_link_name.c_str());
       // Log symlink successful
       ns_log::debug()("PERM(NVIDIA): {} -> {}", path_link_name, path_link_target);
+    };
+    // Process entries
+    for(auto&& path_file_entry : fs::directory_iterator(path_dir_search) | std::views::transform([](auto&& e){ return e.path(); }))
+    {
+      Catch(f_process_entry(path_file_entry)).template discard();
     } // for
   };
 
