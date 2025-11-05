@@ -33,20 +33,21 @@ You can use `./app.flatimage fim-help recipe` to get the following usage details
 ```txt
 fim-recipe : Fetch, inspect, and install recipes from a remote repository
 Usage: fim-recipe <fetch> <recipes>
-  <fetch> : Download one or more recipes without installing packages
+  <fetch> : Download one or more recipes with their dependencies without installing packages
   <recipes> : Name(s) of the recipe(s) to download (comma-separated for multiple)
-Note: Recipes are downloaded from URL/DISTRO/latest/<recipe>.json to path_dir_host_config/recipes/DISTRO/latest/<recipe>.json
+Note: Recipes and all dependencies are downloaded from URL/DISTRO/latest/<recipe>.json to path_dir_host_config/recipes/DISTRO/latest/<recipe>.json
 Example: fim-recipe fetch gpu
 Example: fim-recipe fetch gpu,audio,xorg
 Usage: fim-recipe <info> <recipes>
-  <info> : Display information about one or more locally cached recipes
+  <info> : Display information about one or more locally cached recipes including dependencies
   <recipes> : Name(s) of the recipe(s) to inspect (comma-separated for multiple)
 Example: fim-recipe info gpu
 Example: fim-recipe info gpu,audio,xorg
 Usage: fim-recipe <install> <recipes>
-  <install> : Download one or more recipes and install their packages
+  <install> : Download recipes with dependencies, validate no cycles exist, and install all packages
   <recipes> : Name(s) of the recipe(s) to install (comma-separated for multiple)
 Note: The remote URL must be configured using 'fim-remote set <url>'
+Note: Dependencies are resolved recursively and cyclic dependencies are detected
 Example: fim-recipe install gpu
 Example: fim-recipe install gpu,audio,xorg
 ```

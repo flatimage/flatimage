@@ -68,7 +68,7 @@ inline std::string help_usage()
       { "cmd", "Name of the command to display help details" },
     })
     .with_note("Available commands: fim-{bind,boot,casefold,desktop,env,exec,instance,layer,notify,overlay,perms,recipe,remote,root,version}")
-    .with_example(R"(fim-help bind")")
+    .with_example(R"(fim-help bind)")
     .get();
 }
 
@@ -173,13 +173,19 @@ inline std::string env_usage()
       { "'key=value'...", "List of variables to add or set" },
     })
     .with_example("fim-env add 'APP_NAME=hello-world' 'HOME=/home/my-app'")
-    .with_usage("fim-env <clear>")
+    .with_usage("fim-env <del> <keys...>")
     .with_args({
-      { "clear", "Clears configured environment variables" },
+      { "del", "Delete one or more environment variables" },
+      { "keys...", "List of variable names to delete" },
     })
+    .with_example("fim-env del APP_NAME HOME")
     .with_usage("fim-env <list>")
     .with_args({
       { "list", "Lists configured environment variables" },
+    })
+    .with_usage("fim-env <clear>")
+    .with_args({
+      { "clear", "Clears configured environment variables" },
     })
     .get();
 }
@@ -204,7 +210,7 @@ inline std::string instance_usage()
     .with_usage("fim-instance <exec> <id> [args...]")
     .with_args({
       { "exec", "Run a command in a running instance" },
-      { "id" , "id of the instance in which to execute the command" },
+      { "id" , "ID of the instance in which to execute the command" },
       { "args" , "Arguments for the 'exec' command" },
     })
     .with_example("fim-instance exec 0 echo hello")
@@ -361,7 +367,6 @@ inline std::string version_usage()
     .with_description("Displays version information of FlatImage")
     .with_usage("fim-version <short|full|deps>")
     .with_args({
-      { "fim-version", "Displays the version information of the FlatImage distribution" },
       { "short", "Displays the version as a string" },
       { "full", "Displays the version and build information in json" },
       { "deps", "Displays dependencies metadata in json" },

@@ -209,7 +209,7 @@ class VecArgs
         break;
         case CmdPermsOp::NONE:
         {
-          return Error("C::Invalid operation on permissions");
+          return Error("C::Invalid operation for permissions");
         }
       }
       // Check for trailing arguments
@@ -263,7 +263,7 @@ class VecArgs
         break;
         case CmdEnvOp::NONE:
         {
-          return Error("C::Invalid operation on permissions");
+          return Error("C::Invalid operation for environment");
         }
       }
       // Check for trailing arguments
@@ -288,7 +288,7 @@ class VecArgs
         {
           cmd.sub_cmd = CmdDesktop::Setup
           {
-            .path_file_setup = Pop(args.pop_front<"C::Missing argument from 'setup' (/path/to/file.json)">())
+            .path_file_setup = Pop(args.pop_front<"C::Missing argument for 'setup' (/path/to/file.json)">())
           };
         }
         break;
@@ -296,7 +296,7 @@ class VecArgs
         {
           // Get comma separated argument list
           std::vector<std::string> vec_items =
-              Pop(args.pop_front<"C::Missing arguments for 'enable' (desktop,entry,mimetype,none)">())
+              Pop(args.pop_front<"C::Missing arguments for 'enable' (entry,mimetype,icon,none)">())
             | std::views::split(',')
             | std::ranges::to<std::vector<std::string>>();
           // Create items
@@ -320,7 +320,7 @@ class VecArgs
         {
           // Get dump operation
           CmdDesktopDump op_dump = Pop(CmdDesktopDump::from_string(
-            Pop(args.pop_front<"C::Missing arguments for 'dump' (desktop,icon)">())
+            Pop(args.pop_front<"C::Missing arguments for 'dump' (entry,mimetype,icon)">())
           ), "C::Invalid dump operation");
           // Parse dump operation
           switch(op_dump)
@@ -364,7 +364,7 @@ class VecArgs
       CmdLayer cmd;
       // Get op
       CmdLayerOp op = Pop(
-        CmdLayerOp::from_string(Pop(args.pop_front<"C::Missing op for 'fim-layer' (create,add)">())), "C::Invalid layer operation"
+        CmdLayerOp::from_string(Pop(args.pop_front<"C::Missing op for 'fim-layer' (create,add,commit)">())), "C::Invalid layer operation"
       );
       // Process command
       switch(op)
@@ -476,7 +476,7 @@ class VecArgs
     {
       // Check op
       CmdBootOp op = Pop(CmdBootOp::from_string(
-        Pop(args.pop_front<"C::Invalid operation for 'fim-boot' (<set|show|clear>)">())
+        Pop(args.pop_front<"C::Missing op for 'fim-boot' (<set|show|clear>)">())
       ), "C::Invalid boot operation");
       // Build command
       CmdBoot cmd_boot;
@@ -513,7 +513,7 @@ class VecArgs
     {
       // Check op
       CmdRemoteOp op = Pop(CmdRemoteOp::from_string(
-        Pop(args.pop_front<"C::Invalid operation for 'fim-remote' (<set|show|clear>)">())
+        Pop(args.pop_front<"C::Missing op for 'fim-remote' (<set|show|clear>)">())
       ), "C::Invalid remote operation");
       // Build command
       CmdRemote cmd_remote;
@@ -548,7 +548,7 @@ class VecArgs
     {
       // Check op
       CmdRecipeOp op = Pop(CmdRecipeOp::from_string(
-        Pop(args.pop_front<"C::Invalid operation for 'fim-recipe' (<fetch|info|install>)">())
+        Pop(args.pop_front<"C::Missing op for 'fim-recipe' (<fetch|info|install>)">())
       ), "C::Invalid recipe operation");
       // Build command
       CmdRecipe cmd_recipe;
@@ -663,9 +663,9 @@ class VecArgs
         case CmdVersionOp::SHORT: cmd.sub_cmd = CmdVersion::Short{}; break;
         case CmdVersionOp::FULL: cmd.sub_cmd = CmdVersion::Full{}; break;
         case CmdVersionOp::DEPS: cmd.sub_cmd = CmdVersion::Deps{}; break;
-        case CmdVersionOp::NONE: return Error("C::Invalid operation for fim-overlay");
+        case CmdVersionOp::NONE: return Error("C::Invalid operation for fim-version");
       }
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-overlay: {}", args.data()));
+      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-version: {}", args.data()));
       return CmdType(cmd);
     }
 

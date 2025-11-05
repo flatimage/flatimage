@@ -26,10 +26,14 @@ Usage: fim-env <add|set> <'key=value'...>
   <set> : Redefines the environment variables as the input arguments
   <'key=value'...> : List of variables to add or set
 Example: fim-env add 'APP_NAME=hello-world' 'HOME=/home/my-app'
-Usage: fim-env <clear>
-  <clear> : Clears configured environment variables
+Usage: fim-env <del> <keys...>
+  <del> : Delete one or more environment variables
+  <keys...> : List of variable names to delete
+Example: fim-env del APP_NAME HOME
 Usage: fim-env <list>
   <list> : Lists configured environment variables
+Usage: fim-env <clear>
+  <clear> : Clears configured environment variables
 ```
 
 ### Add Environment Variables

@@ -11,7 +11,6 @@ You can use `./app.flatimage fim-help version` to get the following usage detail
 ```txt
 fim-version : Displays version information of FlatImage
 Usage: fim-version <short|full|deps>
-  <fim-version> : Displays the version information of the FlatImage distribution
   <short> : Displays the version as a string
   <full> : Displays the version and build information in json
   <deps> : Displays dependencies metadata in json

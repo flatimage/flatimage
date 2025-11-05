@@ -13,7 +13,7 @@ fim-remote : Configure the remote URL for recipes
 Usage: fim-remote <set> <url>
   <set> : Set the remote URL
   <url> : The remote URL to configure
-Example: fim-remote set https://recipes.example.com/repo
+Example: fim-remote set https://updates.example.com/repo
 Usage: fim-remote <show>
   <show> : Display the current remote URL
 Usage: fim-remote <clear>

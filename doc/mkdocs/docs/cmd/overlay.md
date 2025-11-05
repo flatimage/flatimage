@@ -25,6 +25,7 @@ The overlay filesystem solves this by:
 You can use `./app.flatimage fim-help overlay` to get the following usage details:
 
 ```txt
+fim-overlay : Show or select the default overlay filesystem
 Usage: fim-overlay <set> <overlayfs|unionfs|bwrap>
   <set> : Sets the default overlay filesystem to use
   <overlayfs> : Uses 'fuse-overlayfs' as the overlay filesystem
