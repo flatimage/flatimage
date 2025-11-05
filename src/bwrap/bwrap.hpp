@@ -759,8 +759,8 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   int errno_nr = -1;
 
   // Read possible errors if any
-  wlog_if(read(pipe_error[0], &syscall_nr, sizeof(syscall_nr)) < 0, "Could not read syscall error, success?");
-  wlog_if(read(pipe_error[0], &errno_nr, sizeof(errno_nr)) < 0, "Could not read errno number, success?");
+  dlog_if(read(pipe_error[0], &syscall_nr, sizeof(syscall_nr)) < 0, "Could not read syscall error, success?");
+  dlog_if(read(pipe_error[0], &errno_nr, sizeof(errno_nr)) < 0, "Could not read errno number, success?");
 
   // Close pipe
   close(pipe_error[0]);
