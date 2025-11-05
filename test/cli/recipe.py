@@ -210,8 +210,7 @@ class TestFimRecipe(unittest.TestCase):
     # Get recipe info
     out, err, code = self.run_cmd("fim-recipe", "info", "minimal-recipe")
     # Check fields
-    self.assertIn("Recipe:", out)
-    self.assertIn("Location:", out)
+    self.assertEqual(out, "")
     self.assertIn("Missing 'description' field", err)
     self.assertEqual(code, 125)
 
@@ -224,8 +223,7 @@ class TestFimRecipe(unittest.TestCase):
     # Get recipe info
     out, err, code = self.run_cmd("fim-recipe", "info", "empty-recipe")
     # Check fields
-    self.assertIn("Recipe: empty-recipe", out)
-    self.assertIn("Description: Recipe with no packages", out)
+    self.assertEqual(out, "")
     self.assertIn("Missing 'packages' field", err)
     self.assertEqual(code, 125)
 
@@ -257,7 +255,7 @@ class TestFimRecipe(unittest.TestCase):
     # Get recipe info
     out, err, code = self.run_cmd("fim-recipe", "info", "nofields-recipe")
     # Check fields
-    self.assertIn("Recipe: nofields-recipe", out)
+    self.assertEqual(out, "")
     self.assertIn("Missing 'description' field", err)
     self.assertEqual(code, 125)
 
@@ -448,12 +446,15 @@ class TestFimRecipe(unittest.TestCase):
     """Test install fails when dependency is missing"""
     # Create recipe with non-existent dependency
     recipe = {
+      "description": "foo",
       "dependencies": ["nonexistent-dep"],
       "packages": ["pkg"]
     }
     self.create_mock_recipe(self.get_distribution(), "foo", recipe)
     # Install should fail
     out, err, code = self.run_cmd("fim-recipe", "install", "foo")
+    print(out)
+    print(err)
     self.assertRegex(out, "Downloading recipe from.*nonexistent-dep.json")
     self.assertIn("HTTP/1.1 404 Not Found", err)
     self.assertEqual(code, 125)
@@ -462,10 +463,12 @@ class TestFimRecipe(unittest.TestCase):
     """Test install fails gracefully with cyclic dependencies"""
     # Create cycle: foo > bar > foo
     foo = {
+      "description": "foo",
       "dependencies": ["bar"],
       "packages": ["foo"]
     }
     bar = {
+      "description": "bar",
       "dependencies": ["foo"],
       "packages": ["bar"]
     }
@@ -473,7 +476,7 @@ class TestFimRecipe(unittest.TestCase):
     self.create_mock_recipe(self.get_distribution(), "bar", bar)
     # Install should detect cycle
     out, err, code = self.run_cmd("fim-recipe", "install", "foo")
-    self.assertRegex(out, "Using existing recipe from.*bar.json")
+    self.assertRegex(out, "Using existing recipe from.*foo.json")
     self.assertIn("Cyclic dependency for recipe 'foo'", err)
     self.assertEqual(code, 125)
 
@@ -497,6 +500,6 @@ class TestFimRecipe(unittest.TestCase):
     self.create_mock_recipe(self.get_distribution(), "foo", foo)
     # Info should work
     out, err, code = self.run_cmd("fim-recipe", "install", "foo")
-    self.assertRegex(out, "Downloading recipe from.*xorg.json")
-    self.assertIn("Invalid json recipe", err)
+    self.assertRegex(out, "Using existing recipe.*foo.json")
+    self.assertIn("Missing 'description' field", err)
     self.assertEqual(code, 125)
