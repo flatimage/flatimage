@@ -231,7 +231,7 @@ struct FlatimageConfig
 
   Value<User> configure_user()
   {
-    auto hash_env = ns_db::ns_env::key_value(Pop(ns_db::ns_env::get(path_file_binary)));
+    auto hash_env = ns_db::ns_env::map(Pop(ns_db::ns_env::get(path_file_binary)));
     Id id = Pop(get_id(is_root, hash_env));
     fs::path path_file_bashrc = Pop(write_bashrc(path_dir_instance / "bashrc", hash_env));
     return Pop(write_passwd(path_dir_instance / "passwd", path_file_bash, path_file_bashrc, id, hash_env));
@@ -266,7 +266,7 @@ struct FlatimageConfig
   Distribution distribution = Pop(Distribution::from_string(FIM_DIST));
 
   // Get built-in environment variables
-  auto hash_env = ns_db::ns_env::key_value(Pop(ns_db::ns_env::get(path_file_binary)));
+  auto hash_env = ns_db::ns_env::map(Pop(ns_db::ns_env::get(path_file_binary)));
 
   // Flags
   bool is_root = ns_env::exists("FIM_ROOT", "1")

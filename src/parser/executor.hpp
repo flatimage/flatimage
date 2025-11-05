@@ -70,7 +70,7 @@ using namespace ns_parser::ns_interface;
     [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config);
     // Execute specified command
     auto environment = ns_db::ns_env::get(config.path_file_binary).or_default();
-    auto hash_environment = ns_db::ns_env::key_value(environment);
+    auto hash_environment = ns_db::ns_env::map(environment);
     // Check if should use bwrap native overlayfs
     std::optional<ns_bwrap::Overlay> bwrap_overlay = ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP )?
         std::make_optional(ns_bwrap::Overlay

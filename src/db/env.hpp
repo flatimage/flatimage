@@ -31,7 +31,7 @@ namespace fs = std::filesystem;
  * @param entries The environment variables, each entry has the format 'key=var'
  * @return The list of key/value pairs, invalid entries are ignored
  */
-[[nodiscard]] inline std::unordered_map<std::string,std::string> key_value(std::vector<std::string> const& entries)
+[[nodiscard]] inline std::unordered_map<std::string,std::string> map(std::vector<std::string> const& entries)
 {
   return entries
     | std::views::filter([](auto&& e){ return e.find('=') != std::string::npos; })
@@ -102,7 +102,7 @@ namespace fs = std::filesystem;
   Pop(validate(entries));
   // Insert environment variables in the database
   ns_db::Db db = ns_db::from_string(Pop(ns_reserved::ns_env::read(path_file_binary))).value_or(ns_db::Db());
-  for (auto&& [key,value] : key_value(entries))
+  for (auto&& [key,value] : map(entries))
   {
     db(key) = value;
     ns_log::info()("Included variable '{}' with value '{}'", key, value);
