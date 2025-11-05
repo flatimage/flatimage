@@ -208,6 +208,7 @@ void signal_handler(int sig)
 
 int main(int argc, char** argv)
 {
+  auto __expected_fn = [](auto&&){ return EXIT_FAILURE; };
   std::vector<std::string> args(argv+1, argv+argc);
   // Daemon target
   // "host" - Sends a command to the 'host' daemon
@@ -216,10 +217,10 @@ int main(int argc, char** argv)
   // Path to the current instance
   fs::path path_dir_instance;
   // Get instance path or acquire it from an environment variable
-  if (args.size() >= 2 and args.at(0) == "--connect")
+  if (args.size() >= 2 and Try(args.at(0)) == "--connect")
   {
     daemon_target = "guest";
-    path_dir_instance = args.at(1);
+    path_dir_instance = Try(args.at(1));
     args.erase(args.begin(), args.begin()+2);
   }
   else
