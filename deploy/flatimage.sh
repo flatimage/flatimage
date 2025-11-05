@@ -135,8 +135,8 @@ function _docker_run()
       --build-arg FIM_DIST="$fim_dist" \
       -t flatimage-boot \
       -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/boot /host/bin
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/magic /host/magic
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/src/boot /host/bin
+    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/src/magic /host/magic
     docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/src/janitor/fim_janitor /host/bin
   )
   # Compile and include portal

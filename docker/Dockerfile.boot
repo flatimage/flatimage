@@ -10,7 +10,7 @@ RUN apk update && apk upgrade
 RUN apk add --no-cache build-base git libbsd-dev cmake clang clang-dev \
   make e2fsprogs-dev e2fsprogs-libs e2fsprogs-static libcom_err musl musl-dev \
   bash pcre-tools boost-dev libjpeg-turbo-dev libjpeg-turbo-static libpng-dev \
-  libpng-static zlib-static upx nlohmann-json doxygen graphviz pipx jo
+  libpng-static zlib-static upx nlohmann-json jo
 
 # Copy boot directory
 COPY . /flatimage
@@ -28,19 +28,16 @@ ENV FIM_FILE_TOOLS=$FIM_FILE_TOOLS
 ARG FIM_FILE_META
 ENV FIM_FILE_META=$FIM_FILE_META
 
-# Setup MkDocs
-RUN pipx install --include-deps mkdocs mkdocs-mermaid2-plugin
-ENV PATH="${PATH}:/root/.local/bin"
-
 # Setup CMake
 RUN cmake -H. -Bbuild \
   -DFIM_RESERVED_SIZE="$FIM_RESERVED_SIZE" \
   -DFIM_FILE_META="$FIM_FILE_META" \
-  -DFIM_FILE_TOOLS="$FIM_FILE_TOOLS"
+  -DFIM_FILE_TOOLS="$FIM_FILE_TOOLS" \
+  -DFIM_TARGET=boot
 
 # Compile boot
 RUN cmake --build build --target boot
-RUN strip -s ./build/boot
+RUN strip -s ./build/src/boot
 
 # Compile magic
 RUN cmake --build build --target magic
