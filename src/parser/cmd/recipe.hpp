@@ -17,7 +17,7 @@
 #include "../../lib/log.hpp"
 #include "../../std/expected.hpp"
 #include "../../std/filesystem.hpp"
-#include "../../db/db.hpp"
+#include "../../db/recipe.hpp"
 #include "../../config.hpp"
 
 namespace
@@ -48,14 +48,14 @@ namespace ns_recipe
 {
 
 /**
- * @brief Loads a recipe database from local cache
+ * @brief Loads a recipe from local cache
  *
  * @param distribution Name of the distribution
  * @param path_dir_download Directory where recipes are cached
  * @param recipe Name of the recipe to load
- * @return Value<ns_db::Db> Database object with recipe contents on success, or the respective error
+ * @return Value<ns_db::ns_recipe::Recipe> Recipe object with contents on success, or the respective error
  */
-[[nodiscard]] inline Value<ns_db::Db> load_recipe(
+[[nodiscard]] inline Value<ns_db::ns_recipe::Recipe> load_recipe(
     ns_config::Distribution const& distribution
   , fs::path const& path_dir_download
   , std::string const& recipe
@@ -75,7 +75,7 @@ namespace ns_recipe
   // Check if contents are empty
   qreturn_if(json_contents.empty(), Error("E::Empty json file"));
   // Parse JSON and return
-  return Pop(ns_db::from_string(json_contents), "E::Could not parse json file");
+  return Pop(ns_db::ns_recipe::deserialize(json_contents), "E::Could not parse json file");
 }
 
 /**
@@ -100,11 +100,12 @@ namespace ns_recipe
   , std::unordered_set<std::string>& dependencies
 )
 {
-  auto f_fetch_dependencies = [&](ns_db::Db& recipe_db) -> Value<void>
+  auto f_fetch_dependencies = [&](ns_db::ns_recipe::Recipe const& recipe_obj) -> Value<void>
   {
-    if (recipe_db.contains("dependencies"))
+    auto const& deps = recipe_obj.get_dependencies();
+    if (!deps.empty())
     {
-      for (auto const& sub_recipe : Pop(recipe_db("dependencies").template value<std::vector<std::string>>()))
+      for (auto const& sub_recipe : deps)
       {
         Pop(fetch_impl(distribution, url_remote, path_file_downloader, path_dir_download, sub_recipe, use_existing, dependencies));
       }
@@ -137,9 +138,9 @@ namespace ns_recipe
     std::string json_contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
     file.close();
     // Parse JSON
-    ns_db::Db recipe_db = Pop(ns_db::from_string(json_contents));
+    ns_db::ns_recipe::Recipe recipe_obj = Pop(ns_db::ns_recipe::deserialize(json_contents));
     // Fetch dependencies recursively if they exist
-    Pop(f_fetch_dependencies(recipe_db));
+    Pop(f_fetch_dependencies(recipe_obj));
     return {};
   }
   // Download the recipe (either use_existing=false or file doesn't exist)
@@ -176,9 +177,9 @@ namespace ns_recipe
   std::string json_contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
   file.close();
   // Parse JSON
-  ns_db::Db recipe_db = Pop(ns_db::from_string(json_contents));
+  ns_db::ns_recipe::Recipe recipe_obj = Pop(ns_db::ns_recipe::deserialize(json_contents));
   // Fetch dependencies recursively if they exist
-  Pop(f_fetch_dependencies(recipe_db));
+  Pop(f_fetch_dependencies(recipe_obj));
   return {};
 }
 
@@ -221,17 +222,16 @@ namespace ns_recipe
   , std::string const& recipe
 )
 {
-  // Load recipe database
-  ns_db::Db db = Pop(load_recipe(distribution, path_dir_download, recipe));
+  // Load recipe
+  ns_db::ns_recipe::Recipe recipe_obj = Pop(load_recipe(distribution, path_dir_download, recipe));
   // Display recipe information
   fs::path recipe_file = get_path_recipe(path_dir_download, distribution, recipe);
   std::println("Recipe: {}", recipe);
   std::println("Location: {}", recipe_file.string());
   // Description
-  std::string description = Pop(db("description").template value<std::string>(), "E::Missing 'description' field");
-  std::println("Description: {}", description);
+  std::println("Description: {}", recipe_obj.get_description());
   // Packages
-  std::vector<std::string> packages = Pop(db("packages").template value<std::vector<std::string>>(), "E::Missing 'packages' field");
+  auto const& packages = recipe_obj.get_packages();
   std::println("Package count: {}", packages.size());
   std::println("Packages:");
   for (auto const& pkg : packages)
@@ -239,9 +239,9 @@ namespace ns_recipe
     std::println("  - {}", pkg);
   }
   // Dependencies
-  if (db.contains("dependencies"))
+  auto const& dependencies = recipe_obj.get_dependencies();
+  if (!dependencies.empty())
   {
-    std::vector<std::string> dependencies = Pop(db("dependencies").template value<std::vector<std::string>>());
     std::println("Dependencies: {}", dependencies.size());
     for (auto const& dep : dependencies)
     {
@@ -277,11 +277,11 @@ requires std::invocable<F,std::string,std::vector<std::string>&>
   std::vector<std::string> packages;
   for(auto&& recipe : recipes)
   {
-    // Load recipe database
-    ns_db::Db db = Pop(load_recipe(distribution, path_dir_download, recipe), "E::Could not load json recipe");
+    // Load recipe
+    ns_db::ns_recipe::Recipe recipe_obj = Pop(load_recipe(distribution, path_dir_download, recipe), "E::Could not load json recipe");
     // Extract and collect packages
-    auto packages = Pop(db("packages").template value<std::vector<std::string>>(), "E::Invalid json recipe");
-    std::ranges::copy(packages, std::back_inserter(packages));
+    auto const& recipe_packages = recipe_obj.get_packages();
+    std::ranges::copy(recipe_packages, std::back_inserter(packages));
   }
   // Determine package manager command based on distribution
   std::string program;
