@@ -94,7 +94,7 @@ namespace fs = std::filesystem;
 [[nodiscard]] Value<fs::path> get_path_file_desktop(ns_db::ns_desktop::Desktop const& desktop)
 {
   auto xdg_data_home = Pop(ns_env::xdg_data_home<fs::path>());
-  return xdg_data_home / "applications/flatimage-{}.desktop"_fmt(desktop.get_name());
+  return xdg_data_home / std::format("applications/flatimage-{}.desktop", desktop.get_name());
 }
 
 /**
@@ -105,7 +105,7 @@ namespace fs = std::filesystem;
 [[nodiscard]] Value<fs::path> get_path_file_mimetype(ns_db::ns_desktop::Desktop const& desktop)
 {
   fs::path xdg_data_home = Pop(ns_env::xdg_data_home<fs::path>());
-  return xdg_data_home / "mime/packages/flatimage-{}.xml"_fmt(desktop.get_name());
+  return xdg_data_home / std::format("mime/packages/flatimage-{}.xml", desktop.get_name());
 }
 
 /**
@@ -133,13 +133,13 @@ namespace fs = std::filesystem;
 {
   // Create desktop entry
   os << "[Desktop Entry]" << '\n';
-  os << "Name={}"_fmt(desktop.get_name()) << '\n';
+  os << std::format("Name={}", desktop.get_name()) << '\n';
   os << "Type=Application" << '\n';
-  os << "Comment=FlatImage distribution of \"{}\""_fmt(desktop.get_name()) << '\n';
-  os << R"(Exec="{}" %F)"_fmt(path_file_binary) << '\n';
-  os << "Icon=flatimage_{}"_fmt(desktop.get_name()) << '\n';
-  os << "MimeType=application/flatimage_{};"_fmt(desktop.get_name()) << '\n';
-  os << "Categories={};"_fmt(ns_string::from_container(desktop.get_categories(), ';'));
+  os << std::format("Comment=FlatImage distribution of \"{}\"", desktop.get_name()) << '\n';
+  os << std::format(R"(Exec="{}" %F)", path_file_binary.string()) << '\n';
+  os << std::format("Icon=flatimage_{}", desktop.get_name()) << '\n';
+  os << std::format("MimeType=application/flatimage_{};", desktop.get_name()) << '\n';
+  os << std::format("Categories={};", ns_string::from_container(desktop.get_categories(), ';'));
   return{};
 }
 
@@ -179,7 +179,7 @@ namespace fs = std::filesystem;
   std::ifstream file_mimetype(path_entry_mimetype);
   dreturn_if(not file_mimetype.is_open(), "Update mime due to unaccessible source file for read", true);
   // Update if file name has changed
-  std::string pattern = R"(pattern="{}")"_fmt(path_file_binary.filename());
+  std::string pattern = std::format(R"(pattern="{}")", path_file_binary.filename().string());
   for (std::string line; std::getline(file_mimetype, line);)
   {
     dreturn_if(line.contains(pattern), "Mime pattern file name checks...", false);
@@ -246,9 +246,9 @@ namespace fs = std::filesystem;
 {
   os << R"(<?xml version="1.0" encoding="UTF-8"?>)" << '\n';
   os << R"(<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">)" << '\n';
-  os << R"(  <mime-type type="application/flatimage_{}">)"_fmt(desktop.get_name()) << '\n';
+  os << std::format(R"(  <mime-type type="application/flatimage_{}">)", desktop.get_name()) << '\n';
   os << R"(    <comment>FlatImage Application</comment>)" << '\n';
-  os << R"(    <glob weight="100" pattern="{}"/>)"_fmt(path_file_binary.filename()) << '\n';
+  os << std::format(R"(    <glob weight="100" pattern="{}"/>)", path_file_binary.filename().string()) << '\n';
   os << R"(    <sub-class-of type="application/x-executable"/>)" << '\n';
   os << R"(    <generic-icon name="application-flatimage"/>)" << '\n';
   os << R"(  </mime-type>)" << '\n';
@@ -402,14 +402,14 @@ namespace fs = std::filesystem;
   // Check for existing integration
   if (fs::exists(path_file_icon, ec))
   {
-    ns_log::debug()("Icons are integrated, found {}"_fmt(path_file_icon));
+    ns_log::debug()(std::format("Icons are integrated, found {}", path_file_icon.string()));
     return {};
   }
   qreturn_if(ec, Error("E::Could not check if icon exists: {}", ec.message()));
   // Read picture from flatimage binary
   ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(config.path_file_binary));
   // Create temporary file to write icon to
-  auto path_file_tmp_icon = config.path_dir_app / "icon.{}"_fmt(icon.m_ext);
+  auto path_file_tmp_icon = config.path_dir_app / std::format("icon.{}", icon.m_ext);
   // Write icon to temporary file
   std::ofstream file_icon(path_file_tmp_icon, std::ios::out | std::ios::trunc);
   qreturn_if(not file_icon.is_open(), Error("E::Could not open temporary icon file for desktop integration"));
@@ -487,7 +487,7 @@ namespace fs = std::filesystem;
     std::ignore = ns_subprocess::Subprocess(path_file_binary_bash)
       .with_piped_outputs()
       .with_args("-c", R"(notify-send "$@")", "--")
-      .with_args("-i", path_file_icon, "Started '{}' FlatImage"_fmt(desktop.get_name()))
+      .with_args("-i", path_file_icon, std::format("Started '{}' FlatImage", desktop.get_name()))
       .spawn()
       .wait();
   }
@@ -665,7 +665,7 @@ namespace fs = std::filesystem;
   // Append extension to output destination file
   if(not path_file_dst.extension().string().ends_with(ext))
   {
-    path_file_dst = path_file_dst.parent_path() / (path_file_dst.filename().string() + ".{}"_fmt(ext));
+    path_file_dst = path_file_dst.parent_path() / (path_file_dst.filename().string() + std::format(".{}", ext));
   }
   // Open output file
   std::fstream file_dst(path_file_dst, std::ios::out | std::ios::trunc);

@@ -177,12 +177,12 @@ namespace ns_layers
     // Remove target file (with error_code - doesn't throw)
     if(not Try(fs::remove(path_file_target)))
     {
-      ns_log::error()("Could not remove file {}"_fmt(path_file_target));
+      ns_log::error()(std::format("Could not remove file {}", path_file_target.string()));
     }
     // Remove empty directory (with error_code - doesn't throw)
     if(Try(fs::is_empty(path_dir_parent)) and not Try(fs::remove(path_dir_parent)))
     {
-      ns_log::error()("Could not remove directory {}"_fmt(path_dir_parent));
+      ns_log::error()(std::format("Could not remove directory {}", path_dir_parent.string()));
     }
   }
   return {};

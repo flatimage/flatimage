@@ -133,7 +133,7 @@ inline Controller::~Controller()
     waitpid(m_opt_pid_janitor.value(), &status, 0);
     dreturn_if(not WIFEXITED(status), "Janitor exited abnormally");
     int code = WEXITSTATUS(status);
-    dreturn_if(code != 0, "Janitor exited with code '{}'"_fmt(code));
+    dreturn_if(code != 0, std::format("Janitor exited with code '{}'", code));
   }
   else
   {
@@ -158,7 +158,7 @@ inline Controller::~Controller()
   // Is parent
   if(m_opt_pid_janitor > 0)
   {
-    ns_log::debug()("Spawned janitor with PID '{}'"_fmt(*m_opt_pid_janitor));
+    ns_log::debug()(std::format("Spawned janitor with PID '{}'", *m_opt_pid_janitor));
     return {};
   }
 
@@ -232,7 +232,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
   {
     // Read filesystem size
     int64_t size_fs;
-    dbreak_if(not file_binary.read(reinterpret_cast<char*>(&size_fs), sizeof(size_fs)), "Stopped reading at index {}"_fmt(index_fs));
+    dbreak_if(not file_binary.read(reinterpret_cast<char*>(&size_fs), sizeof(size_fs)), std::format("Stopped reading at index {}", index_fs));
     ns_log::debug()("Filesystem size is '{}'", size_fs);
     // Skip size bytes
     offset += 8;
@@ -240,7 +240,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     ebreak_if(not ns_dwarfs::is_dwarfs(path_file_binary, offset), "Invalid dwarfs filesystem appended on the image");
     // Mount filesystem
     ebreak_if(not f_mount(path_file_binary, path_dir_mount, index_fs, offset, size_fs)
-      , "Failed to mount filesystem at index {}"_fmt(index_fs)
+      , std::format("Failed to mount filesystem at index {}", index_fs)
     );
     // Go to next filesystem if exists
     index_fs += 1;

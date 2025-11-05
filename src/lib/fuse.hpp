@@ -64,7 +64,7 @@ inline void wait_fuse(fs::path const& path_dir_filesystem)
   {
     auto expected_is_fuse = ns_fuse::is_fuse(path_dir_filesystem);
     ebreak_if(not expected_is_fuse, "Could not check if filesystem is fuse");
-    dbreak_if( *expected_is_fuse, "Filesystem '{}' is fuse"_fmt(path_dir_filesystem));
+    dbreak_if( *expected_is_fuse, std::format("Filesystem '{}' is fuse", path_dir_filesystem.string()));
     auto time_cur = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(time_cur - time_beg);
     ebreak_if(elapsed.count() > 60, "Reached timeout to wait for fuse filesystems");
@@ -95,7 +95,7 @@ inline Value<void> unmount(fs::path const& path_dir_mount)
   // Check for successful un-mount
   if(ret and *ret == 0)
   {
-    ns_log::debug()("Un-mounted filesystem '{}'"_fmt(path_dir_mount));
+    ns_log::debug()(std::format("Un-mounted filesystem '{}'", path_dir_mount.string()));
   } // if
 
   // Filesystem could be busy for a bit after un-mount

@@ -155,7 +155,7 @@ template<ns_concept::StringRepresentable K, ns_concept::StringRepresentable V>
 Subprocess& Subprocess::with_var(K&& k, V&& v)
 {
   rm_var(k);
-  m_env.push_back("{}={}"_fmt(k,v));
+  m_env.push_back(std::format("{}={}", k, v));
   return *this;
 }
 
@@ -287,7 +287,7 @@ Subprocess& Subprocess::with_env(T&& arg)
     for (auto&& entry : entries)
     {
       auto parts = ns_vector::from_string(entry, '=');
-      econtinue_if(parts.size() < 2, "Entry '{}' is not valid"_fmt(entry));
+      econtinue_if(parts.size() < 2, std::format("Entry '{}' is not valid", entry));
       std::string key = parts.front();
       std::ignore = this->rm_var(key);
     } // for
@@ -350,15 +350,15 @@ inline Subprocess& Subprocess::with_piped_outputs()
 inline Subprocess& Subprocess::with_pipes_parent(int pipestdout[2], int pipestderr[2])
 {
   // Close write end
-  ereturn_if(close(pipestdout[1]) == -1, "pipestdout[1]: {}"_fmt(strerror(errno)), *this);
-  ereturn_if(close(pipestderr[1]) == -1, "pipestderr[1]: {}"_fmt(strerror(errno)), *this);
+  ereturn_if(close(pipestdout[1]) == -1, std::format("pipestdout[1]: {}", strerror(errno)), *this);
+  ereturn_if(close(pipestderr[1]) == -1, std::format("pipestderr[1]: {}", strerror(errno)), *this);
 
   auto f_read_pipe = [this](int id_pipe, std::string_view prefix, auto&& f)
   {
     // Fork
     pid_t ppid = getpid();
     pid_t pid = fork();
-    ereturn_if(pid < 0, "Could not fork '{}'"_fmt(strerror(errno)));
+    ereturn_if(pid < 0, std::format("Could not fork '{}'", strerror(errno)));
     // Parent ends here
     if (pid > 0 )
     {
@@ -367,7 +367,7 @@ inline Subprocess& Subprocess::with_pipes_parent(int pipestdout[2], int pipestde
     } // if
     // Die with parent
     e_exitif(prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, strerror(errno), 1);
-    e_exitif(::kill(ppid, 0) < 0, "Parent died, prctl will not have effect: {}"_fmt(strerror(errno)), 1);
+    e_exitif(::kill(ppid, 0) < 0, std::format("Parent died, prctl will not have effect: {}", strerror(errno)), 1);
     // Check if 'f' is defined
     if ( not f ) { f = [&](auto&& e) { ns_log::debug()("{}({}): {}", prefix, m_program, e); }; }
     // Apply f to incoming data from pipe
@@ -376,7 +376,7 @@ inline Subprocess& Subprocess::with_pipes_parent(int pipestdout[2], int pipestde
     while ((count = read(id_pipe, buffer, sizeof(buffer))) != 0)
     {
       // Failed to read
-      ebreak_if(count == -1, "broke parent read loop: {}"_fmt(strerror(errno)));
+      ebreak_if(count == -1, std::format("broke parent read loop: {}", strerror(errno)));
       // Split newlines and print each line with prefix
       std::ranges::for_each(std::string(buffer, count)
           | std::views::split('\n')
@@ -404,16 +404,16 @@ inline Subprocess& Subprocess::with_pipes_parent(int pipestdout[2], int pipestde
 inline void Subprocess::with_pipes_child(int pipestdout[2], int pipestderr[2])
 {
   // Close read end
-  ereturn_if(close(pipestdout[0]) == -1, "pipestdout[0]: {}"_fmt(strerror(errno)));
-  ereturn_if(close(pipestderr[0]) == -1, "pipestderr[0]: {}"_fmt(strerror(errno)));
+  ereturn_if(close(pipestdout[0]) == -1, std::format("pipestdout[0]: {}", strerror(errno)));
+  ereturn_if(close(pipestderr[0]) == -1, std::format("pipestderr[0]: {}", strerror(errno)));
 
   // Make the opened pipe the replace stdout
-  ereturn_if(dup2(pipestdout[1], STDOUT_FILENO) == -1, "dup2(pipestdout[1]): {}"_fmt(strerror(errno)));
-  ereturn_if(dup2(pipestderr[1], STDERR_FILENO) == -1, "dup2(pipestderr[1]): {}"_fmt(strerror(errno)));
+  ereturn_if(dup2(pipestdout[1], STDOUT_FILENO) == -1, std::format("dup2(pipestdout[1]): {}", strerror(errno)));
+  ereturn_if(dup2(pipestderr[1], STDERR_FILENO) == -1, std::format("dup2(pipestderr[1]): {}", strerror(errno)));
 
   // Close original write end after duplication
-  ereturn_if(close(pipestdout[1]) == -1, "pipestdout[1]: {}"_fmt(strerror(errno)));
-  ereturn_if(close(pipestderr[1]) == -1, "pipestderr[1]: {}"_fmt(strerror(errno)));
+  ereturn_if(close(pipestdout[1]) == -1, std::format("pipestdout[1]: {}", strerror(errno)));
+  ereturn_if(close(pipestderr[1]) == -1, std::format("pipestderr[1]: {}", strerror(errno)));
 }
 
 /**
@@ -553,12 +553,12 @@ inline Subprocess& Subprocess::spawn()
   {
     auto pos_key = entry.find('=');
     econtinue_if(pos_key == std::string::npos or pos_key == 0
-      , "Invalid environment variable '{}'"_fmt(entry)
+      , std::format("Invalid environment variable '{}'", entry)
     );
     std::string key = entry.substr(0, pos_key);
     std::string val = entry.substr(pos_key+1);
     elog_if(setenv(key.c_str(), val.c_str(), 1) < 0
-      , "Could not set environment variable: {}"_fmt(strerror(errno))
+      , std::format("Could not set environment variable: {}", strerror(errno))
     );
   }
 

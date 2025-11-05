@@ -71,8 +71,8 @@ inline Filesystem::~Filesystem()
   }
   // Wait for process to exit
   auto ret = m_subprocess->wait();
-  dreturn_if(not ret, "Mount '{}' exited unexpectedly"_fmt(m_path_dir_mount));
-  dreturn_if(ret and *ret != 0, "Mount '{}' exited with non-zero exit code '{}'"_fmt(m_path_dir_mount, *ret));
+  dreturn_if(not ret, std::format("Mount '{}' exited unexpectedly", m_path_dir_mount.string()));
+  dreturn_if(ret and *ret != 0, std::format("Mount '{}' exited with non-zero exit code '{}'", m_path_dir_mount.string(), *ret));
 }
 
 } // namespace ns_filesystem

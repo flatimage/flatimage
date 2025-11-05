@@ -86,7 +86,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   fs::path path_dir_base = "/tmp/fim";
   Try(fs::create_directories(path_dir_base));
   // Make the temporary directory name
-  fs::path path_dir_app = path_dir_base / "app" / "{}_{}"_fmt(FIM_COMMIT, FIM_TIMESTAMP);
+  fs::path path_dir_app = path_dir_base / "app" / std::format("{}_{}", FIM_COMMIT, FIM_TIMESTAMP);
   Try(fs::create_directories(path_dir_app));
   // Create bin dir
   fs::path path_dir_app_bin = path_dir_app / "bin";
@@ -101,7 +101,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   ns_env::set("FIM_DIR_APP_SBIN", path_dir_app_sbin.c_str(), ns_env::Replace::Y);
   ns_env::set("FIM_FILE_BINARY", path_absolute.c_str(), ns_env::Replace::Y);
   // Create instance directory
-  fs::path path_dir_instance = "{}/{}/{}"_fmt(path_dir_app, "instance", std::to_string(getpid()));
+  fs::path path_dir_instance = std::format("{}/{}/{}", path_dir_app.string(), "instance", std::to_string(getpid()));
   Try(fs::create_directories(path_dir_instance));
   ns_env::set("FIM_DIR_INSTANCE", path_dir_instance.c_str(), ns_env::Replace::Y);
   // Path to directory with mount points
@@ -165,7 +165,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
       qreturn_if(not of.write(buffer.data(), size), Error("E::Could not write binary file '{}'", path_file));
       // Set permissions (with error_code - doesn't throw)
       fs::permissions(path_file, fs::perms::owner_all | fs::perms::group_all, ec);
-      elog_if(ec, "Error on setting permissions of file '{}': {}"_fmt(path_file, ec.message()));
+      elog_if(ec, std::format("Error on setting permissions of file '{}': {}", path_file.string(), ec.message()));
     } // if
     // Return new values for offsets
     return std::make_pair(offset_beg, file_binary.tellg());
@@ -216,7 +216,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   } // if
 
   // Launch Runner
-  int code = execve("{}/fim_boot"_fmt(path_dir_instance).c_str(), argv, environ);
+  int code = execve(std::format("{}/fim_boot", path_dir_instance.string()).c_str(), argv, environ);
   return Error("E::Could not perform 'evecve({})': {}", code, strerror(errno));
 }
 

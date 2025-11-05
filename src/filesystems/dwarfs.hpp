@@ -70,11 +70,11 @@ inline Value<void> Dwarfs::mount()
 {
   // Check if image exists and is a regular file
   qreturn_if(not Try(fs::is_regular_file(m_path_file_image))
-    , std::unexpected("'{}' does not exist or is not a regular file"_fmt(m_path_file_image))
+    , std::unexpected(std::format("'{}' does not exist or is not a regular file", m_path_file_image.string()))
   );
   // Check if mountpoint exists and is directory
   qreturn_if(not Try(fs::is_directory(m_path_dir_mount))
-    , std::unexpected("'{}' does not exist or is not a directory"_fmt(m_path_dir_mount))
+    , std::unexpected(std::format("'{}' does not exist or is not a directory", m_path_dir_mount.string()))
   );
   // Find command in PATH
   auto path_file_dwarfs = Pop(ns_env::search_path("dwarfs"), "E::Could not find dwarfs in PATH");
@@ -83,7 +83,7 @@ inline Value<void> Dwarfs::mount()
   // Spawn command
   std::ignore = m_subprocess->with_piped_outputs()
     .with_args(m_path_file_image, m_path_dir_mount)
-    .with_args("-f", "-o", "auto_unmount,offset={},imagesize={}"_fmt(m_offset, m_size_image))
+    .with_args("-f", "-o", std::format("auto_unmount,offset={},imagesize={}", m_offset, m_size_image))
     .with_die_on_pid(m_pid_to_die_for)
     .spawn();
   // Wait for mount
@@ -102,15 +102,15 @@ inline bool is_dwarfs(fs::path const& path_file_dwarfs, uint64_t offset = 0)
 {
   // Open file
   std::ifstream file_dwarfs(path_file_dwarfs, std::ios::binary | std::ios::in);
-  ereturn_if(not file_dwarfs.is_open(), "Could not open file '{}'"_fmt(path_file_dwarfs), false);
+  ereturn_if(not file_dwarfs.is_open(), std::format("Could not open file '{}'", path_file_dwarfs.string()), false);
   // Adjust offset
   file_dwarfs.seekg(offset);
-  ereturn_if(not file_dwarfs, "Failed to seek offset '{}' in file '{}'"_fmt(offset, path_file_dwarfs), false);
+  ereturn_if(not file_dwarfs, std::format("Failed to seek offset '{}' in file '{}'", offset, path_file_dwarfs.string()), false);
   // Read initial 'DWARFS' identifier
   std::array<char,6> header;
-  ereturn_if(not file_dwarfs.read(header.data(), header.size()), "Could not read bytes from file '{}'"_fmt(path_file_dwarfs), false);
+  ereturn_if(not file_dwarfs.read(header.data(), header.size()), std::format("Could not read bytes from file '{}'", path_file_dwarfs.string()), false);
   // Check for a successful read
-  ereturn_if(file_dwarfs.gcount() != header.size(), "Short read for file '{}'"_fmt(path_file_dwarfs), false);
+  ereturn_if(file_dwarfs.gcount() != header.size(), std::format("Short read for file '{}'", path_file_dwarfs.string()), false);
   // Check for match
   return std::ranges::equal(header, std::string_view("DWARFS"));
 }

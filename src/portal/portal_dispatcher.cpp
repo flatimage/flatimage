@@ -196,7 +196,7 @@ void signal_handler(int sig)
   fs::path path_file_env = path_dir_portal / "environment";
   Pop(set_environment(path_file_env));
   // Send message to daemon
-  Pop(send_message(path_dir_portal / "daemon.{}.fifo"_fmt(daemon_target)
+  Pop(send_message(path_dir_portal / std::format("daemon.{}.fifo", daemon_target)
     , cmd
     , hash_name_fifo
     , path_file_log

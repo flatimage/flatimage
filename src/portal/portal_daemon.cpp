@@ -71,7 +71,7 @@ int main(int argc, char** argv)
   fs::path path_dir_portal = path_dir_instance / "portal";
   ereturn_if(std::error_code ec;
       not fs::exists(path_dir_portal, ec) and not fs::create_directories(path_dir_portal, ec)
-    , "Could not create portal daemon directories: {}"_fmt(ec.message())
+    , std::format("Could not create portal daemon directories: {}", ec.message())
     , EXIT_FAILURE
   );
 
@@ -84,11 +84,11 @@ int main(int argc, char** argv)
   std::string mode = (std::string_view{argv[2]} == "host")? "host" : "guest";
 
   // Configure logger file
-  fs::path path_file_log = fs::path{path_dir_portal} / "daemon.{}.log"_fmt(mode);
+  fs::path path_file_log = fs::path{path_dir_portal} / std::format("daemon.{}.log", mode);
   ns_log::set_sink_file(path_file_log);
   ns_log::set_level((ns_env::exists("FIM_DEBUG", "1"))? ns_log::Level::DEBUG : ns_log::Level::CRITICAL);
   // Create a fifo to receive commands from
-  fs::path path_fifo_in = Pop(create_fifo(path_dir_portal / "daemon.{}.fifo"_fmt(mode)));
+  fs::path path_fifo_in = Pop(create_fifo(path_dir_portal / std::format("daemon.{}.fifo", mode)));
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
   ereturn_if(fd_fifo < 0, strerror(errno), EXIT_FAILURE);
 
@@ -114,7 +114,7 @@ int main(int argc, char** argv)
     ns_log::info()("Recovered message: {}", msg);
     // Validate json data
     auto validation = validate(msg);
-    econtinue_if(not validation, "Could not perform the validation of the message: {}"_fmt(validation.error()));
+    econtinue_if(not validation, std::format("Could not perform the validation of the message: {}", validation.error()));
     econtinue_if(not validation.value(), "Failed to validate message")
     // Spawn child
     if(pid_t pid = fork(); pid < 0)

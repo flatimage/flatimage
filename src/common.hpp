@@ -9,7 +9,6 @@
 #pragma once
 
 #include <format>
-#include <iostream>
 #include <cstdlib>
 #include "std/string.hpp"
 
@@ -35,36 +34,6 @@ struct format_args
 };
 
 } // namespace
-
-/**
- * @brief Print to stdout with a user-defined literal
- *
- * @param c_str The C-string format
- * @param std::size_t The length of the string (unused, required by literal operator)
- * @return Lambda that accepts variadic arguments and prints formatted output
- */
-inline auto operator""_print(const char* c_str, std::size_t) noexcept
-{
-  return [=]<typename... Args>(Args&&... args)
-  {
-    std::cout << std::vformat(c_str, *format_args<Args...>(std::forward<Args>(args)...));
-  };
-}
-
-/**
- * @brief Format strings with a user-defined literal
- *
- * @param format Format of the string
- * @param size_t The length of the string (unused, required by literal operator)
- * @return decltype(auto) Formatter functor
- */
-inline decltype(auto) operator ""_fmt(const char* format, size_t) noexcept
-{
-  return [format]<typename... Args>(Args&&... args)
-  {
-    return std::vformat(format, *format_args<Args...>(std::forward<Args>(args)...)) ;
-  };
-}
 
 /**
  * @brief Multiplies the value by 1 kibibyte (1024 bytes)

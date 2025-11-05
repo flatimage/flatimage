@@ -170,7 +170,7 @@ inline Bwrap::Bwrap(std::string_view user
   else
   {
     elog_if(not fs::is_directory(path_dir_root)
-      , "'{}' does not exist or is not a directory"_fmt(path_dir_root)
+      , std::format("'{}' does not exist or is not a directory", path_dir_root.string())
     );
     ns_vector::push_back(m_args, "--bind", path_dir_root, "/");
   }
@@ -221,9 +221,9 @@ inline void Bwrap::overlay(std::vector<fs::path> const& vec_path_dir_layer
  */
 inline void Bwrap::set_xdg_runtime_dir()
 {
-  m_path_dir_xdg_runtime = ns_env::get_expected("XDG_RUNTIME_DIR").value_or("/run/user/{}"_fmt(getuid()));
+  m_path_dir_xdg_runtime = ns_env::get_expected("XDG_RUNTIME_DIR").value_or(std::format("/run/user/{}", getuid()));
   ns_log::info()("XDG_RUNTIME_DIR: {}", m_path_dir_xdg_runtime);
-  m_program_env.push_back("XDG_RUNTIME_DIR={}"_fmt(m_path_dir_xdg_runtime));
+  m_program_env.push_back(std::format("XDG_RUNTIME_DIR={}", m_path_dir_xdg_runtime.string()));
   ns_vector::push_back(m_args, "--setenv", "XDG_RUNTIME_DIR", m_path_dir_xdg_runtime);
 }
 
@@ -277,7 +277,7 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
   auto f_find_and_bind = [&]<typename... Args>(fs::path const& path_dir_search, Args&&... args)
   {
     std::vector<std::string_view> keywords{std::forward<Args>(args)...};
-    ireturn_if(not fs::exists(path_dir_search), "Search path does not exist: '{}'"_fmt(path_dir_search));
+    ireturn_if(not fs::exists(path_dir_search), std::format("Search path does not exist: '{}'", path_dir_search.string()));
     auto f_process_entry = [&](fs::path const& path_file_entry) -> void
     {
       // Skip ignored matches
@@ -650,12 +650,12 @@ inline Bwrap& Bwrap::bind_optical()
     std::error_code ec; 
     return fs::exists(path_device, ec)?
         (ns_vector::push_back(m_args, "--dev-bind-try", path_device, path_device), true)
-      : (({elog_if(ec, "Error to check if file exists: {}"_fmt(ec.message()))}), false);
+      : (({elog_if(ec, std::format("Error to check if file exists: {}", ec.message()))}), false);
   };
   // Bind /dev/sr[0-255] and /dev/sg[0-255]
   for(int i : std::views::iota(0,256))
   {
-    qbreak_if(not f_bind("/dev/sr{}"_fmt(i)) and not f_bind("/dev/sg{}"_fmt(i)));
+    qbreak_if(not f_bind(std::format("/dev/sr{}", i)) and not f_bind(std::format("/dev/sg{}", i)));
   }
   return *this;
 }
@@ -743,10 +743,10 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
 
   // Run Bwrap
   auto code = ns_subprocess::Subprocess(path_file_bash)
-    .with_args("-c", R"("{}" "$@")"_fmt(path_file_bwrap), "--")
+    .with_args("-c", std::format(R"("{}" "$@")", path_file_bwrap.string()), "--")
     .with_args("--error-fd", std::to_string(pipe_error[1]))
     .with_args(m_args)
-    .with_args(path_file_bash, "-c", R"(&>/dev/null nohup "{}" "{}" guest & disown; "{}" "$@")"_fmt(path_file_daemon, getpid(), m_path_file_program), "--")
+    .with_args(path_file_bash, "-c", std::format(R"(&>/dev/null nohup "{}" "{}" guest & disown; "{}" "$@")", path_file_daemon.string(), getpid(), m_path_file_program.string()), "--")
     .with_args(m_program_args)
     .with_env(m_program_env)
     .spawn()

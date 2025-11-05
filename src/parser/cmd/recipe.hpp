@@ -39,7 +39,7 @@ inline fs::path get_path_recipe(
   , std::string const& recipe
 )
 {
-  return path_dir_download / "recipes" / distribution.lower() / "latest" / "{}.json"_fmt(recipe);
+  return path_dir_download / "recipes" / distribution.lower() / "latest" / std::format("{}.json", recipe);
 }
 
 } // namespace
@@ -150,7 +150,7 @@ namespace ns_recipe
     url_remote.pop_back();
   }
   // Construct the recipe URL: URL/DISTRO/VERSION/<recipe>.json
-  std::string recipe_url = "{}/{}/latest/{}.json"_fmt(url_remote, distribution.lower(), recipe);
+  std::string recipe_url = std::format("{}/{}/latest/{}.json", url_remote, distribution.lower(), recipe);
   // Create the output directory if it doesn't exist
   Try(ns_fs::create_directories(path_dir_output));
   // Download the recipe using wget

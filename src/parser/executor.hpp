@@ -123,7 +123,7 @@ using namespace ns_parser::ns_interface;
     ns_bwrap::bwrap_run_ret_t bwrap_run_ret = Pop(f_bwrap_impl(program, args), "E::Failed to execute bwrap");
     // Log bwrap errors
     elog_if(bwrap_run_ret.errno_nr > 0
-      , "Bwrap failed syscall '{}' with errno '{}'"_fmt(bwrap_run_ret.syscall_nr, bwrap_run_ret.errno_nr)
+      , std::format("Bwrap failed syscall '{}' with errno '{}'", bwrap_run_ret.syscall_nr, bwrap_run_ret.errno_nr)
     );
     // Retry with fallback if bwrap overlayfs failed
     if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP and bwrap_run_ret.syscall_nr == SYS_mount )

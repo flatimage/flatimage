@@ -82,7 +82,7 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
       }
       return true;
     }
-    dlog_if(::write(fd_dst, buf, n) < 0, "Could not perform write: {}"_fmt(strerror(errno)));
+    dlog_if(::write(fd_dst, buf, n) < 0, std::format("Could not perform write: {}", strerror(errno)));
     return true;
   };
   // Try to read from the src fifo with 50ms delays
@@ -106,7 +106,7 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
 {
   // Fork
   pid_t pid = fork();
-  ereturn_if(pid < 0, "Could not fork '{}'"_fmt(strerror(errno)), -1);
+  ereturn_if(pid < 0, std::format("Could not fork '{}'", strerror(errno)), -1);
   // Parent ends here
   if( pid > 0 ) { return pid; }
   // Try to open fifo within a timeout
@@ -136,7 +136,7 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
 {
   // Fork
   pid_t pid = fork();
-  ereturn_if(pid < 0, "Could not fork '{}'"_fmt(strerror(errno)), -1);
+  ereturn_if(pid < 0, std::format("Could not fork '{}'", strerror(errno)), -1);
   // Parent ends here
   if( pid > 0 ) { return pid; }
   // Try to open fifo within a timeout

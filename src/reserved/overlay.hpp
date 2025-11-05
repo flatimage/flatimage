@@ -64,7 +64,7 @@ inline Value<OverlayType> read(fs::path const& path_file_binary)
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_OVERLAY_BEGIN;
   uint8_t mask;
   ssize_t bytes = Pop(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&mask), sizeof(uint8_t)));
-  elog_if(bytes != 1, "Possible error to read overlay byte, count is {}"_fmt(bytes));
+  elog_if(bytes != 1, std::format("Possible error to read overlay byte, count is {}", bytes));
   switch(mask)
   {
     case 1 << 1: return OverlayType::BWRAP;

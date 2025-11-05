@@ -52,7 +52,7 @@ inline Value<uint8_t> read(fs::path const& path_file_binary)
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_NOTIFY_BEGIN;
   uint8_t is_notify;
   ssize_t bytes = Pop(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&is_notify), sizeof(uint8_t)));
-  elog_if(bytes != 1, "Possible error to read notify byte, count is {}"_fmt(bytes));
+  elog_if(bytes != 1, std::format("Possible error to read notify byte, count is {}", bytes));
   return is_notify;
 }
 

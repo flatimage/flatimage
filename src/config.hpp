@@ -302,7 +302,7 @@ struct FlatimageConfig
   fs::path path_dir_host_home = Pop(ns_env::get_expected<fs::path>("HOME")).relative_path();
 
   // Create host config directory
-  fs::path path_dir_host_config = path_file_binary.parent_path() / ".{}.config"_fmt(path_file_binary.filename());
+  fs::path path_dir_host_config = path_file_binary.parent_path() / std::format(".{}.config", path_file_binary.filename().string());
   fs::path path_dir_host_config_tmp = path_dir_host_config / "tmp";
   Try(fs::create_directories(path_dir_host_config_tmp));
   ns_env::set("FIM_DIR_CONFIG", path_dir_host_config, ns_env::Replace::Y);
@@ -321,7 +321,7 @@ struct FlatimageConfig
   // Environment
   std::string env_path = path_dir_app_bin.string() + ":" + ns_env::get_expected("PATH").value_or("");
   env_path += ":/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin";
-  env_path += ":{}"_fmt(path_dir_app_sbin.string());
+  env_path += std::format(":{}", path_dir_app_sbin.string());
   ns_env::set("PATH", env_path, ns_env::Replace::Y);
 
   // Compression level configuration (goes from 0 to 10, default is 7)
@@ -333,7 +333,7 @@ struct FlatimageConfig
   // LD_LIBRARY_PATH
   if ( auto ret = ns_env::get_expected("LD_LIBRARY_PATH") )
   {
-    ns_env::set("LD_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu:{}"_fmt(ret.value()), ns_env::Replace::Y);
+    ns_env::set("LD_LIBRARY_PATH", std::format("/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu:{}", ret.value()), ns_env::Replace::Y);
   }
   else
   {
@@ -350,13 +350,13 @@ struct FlatimageConfig
     if (fs::exists(path_dir_work_bwrap, ec) && !ec)
     {
       elog_if(::chmod(path_dir_work_bwrap.c_str(), 0755) < 0
-        , "Error to modify permissions '{}': '{}'"_fmt(path_dir_work_bwrap, strerror(errno))
+        , std::format("Error to modify permissions '{}': '{}'", path_dir_work_bwrap.string(), strerror(errno))
       );
     }
     // Clean up work directory
     ec.clear();
     fs::remove_all(cfg->path_dir_work_overlayfs, ec);
-    elog_if(ec, "Error to erase '{}': '{}'"_fmt(cfg->path_dir_work_overlayfs, ec.message()));
+    elog_if(ec, std::format("Error to erase '{}': '{}'", cfg->path_dir_work_overlayfs.string(), ec.message()));
     delete cfg;
   };
 

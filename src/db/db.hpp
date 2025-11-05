@@ -336,7 +336,7 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
  */
 [[nodiscard]] inline Value<Db> read_file(fs::path const& path_file_db)
 {
-  qreturn_if(not Try(fs::exists(path_file_db)), std::unexpected("Invalid db file '{}'"_fmt(path_file_db)));
+  qreturn_if(not Try(fs::exists(path_file_db)), std::unexpected(std::format("Invalid db file '{}'", path_file_db.string())));
   // Parse a file
   auto f_parse_file = [](std::ifstream const& f) -> Value<json_t>
   {
@@ -347,7 +347,7 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
   };
   // Open target file as read
   std::ifstream file(path_file_db, std::ios::in);
-  qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}'"_fmt(path_file_db)));
+  qreturn_if(not file.is_open(), std::unexpected(std::format("Failed to open '{}'", path_file_db.string())));
   // Try to parse
   return Db(Pop(f_parse_file(file)));
 }
@@ -362,7 +362,7 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
 [[nodiscard]] inline Value<void> write_file(fs::path const& path_file_db, Db& db)
 {
   std::ofstream file(path_file_db, std::ios::trunc);
-  qreturn_if(not file.is_open(), std::unexpected("Failed to open '{}' for writing"_fmt(path_file_db)));
+  qreturn_if(not file.is_open(), std::unexpected(std::format("Failed to open '{}' for writing", path_file_db.string())));
   file << std::setw(2) << Pop(db.dump());
   file.close();
   return Value<void>{};

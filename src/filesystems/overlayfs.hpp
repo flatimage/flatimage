@@ -99,11 +99,11 @@ inline Value<void> Overlayfs::mount()
   // Include arguments and spawn process
   std::ignore = m_subprocess->
      with_args("-f")
-    .with_args("-o", "squash_to_uid={}"_fmt(user_id))
-    .with_args("-o", "squash_to_gid={}"_fmt(group_id))
+    .with_args("-o", std::format("squash_to_uid={}", user_id))
+    .with_args("-o", std::format("squash_to_gid={}", group_id))
     .with_args("-o", arg_lowerdir)
-    .with_args("-o", "upperdir={}"_fmt(m_path_dir_upper))
-    .with_args("-o", "workdir={}"_fmt(m_path_dir_work))
+    .with_args("-o", std::format("upperdir={}", m_path_dir_upper.string()))
+    .with_args("-o", std::format("workdir={}", m_path_dir_work.string()))
     .with_args(m_path_dir_mount)
     .with_die_on_pid(m_pid_to_die_for)
     .spawn();

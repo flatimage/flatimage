@@ -170,7 +170,7 @@ struct Location
 
   constexpr auto get() const
   {
-    return "{}::{}"_fmt(m_str_file, m_line);
+    return std::format("{}::{}", m_str_file, m_line);
   }
 };
 
@@ -220,14 +220,14 @@ class Writer
       if(opt_ostream_sink)
       {
         opt_ostream_sink.value()
-          << "{}::{}::"_fmt(m_prefix, m_loc.get())
+          << std::format("{}::{}::", m_prefix, m_loc.get())
           << vformat(ns_string::to_string(format), ns_string::to_string(args)...)
           << '\n';
       }
       if(logger.get_level() >= m_level)
       {
         ostream.get()
-          << "{}::{}::"_fmt(m_prefix, m_loc.get())
+          << std::format("{}::{}::", m_prefix, m_loc.get())
           << vformat(ns_string::to_string(format), ns_string::to_string(args)...)
           << '\n';
       }

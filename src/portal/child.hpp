@@ -167,7 +167,7 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
  */
 [[nodiscard]] inline Value<void> spawn(fs::path const& path_dir_portal, std::string_view msg)
 {
-  ns_log::set_sink_file(path_dir_portal / "spawned_parent_{}.log"_fmt(getpid()));
+  ns_log::set_sink_file(path_dir_portal / std::format("spawned_parent_{}.log", getpid()));
   ns_log::set_level(ns_log::Level::CRITICAL);
   auto db = Pop(ns_db::from_string(msg));
   // Get command
@@ -192,7 +192,7 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   }
   // Is child
   // Configure child logger
-  ns_log::set_sink_file(path_dir_portal / "spawned_child_{}.log"_fmt(getpid()));
+  ns_log::set_sink_file(path_dir_portal / std::format("spawned_child_{}.log", getpid()));
   ns_log::set_level(ns_log::Level::CRITICAL);
   // Die with parent
   qreturn_if(::prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, Error("E::Could not set child to die with parent"));

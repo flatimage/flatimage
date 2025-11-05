@@ -39,7 +39,7 @@ inline Value<void> resize_impl(fs::path const& path_file_src
 
   // Create icon directory and set file name
   ns_log::info()("Reading image {}", path_file_src);
-  qreturn_if(not fs::is_regular_file(path_file_src), std::unexpected("File '{}' does not exist or is not a regular file"_fmt(path_file_src)));
+  qreturn_if(not fs::is_regular_file(path_file_src), std::unexpected(std::format("File '{}' does not exist or is not a regular file", path_file_src.string())));
 
   // Determine image format
   std::string ext = path_file_src.extension().string();
@@ -48,7 +48,7 @@ inline Value<void> resize_impl(fs::path const& path_file_src
   ImageFormat format = Pop(
     (ext == ".jpg" || ext == ".jpeg") ? Value<ImageFormat>(ImageFormat::JPG) :
     (ext == ".png") ? Value<ImageFormat>(ImageFormat::PNG) :
-    std::unexpected("Input image of invalid format: '{}'"_fmt(ext))
+    std::unexpected(std::format("Input image of invalid format: '{}'", ext))
   );
 
   // Read image into memory
@@ -68,12 +68,12 @@ inline Value<void> resize_impl(fs::path const& path_file_src
   // Resize
   int code = Pop(ns_subprocess::Subprocess(path_bin_magick)
     .with_args(path_file_src)
-    .with_args("-resize", (img.width() > img.height())? "{}x"_fmt(width) : "x{}"_fmt(height))
+    .with_args("-resize", (img.width() > img.height())? std::format("{}x", width) : std::format("x{}", height))
     .with_args(path_file_dst)
     .spawn()
     .wait()
   );
-  qreturn_if(code != 0, std::unexpected("Failure to resize image with code {}"_fmt(code)))
+  qreturn_if(code != 0, std::unexpected(std::format("Failure to resize image with code {}", code)))
   return {};
 }
 

@@ -81,10 +81,10 @@ inline Value<void> UnionFs::mount()
   // Create string to represent layers argumnet
   // First layer is the writteable one
   // Layers are overlayed as top_branch:lower_branch:...:lowest_branch
-  std::string arg_layers="{}=RW"_fmt(m_path_dir_upper);
+  std::string arg_layers=std::format("{}=RW", m_path_dir_upper.string());
   for (auto&& path_dir_layer : m_vec_path_dir_layer | std::views::reverse)
   {
-    arg_layers += ":{}=RO"_fmt(path_dir_layer);
+    arg_layers += std::format(":{}=RO", path_dir_layer.string());
   } // for
   // Include arguments and spawn process
   std::ignore = m_subprocess->
