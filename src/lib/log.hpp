@@ -4,10 +4,131 @@
  * @brief A library for file logging
  *
  * @copyright Copyright (c) 2025 Ruan Formigoni
+ *
+ * ## Thread-Local Logger with Fork Safety
+ *
+ * This logger uses `thread_local` storage combined with `pthread_atfork()` to handle
+ * both multi-threading and process forking correctly.
+ *
+ * ### Thread-Local Storage (`thread_local`)
+ *
+ * The `thread_local Logger logger` ensures that each thread in a process
+ * gets its own independent Logger instance:
+ *
+ * - **Single-threaded process**: One logger instance
+ * - **Multi-threaded process**: One logger instance per thread (isolated, no races)
+ * - **Shared memory**: NOT shared between threads (unlike static/global variables)
+ *
+ * Benefits:
+ * - No mutex/locking needed (each thread has private instance)
+ * - No race conditions on logger state (m_sink, m_level)
+ * - Each thread can log to different files if needed
+ *
+ * ### Fork Behavior
+ *
+ * When `fork()` is called, the child process inherits a copy of the parent's memory:
+ *
+ * **Without pthread_atfork (problematic):**
+ * ```
+ * Parent opens /tmp/parent.log  // FD 5 points to file
+ * fork()
+ * -> Parent: FD 5 still open
+ * -> Child:  FD 5 still open (SAME file, SAME position, CORRUPTION!)
+ * ```
+ *
+ * **With pthread_atfork (this implementation):**
+ * ```
+ * Parent opens /tmp/parent.log  // FD 5 points to file
+ * fork()
+ * -> pthread_atfork child handler runs automatically
+ * -> child_handler() executes: logger = Logger{}
+ * -> Move-assigns fresh Logger (closes FD 5 in child, opens /dev/null)
+ * -> Parent: FD 5 still valid (reference count decremented but not closed)
+ * -> Child:  FD 5 closed, /dev/null open (clean slate)
+ * ```
+ *
+ * ### pthread_atfork() Registration
+ *
+ * In the Logger constructor:
+ * ```cpp
+ * static thread_local bool registered = false;
+ * if (!registered) {
+ *   pthread_atfork(nullptr, nullptr, child_handler);
+ *   registered = true;
+ * }
+ * ```
+ *
+ * - Registered once per thread (static thread_local guard)
+ * - `child_handler` runs in child process after fork()
+ * - Resets logger to default state (/dev/null sink, CRITICAL level)
+ * - Child can then set its own log file independently
+ *
+ * ### File Descriptor Semantics
+ *
+ * File descriptors are NOT shared memory - they're kernel objects with reference counts:
+ *
+ * - **Before fork**: Parent has FD → File (refcount = 1)
+ * - **After fork**: Parent FD → File (refcount = 2), Child FD → File (refcount = 2)
+ * - **Child closes FD**: Parent FD → File (refcount = 1), Child FD closed
+ * - **File closed when**: Refcount reaches 0 (all processes close their FDs)
+ *
+ * Therefore, closing the file in the child does NOT affect the parent's ability to log.
+ *
+ * ### Move Semantics (Private)
+ *
+ * The move constructor and move assignment are private:
+ * ```cpp
+ * Logger(Logger&&) = default;              // Private move constructor
+ * Logger& operator=(Logger&&) = default;   // Private move assignment
+ * ```
+ *
+ * - Public API: Non-copyable, non-movable (deleted copy/move constructors)
+ * - Internal use: `child_handler()` is a friend that uses move assignment
+ * - Move assignment closes old m_sink (via std::ofstream's move assignment)
+ * - Fresh Logger opens /dev/null (safe default sink)
+ *
+ * ### /dev/null Default Sink
+ *
+ * All loggers start with `m_sink("/dev/null")`::optional:
+ *
+ * Benefits:
+ * - Always valid stream (no null checks needed)
+ * - Logs silently discarded until set_sink_file() called
+ * - Efficient (kernel discards writes to /dev/null)
+ *
+ * ### Usage Example
+ *
+ * ```cpp
+ * // Parent process
+ * ns_log::set_sink_file("/tmp/parent.log");
+ * ns_log::info()("Parent starting");
+ *
+ * pid_t pid = fork();
+ *
+ * if (pid == 0) {
+ *   // Child: logger automatically reset to /dev/null
+ *   ns_log::set_sink_file("/tmp/child.log");  // Safe! New file
+ *   ns_log::info()("Child process");           // Logs to child.log
+ * } else {
+ *   // Parent: still logging to parent.log
+ *   ns_log::info()("Parent forked child");    // Logs to parent.log
+ * }
+ * ```
+ *
+ * ### Thread Safety Summary
+ *
+ * | Scenario | Behavior | Thread-Safe? |
+ * |----------|----------|--------------|
+ * | Single thread | One logger instance | ✅ Yes |
+ * | Multiple threads | Separate logger per thread | ✅ Yes (isolated) |
+ * | Fork (parent) | Keeps existing logger | ✅ Yes |
+ * | Fork (child) | Fresh logger (/dev/null) | ✅ Yes (auto-reset) |
+ * | Fork then thread | Child's threads get new loggers | ✅ Yes |
  */
 
 #pragma once
 
+#include <pthread.h>
 #include <filesystem>
 #include <iostream>
 #include <fstream>
@@ -36,29 +157,59 @@ namespace fs = std::filesystem;
 class Logger
 {
   private:
-    std::optional<std::ofstream> m_opt_os;
+    std::ofstream m_sink;
     Level m_level;
+    // Methods
+    Logger& operator=(Logger&&) = default;
+    Logger(Logger&&) = default;
   public:
     Logger();
     Logger(Logger const&) = delete;
-    Logger(Logger&&) = delete;
     Logger& operator=(Logger const&) = delete;
-    Logger& operator=(Logger&&) = delete;
     void set_level(Level level);
     [[nodiscard]] Level get_level() const;
     void set_sink_file(fs::path const& path_file_sink);
     void flush();
-    [[nodiscard]] std::optional<std::ofstream>& get_sink_file();
+    [[nodiscard]] std::ofstream& get_sink_file();
+    friend void child_handler();
 };
+
+/**
+ * @brief Thread-local logger instance
+ *
+ * Each thread in the process gets its own independent Logger instance.
+ * Automatically reset to default state after fork() via pthread_atfork().
+ */
+thread_local Logger logger;
+
+/**
+ * @brief Fork handler that resets the logger in child processes
+ *
+ * This function is registered via pthread_atfork() and automatically executes
+ * in child processes after fork(). It resets the logger to a fresh state with
+ * /dev/null sink and CRITICAL level, preventing file descriptor sharing issues.
+ *
+ * @note This is a friend of Logger to access private move assignment
+ */
+void child_handler()
+{
+  logger = Logger{};
+}
 
 /**
  * @brief Construct a new Logger:: Logger object
  * 
  */
 inline Logger::Logger()
-  : m_opt_os(std::nullopt)
+  : m_sink("/dev/null")
   , m_level(Level::CRITICAL)
 {
+  static thread_local bool registered = false;
+  if (!registered)
+  {
+    pthread_atfork(nullptr, nullptr, child_handler);
+    registered = true;
+  }
 }
 
 /**
@@ -74,9 +225,9 @@ inline void Logger::set_sink_file(fs::path const& path_file_sink)
     std::println("I::Logger file: {}", path_file_sink.string());
   }
   // File output stream
-  m_opt_os = std::ofstream(path_file_sink, std::ios::out | std::ios::trunc);
+  m_sink = std::ofstream(path_file_sink, std::ios::out | std::ios::trunc);
   // Check if file was opened successfully  
-  if(not m_opt_os->is_open())
+  if(not m_sink.is_open())
   {
     std::println("E::Could not open file '{}'", path_file_sink.string());
   }
@@ -85,11 +236,11 @@ inline void Logger::set_sink_file(fs::path const& path_file_sink)
 /**
  * @brief Gets the sink file of the logger
  * 
- * @return std::optional<std::ofstream>& The reference to the sink file if it is defined
+ * @return std::ofstream& The reference to the sink file
  */
-inline std::optional<std::ofstream>& Logger::get_sink_file()
+inline std::ofstream& Logger::get_sink_file()
 {
-  return m_opt_os;
+  return m_sink;
 }
 
 /**
@@ -97,9 +248,9 @@ inline std::optional<std::ofstream>& Logger::get_sink_file()
  */
 inline void Logger::flush()
 {
-  if (auto& file = this->m_opt_os)
+  if (auto& file = this->m_sink)
   {
-    file->flush();
+    file.flush();
   }
 }
 
@@ -122,8 +273,6 @@ inline Level Logger::get_level() const
 {
   return m_level;
 }
-
-thread_local Logger logger;
 
 }
 
@@ -157,10 +306,24 @@ inline void set_sink_file(fs::path const& path_file_sink)
   logger.set_sink_file(path_file_sink);
 }
 
+/**
+ * @brief Source code location information for log messages
+ *
+ * Automatically captures file name and line number at compile time using
+ * __builtin_FILE() and __builtin_LINE(). The file path is trimmed to show
+ * only the filename (no directory path).
+ */
 struct Location
 {
-  std::string_view m_str_file;
-  uint32_t m_line;
+  std::string_view m_str_file; ///< Source file name (basename only)
+  uint32_t m_line;             ///< Source line number
+
+  /**
+   * @brief Constructs a Location with automatic file/line capture
+   *
+   * @param str_file Source file path (default: current file via __builtin_FILE())
+   * @param str_line Source line number (default: current line via __builtin_LINE())
+   */
   consteval Location(const char* str_file = __builtin_FILE() , uint32_t str_line = __builtin_LINE())
     : m_str_file(str_file)
     , m_line(str_line)
@@ -168,6 +331,11 @@ struct Location
     m_str_file = m_str_file.substr(m_str_file.find_last_of("/")+1);
   }
 
+  /**
+   * @brief Formats location as "filename::line"
+   *
+   * @return std::string Formatted location string
+   */
   constexpr auto get() const
   {
     return std::format("{}::{}", m_str_file, m_line);
@@ -188,16 +356,29 @@ std::string vformat(std::string fmt, Ts&&... ts)
   return std::vformat(fmt, std::make_format_args(ts...));
 }
 
-// Writer
+/**
+ * @brief Base class for level-specific log writers (debug, info, warn, error, critical)
+ *
+ * Handles the actual formatting and output of log messages to both the sink file
+ * (if set) and the console (if level is enabled). Thread-safe due to thread_local logger.
+ */
 class Writer
 {
   private:
-    Location m_loc;
-    Level m_level;
-    std::string m_prefix;
-    std::reference_wrapper<std::ostream> ostream;
+    Location m_loc;                           ///< Source location of the log call
+    Level m_level;                            ///< Minimum level required for console output
+    std::string m_prefix;                     ///< Log level prefix (D, I, W, E, C)
+    std::reference_wrapper<std::ostream> ostream; ///< Output stream (stdout or stderr)
 
   public:
+    /**
+     * @brief Constructs a Writer with location and level information
+     *
+     * @param location Source code location
+     * @param level Log level for this writer
+     * @param prefix Single-character prefix for log messages
+     * @param ostream Output stream reference (std::cout or std::cerr)
+     */
     Writer(Location const& location, Level const& level, std::string prefix, std::ostream& ostream)
       : m_loc(location)
       , m_level(level)
@@ -216,81 +397,234 @@ class Writer
     requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
     void operator()(T&& format, Args&&... args)
     {
-      auto& opt_ostream_sink = logger.get_sink_file();
-      if(opt_ostream_sink)
+      std::string line;
+      line += std::format("{}::{}::", m_prefix, m_loc.get())
+              + vformat(ns_string::to_string(format), ns_string::to_string(args)...)
+              + '\n';
+      if(std::ofstream& sink = logger.get_sink_file(); sink.is_open())
       {
-        opt_ostream_sink.value()
-          << std::format("{}::{}::", m_prefix, m_loc.get())
-          << vformat(ns_string::to_string(format), ns_string::to_string(args)...)
-          << '\n';
+        sink << line;
       }
       if(logger.get_level() >= m_level)
       {
-        ostream.get()
-          << std::format("{}::{}::", m_prefix, m_loc.get())
-          << vformat(ns_string::to_string(format), ns_string::to_string(args)...)
-          << '\n';
+        ostream.get() << line;
       }
       logger.flush();
     }
 };
 
+/**
+ * @brief Debug-level logger (lowest priority)
+ *
+ * Only outputs to console when logger level is set to Level::DEBUG.
+ * Always writes to sink file if configured. Uses stdout.
+ */
 class debug final : public Writer
 {
   private:
     Location m_loc;
   public:
+    /**
+     * @brief Constructs a debug logger
+     * @param location Source location (automatically captured if not specified)
+     */
     debug(Location location = Location())
       : Writer(location, Level::DEBUG, "D", std::cout)
       , m_loc(location)
     {}
 };
 
+/**
+ * @brief Info-level logger (informational messages)
+ *
+ * Outputs to console when logger level is INFO or higher.
+ * Always writes to sink file if configured. Uses stdout.
+ */
 class info : public Writer
 {
   private:
     Location m_loc;
   public:
+    /**
+     * @brief Constructs an info logger
+     * @param location Source location (automatically captured if not specified)
+     */
     info(Location location = Location())
       : Writer(location, Level::INFO, "I", std::cout)
       , m_loc(location)
     {}
 };
 
+/**
+ * @brief Warning-level logger (potential issues)
+ *
+ * Outputs to console when logger level is WARN or higher.
+ * Always writes to sink file if configured. Uses stderr.
+ */
 class warn : public Writer
 {
   private:
     Location m_loc;
   public:
+    /**
+     * @brief Constructs a warning logger
+     * @param location Source location (automatically captured if not specified)
+     */
     warn(Location location = Location())
       : Writer(location, Level::WARN, "W", std::cerr)
       , m_loc(location)
     {}
 };
 
+/**
+ * @brief Error-level logger (recoverable errors)
+ *
+ * Outputs to console when logger level is ERROR or higher.
+ * Always writes to sink file if configured. Uses stderr.
+ */
 class error : public Writer
 {
   private:
     Location m_loc;
   public:
+    /**
+     * @brief Constructs an error logger
+     * @param location Source location (automatically captured if not specified)
+     */
     error(Location location = Location())
       : Writer(location, Level::ERROR, "E", std::cerr)
       , m_loc(location)
     {}
 };
 
+/**
+ * @brief Critical-level logger (highest priority, always shown)
+ *
+ * Always outputs to console regardless of logger level.
+ * Always writes to sink file if configured. Uses stderr.
+ */
 class critical : public Writer
 {
   private:
     Location m_loc;
   public:
+    /**
+     * @brief Constructs a critical logger
+     * @param location Source location (automatically captured if not specified)
+     */
     critical(Location location = Location())
       : Writer(location, Level::CRITICAL, "C", std::cerr)
       , m_loc(location)
     {}
 };
 
+/**
+ * @def logger(fmt, ...)
+ * @brief Compile-time log level dispatch macro with automatic location capture
+ *
+ * This macro provides a convenient interface for logging with compile-time level selection
+ * based on message prefix. The source file and line number are automatically captured.
+ *
+ * **Log Level Prefixes:**
+ * - `D::` - Debug (lowest priority, only shown when level = DEBUG)
+ * - `I::` - Info (informational messages)
+ * - `W::` - Warning (potential issues, uses stderr)
+ * - `E::` - Error (recoverable errors, uses stderr)
+ * - `C::` - Critical (highest priority, always shown, uses stderr)
+ * - `Q::` - Quiet (message discarded, useful for conditional compilation)
+ *
+ * **Format String:**
+ * Uses std::format syntax with positional arguments: `{0}`, `{1}`, `{}`
+ *
+ * **Examples:**
+ * @code
+ * // Basic usage with different log levels
+ * logger("I::Application started");
+ * logger("D::Debug value: {}", 42);
+ * logger("W::Connection timeout after {} seconds", 30);
+ * logger("E::Failed to open file: {}", filename);
+ * logger("C::Critical error: out of memory");
+ *
+ * // Multiple arguments
+ * int x = 10, y = 20;
+ * logger("I::Coordinates: ({}, {})", x, y);
+ *
+ * // Complex formatting
+ * logger("D::Processing item {0} of {1} ({2:.2f}%)", current, total, percent);
+ *
+ * // Quiet logging (discarded)
+ * logger("Q::This message will never appear");
+ *
+ * // With containers (requires IterableConst concept)
+ * std::vector<int> vec = {1, 2, 3};
+ * logger("I::Vector contents: {}", vec);
+ * @endcode
+ *
+ * **Output Format:**
+ * ```
+ * PREFIX::filename.cpp::LINE::Message
+ * ```
+ *
+ * Example output:
+ * ```
+ * I::main.cpp::42::Application started
+ * D::utils.cpp::128::Debug value: 42
+ * W::network.cpp::256::Connection timeout after 30 seconds
+ * ```
+ *
+ * @param fmt Format string with log level prefix (e.g., "I::Message: {}")
+ * @param ... Variadic arguments for format string placeholders
+ *
+ * @note This macro requires C++23 for static_string template parameter
+ * @see logger_loc for custom location specification
+ * @see ns_log::set_level to control console output verbosity
+ * @see ns_log::set_sink_file to enable file logging
+ */
 #define logger(fmt, ...) ns_log::impl_log<fmt>(ns_log::Location{})(__VA_ARGS__);
+
+/**
+ * @def logger_loc(loc, fmt, ...)
+ * @brief Compile-time log level dispatch macro with manual location specification
+ *
+ * Similar to logger() but allows specifying a custom source location. Useful for
+ * logging from helper functions while preserving the original call site location.
+ *
+ * **Use Cases:**
+ * - Wrapper functions that want to preserve caller location
+ * - Logging from template instantiations
+ * - Custom error handling macros
+ *
+ * **Examples:**
+ * @code
+ * // Capture location at call site, pass to helper function
+ * void log_helper(ns_log::Location loc, std::string_view msg) {
+ *     logger_loc(loc, "I::{}", msg);
+ * }
+ *
+ * void user_function() {
+ *     // Location captured here, not inside log_helper
+ *     log_helper(ns_log::Location{}, "User function called");
+ * }
+ * // Output: I::main.cpp::15::User function called
+ * //         (line 15 is user_function, not log_helper)
+ *
+ * // Custom location for testing/debugging
+ * ns_log::Location custom_loc{"custom.cpp", 999};
+ * logger_loc(custom_loc, "E::Simulated error from custom location");
+ * // Output: E::custom.cpp::999::Simulated error from custom location
+ *
+ * // Macro that preserves location
+ * #define MY_LOG(msg) logger_loc(ns_log::Location{}, "I::{}", msg)
+ * MY_LOG("This shows the caller's location");
+ * @endcode
+ *
+ * @param loc ns_log::Location instance with file/line information
+ * @param fmt Format string with log level prefix (e.g., "I::Message: {}")
+ * @param ... Variadic arguments for format string placeholders
+ *
+ * @note Location is consteval, so it must be constructed at compile time
+ * @see logger for automatic location capture
+ */
 #define logger_loc(loc, fmt, ...) ns_log::impl_log<fmt>(loc)(__VA_ARGS__);
 
 /**
