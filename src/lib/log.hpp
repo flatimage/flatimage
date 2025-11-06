@@ -159,19 +159,17 @@ class Logger
   private:
     std::ofstream m_sink;
     Level m_level;
-    // Methods
-    Logger& operator=(Logger&&) = default;
-    Logger(Logger&&) = default;
   public:
     Logger();
     Logger(Logger const&) = delete;
+    Logger(Logger&&) = delete;
     Logger& operator=(Logger const&) = delete;
+    Logger& operator=(Logger&&) = delete;
     void set_level(Level level);
     [[nodiscard]] Level get_level() const;
     void set_sink_file(fs::path const& path_file_sink);
     void flush();
     [[nodiscard]] std::ofstream& get_sink_file();
-    friend void child_handler();
 };
 
 /**
@@ -187,13 +185,11 @@ thread_local Logger logger;
  *
  * This function is registered via pthread_atfork() and automatically executes
  * in child processes after fork(). It resets the logger to a fresh state with
- * /dev/null sink and CRITICAL level, preventing file descriptor sharing issues.
- *
- * @note This is a friend of Logger to access private move assignment
+ * /dev/null sink, preventing file descriptor sharing issues.
  */
 void child_handler()
 {
-  logger = Logger{};
+  logger.set_sink_file("/dev/null");
 }
 
 /**
