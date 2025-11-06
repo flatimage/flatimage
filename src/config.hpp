@@ -125,12 +125,10 @@ namespace fs = std::filesystem;
   {
     .name = (id.uid == 0)? "root"
       : variables.contains("USER")? variables.at("USER")
-      : getenv("USER")?
-      : pw->pw_name,
+      : ns_env::get_expected("USER").value_or(pw->pw_name),
     .path_dir_home = (id.uid == 0)? "/root"
       : variables.contains("HOME")? variables.at("HOME")
-      : getenv("HOME")?
-      : pw->pw_dir,
+      : ns_env::get_expected("HOME").value_or(pw->pw_dir),
     .path_file_shell = variables.contains("SHELL")? fs::path{variables.at("SHELL")}
       : path_file_bash,
     .path_file_bashrc = path_file_bashrc,

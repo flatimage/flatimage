@@ -190,7 +190,8 @@ inline Controller::~Controller()
   // Execve to janitor
   execve(path_file_janitor.c_str(), const_cast<char**>(argv_custom.get()), environ);
 
-  // Exit process in case of an error
+  // If execve returns, it failed - log error and exit
+  ns_log::error()("Failed to execve janitor: {}", strerror(errno));
   _exit(1);
 }
 
@@ -234,6 +235,8 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     int64_t size_fs;
     dbreak_if(not file_binary.read(reinterpret_cast<char*>(&size_fs), sizeof(size_fs)), std::format("Stopped reading at index {}", index_fs));
     ns_log::debug()("Filesystem size is '{}'", size_fs);
+    // Validate filesystem size
+    ebreak_if(size_fs <= 0, std::format("Invalid filesystem size '{}' at index {}", size_fs, index_fs));
     // Skip size bytes
     offset += 8;
     // Check if filesystem is of type 'DWARFS'

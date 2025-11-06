@@ -476,7 +476,11 @@ inline Value<int> Subprocess::wait()
 
   // Wait for current process
   int status;
-  waitpid(m_pid, &status, 0);
+  pid_t result = waitpid(m_pid, &status, 0);
+  qreturn_if(result < 0, std::unexpected(std::format("waitpid failed: {}", strerror(errno))));
+
+  // Mark pid as invalid to prevent double-wait
+  m_pid = -1;
 
   // Send SIGTERM for reader forks
   std::ranges::for_each(m_vec_pids_pipe, [](pid_t pid){ ::kill(pid, SIGTERM); });

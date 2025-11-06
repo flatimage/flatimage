@@ -67,8 +67,9 @@ inline Value<void> Ciopfs::mount()
   std::ignore = m_subprocess->
     with_args(m_path_dir_lower, m_path_dir_upper)
     .with_die_on_pid(m_pid_to_die_for)
-    .spawn()
-    .wait();
+    .spawn();
+  // Wait for mount
+  ns_fuse::wait_fuse(m_path_dir_upper);
   return {};
 }
 

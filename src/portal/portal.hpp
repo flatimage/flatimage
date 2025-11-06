@@ -46,8 +46,11 @@ inline Portal::Portal()
 
 inline Portal::~Portal()
 {
-  m_process->kill(SIGTERM);
-  std::ignore = m_process->wait();
+  if (m_process)
+  {
+    m_process->kill(SIGTERM);
+    std::ignore = m_process->wait();
+  }
 }
 
 [[nodiscard]] inline Value<std::unique_ptr<Portal>> create(pid_t const pid_reference, std::string const& mode)

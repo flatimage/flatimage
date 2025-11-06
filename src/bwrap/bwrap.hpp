@@ -645,17 +645,24 @@ inline Bwrap& Bwrap::bind_shm()
 inline Bwrap& Bwrap::bind_optical()
 {
   ns_log::debug()("PERM(OPTICAL)");
-  auto f_bind = [this](fs::path const& path_device)
+  auto f_bind = [this](fs::path const& path_device) -> bool
   {
-    std::error_code ec; 
-    return fs::exists(path_device, ec)?
-        (ns_vector::push_back(m_args, "--dev-bind-try", path_device, path_device), true)
-      : (({elog_if(ec, std::format("Error to check if file exists: {}", ec.message()))}), false);
+    auto __expected_fn = [](auto&&){ return false; };
+    if(not Try(fs::exists(path_device), "E::Error to check if file exists: {}", path_device))
+    {
+      return false;
+    }
+    ns_vector::push_back(m_args, "--dev-bind-try", path_device, path_device);
+    return true;
   };
   // Bind /dev/sr[0-255] and /dev/sg[0-255]
+  // Devices are sequential, so stop when both sr and sg don't exist
   for(int i : std::views::iota(0,256))
   {
-    qbreak_if(not f_bind(std::format("/dev/sr{}", i)) and not f_bind(std::format("/dev/sg{}", i)));
+    bool sr_exists = f_bind(std::format("/dev/sr{}", i));
+    bool sg_exists = f_bind(std::format("/dev/sg{}", i));
+    // Stop if neither device exists
+    if (!sr_exists && !sg_exists) break;
   }
   return *this;
 }
@@ -699,8 +706,6 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
 inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   , fs::path const& path_dir_app_bin)
 {
-  std::error_code ec;
-  
   // Configure bindings
   if(permissions.contains(Permission::HOME)){ std::ignore = bind_home(); };
   if(permissions.contains(Permission::MEDIA)){ std::ignore = bind_media(); };
@@ -739,7 +744,7 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
 
   // Get path to daemon
   fs::path path_file_daemon = path_dir_app_bin / "fim_portal_daemon";
-  qreturn_if(not fs::exists(path_file_daemon, ec), Error("E::Missing portal daemon to run binary file path"));
+  qreturn_if(not Try(fs::exists(path_file_daemon)), Error("E::Missing portal daemon to run binary file path"));
 
   // Run Bwrap
   auto code = ns_subprocess::Subprocess(path_file_bash)

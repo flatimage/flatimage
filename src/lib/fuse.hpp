@@ -96,15 +96,13 @@ inline Value<void> unmount(fs::path const& path_dir_mount)
   if(ret and *ret == 0)
   {
     ns_log::debug()(std::format("Un-mounted filesystem '{}'", path_dir_mount.string()));
-  } // if
+  }
 
   // Filesystem could be busy for a bit after un-mount
-  bool is_fuse = Pop(ns_fuse::is_fuse(path_file_fusermount));
-  while( is_fuse )
+  while(Pop(ns_fuse::is_fuse(path_dir_mount)))
   {
     std::this_thread::sleep_for(100ms);
-    is_fuse = Pop(ns_fuse::is_fuse(path_file_fusermount));
-  } // while
+  }
 
   return {};
 } // function: unmount

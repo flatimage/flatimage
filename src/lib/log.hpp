@@ -9,10 +9,10 @@
 #pragma once
 
 #include <filesystem>
+#include <iostream>
 #include <fstream>
 #include <print>
 
-#include "../common.hpp"
 #include "../std/concept.hpp"
 #include "../std/string.hpp"
 

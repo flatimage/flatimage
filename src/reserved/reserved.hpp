@@ -14,6 +14,7 @@
 #include <cstdint>
 #include <fstream>
 
+#include "../common.hpp"
 #include "../macro.hpp"
 #include "../std/expected.hpp"
 

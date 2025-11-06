@@ -65,10 +65,7 @@ inline Overlayfs::Overlayfs(pid_t pid_to_die_for
   , m_path_dir_work(path_dir_work)
   , m_vec_path_dir_layers(vec_path_dir_layers)
 {
-  if(auto ret = this->mount(); not ret)
-  {
-    ns_log::error()("Could not mount overlayfs filesystem to '{}': {}", path_dir_mount, ret.error());
-  }
+  this->mount().discard("Could not mount overlayfs filesystem to '{}'", path_dir_mount);
 }
 
 /**

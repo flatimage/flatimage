@@ -54,10 +54,8 @@ inline Filesystem::Filesystem(pid_t pid_to_die_for, std::filesystem::path const&
  */
 inline Filesystem::~Filesystem()
 {
-  if(auto ret = ns_fuse::unmount(m_path_dir_mount); not ret)
-  {
-    ns_log::error()("Could not un-mount filesystem '{}'", m_path_dir_mount);
-  }
+  // Un-mount the fuse file system
+  ns_fuse::unmount(m_path_dir_mount).discard("E::Could not un-mount filesystem '{}'", m_path_dir_mount);
   // Check for subprocess
   if(not m_subprocess)
   {
@@ -65,9 +63,9 @@ inline Filesystem::~Filesystem()
     return;
   }
   // Tell process to exit with SIGTERM
-  if (auto opt_pid = m_subprocess->get_pid())
+  if (pid_t pid = m_subprocess->get_pid().value_or(-1); pid > 0)
   {
-    kill(*opt_pid, SIGTERM);
+    kill(pid, SIGTERM);
   }
   // Wait for process to exit
   auto ret = m_subprocess->wait();
