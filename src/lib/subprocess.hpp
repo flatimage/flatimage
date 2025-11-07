@@ -289,7 +289,7 @@ Subprocess& Subprocess::rm_var(K&& k)
   // Erase if found
   if ( it != std::ranges::end(m_env) )
   {
-    ns_log::debug()("Erased var entry: {}", *it);
+    logger("D::Erased var entry: {}", *it);
     m_env.erase(it);
   } // if
 
@@ -565,11 +565,11 @@ inline void Subprocess::die_on_pid(pid_t pid)
   // Abort if pid is not running
   if (::kill(pid, 0) < 0)
   {
-    ns_log::error()("Parent died, prctl will not have effect: {}", strerror(errno));
+    logger("E::Parent died, prctl will not have effect: {}", strerror(errno));
     _exit(1);
   } // if
   // Log pid and current pid
-  ns_log::debug()("{} dies with {}", getpid(), pid);
+  logger("D::{} dies with {}", getpid(), pid);
 }
 
 /**
@@ -619,7 +619,7 @@ inline std::pair<pid_t, pid_t> Subprocess::setup_pipes(pid_t child_pid, int pipe
   execve(m_program.c_str(), const_cast<char**>(argv_custom.get()), const_cast<char**>(envp_custom.get()));
 
   // Log error (will go to log_file if redirected)
-  ns_log::error()("execve() failed: {}", strerror(errno));
+  logger("E::execve() failed: {}", strerror(errno));
 
   // Child should stop here
   _exit(1);
@@ -785,7 +785,7 @@ inline std::unique_ptr<Child> Subprocess::spawn()
 {
   // Ignore on empty vec_argv
   ereturn_if(m_args.empty(), "No arguments to spawn subprocess", Child::create(-1, {-1, -1}, m_program));
-  ns_log::debug()("Spawn command: {}", m_args);
+  logger("D::Spawn command: {}", m_args);
 
   // Create pipes BEFORE fork (if needed for Stream::Pipe)
   int pipestdout[2];

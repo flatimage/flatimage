@@ -44,7 +44,7 @@ namespace ns_layers
   // Compression level
   compression_level = std::clamp(compression_level, uint64_t{0}, uint64_t{9});
   // Search for all viable files to compress
-  ns_log::info()("Gathering files to compress...");
+  logger("I::Gathering files to compress...");
   std::ofstream file_list(path_file_list, std::ios::out | std::ios::trunc);
   qreturn_if(not file_list.is_open()
     , Error("E::Could not open list of files '{}' to compress", path_file_list)
@@ -72,7 +72,7 @@ namespace ns_layers
       // Ignore directory as it is not traverseable
       if(::access(path_entry.c_str(), R_OK | X_OK) != 0)
       {
-        ns_log::info()("Insufficient permissions to enter directory '{}'", path_entry);
+        logger("I::Insufficient permissions to enter directory '{}'", path_entry);
         entry.disable_recursion_pending();
         continue;
       }
@@ -87,14 +87,14 @@ namespace ns_layers
     // Unsupported for compression
     else
     {
-      ns_log::info()("Ignoring file '{}'", path_entry);
+      logger("I::Ignoring file '{}'", path_entry);
     }
   }
   file_list.close();
 
   // Compress filesystem
-  ns_log::info()("Compression level: '{}'", compression_level);
-  ns_log::info()("Compress filesystem to '{}'", path_file_dst);
+  logger("I::Compression level: '{}'", compression_level);
+  logger("I::Compress filesystem to '{}'", path_file_dst);
   Try(ns_subprocess::Subprocess(path_file_mkdwarfs)
     .with_args("-f")
     .with_args("-i", path_dir_src, "-o", path_file_dst)
@@ -129,7 +129,7 @@ namespace ns_layers
     file_binary.write(buff, file_layer.gcount());
     qreturn_if(not file_binary, Error("E::Error writing data to file"));
   }
-  ns_log::info()("Included novel layer from file '{}'", path_file_layer);
+  logger("I::Included novel layer from file '{}'", path_file_layer);
   return {};
 }
 
@@ -161,7 +161,7 @@ namespace ns_layers
   // Remove layer file
   if(not Try(fs::remove(path_file_layer_tmp)))
   {
-    ns_log::error()("Could not erase layer file '{}'", path_file_layer_tmp.string());
+    logger("E::Could not erase layer file '{}'", path_file_layer_tmp.string());
   }
   // Remove files from the compression list
   std::ifstream file_list(path_file_list_tmp);

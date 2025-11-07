@@ -92,7 +92,7 @@ inline Value<void> db_write(fs::path const& path_file_binary, ns_db::ns_bind::Bi
     .type = bind_type,
   };
   binds.push_back(bind);
-  ns_log::info()("Binding index is '{}'", bind.index);
+  logger("I::Binding index is '{}'", bind.index);
   // Write database
   Pop(db_write(path_file_binary, binds));
   return {};

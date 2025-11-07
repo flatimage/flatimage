@@ -76,7 +76,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
   // Use unionfs-fuse
   if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::UNIONFS )
   {
-    ns_log::debug()("Overlay type: UNIONFS_FUSE");
+    logger("D::Overlay type: UNIONFS_FUSE");
     mount_unionfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
       , config.path_dir_upper_overlayfs
       , config.path_dir_mount_overlayfs
@@ -85,7 +85,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
   // Use fuse-overlayfs
   else if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::OVERLAYFS )
   {
-    ns_log::debug()("Overlay type: FUSE_OVERLAYFS");
+    logger("D::Overlay type: FUSE_OVERLAYFS");
     mount_overlayfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
       , config.path_dir_upper_overlayfs
       , config.path_dir_mount_overlayfs
@@ -94,24 +94,24 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
   }
   else
   {
-    ns_log::debug()("Overlay type: BWRAP");
+    logger("D::Overlay type: BWRAP");
   }
   // Put casefold over overlayfs or unionfs
   if (config.is_casefold)
   {
     if(config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
     {
-      ns_log::warn()("casefold cannot be used with bwrap overlays");
+      logger("W::casefold cannot be used with bwrap overlays");
     }
     else
     {
       mount_ciopfs(config.path_dir_mount_overlayfs, config.path_dir_mount_ciopfs);
-      ns_log::debug()("casefold is enabled");
+      logger("D::casefold is enabled");
     }
   }
   else
   {
-    ns_log::debug()("casefold is disabled");
+    logger("D::casefold is disabled");
   }
   // Spawn janitor, make it permissive since flatimage works without it
   spawn_janitor().discard("E::Could not spawn janitor");
@@ -137,7 +137,7 @@ inline Controller::~Controller()
   }
   else
   {
-    ns_log::error()("Janitor is not running");
+    logger("E::Janitor is not running");
   }
 }
 
@@ -191,7 +191,7 @@ inline Controller::~Controller()
   execve(path_file_janitor.c_str(), const_cast<char**>(argv_custom.get()), environ);
 
   // If execve returns, it failed - log error and exit
-  ns_log::error()("Failed to execve janitor: {}", strerror(errno));
+  logger("E::Failed to execve janitor: {}", strerror(errno));
   _exit(1);
 }
 
@@ -213,7 +213,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
 
   auto f_mount = [this](fs::path const& _path_file_binary, fs::path const& _path_dir_mount, uint64_t _index_fs, uint64_t _offset, uint64_t _size_fs) -> Value<void>
   {
-    ns_log::debug()("Offset to filesystem is '{}'", _offset);
+    logger("D::Offset to filesystem is '{}'", _offset);
     // Create mountpoint
     fs::path path_dir_mount_index = _path_dir_mount / std::to_string(_index_fs);
     Try(fs::create_directories(path_dir_mount_index));
@@ -234,7 +234,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     // Read filesystem size
     int64_t size_fs;
     dbreak_if(not file_binary.read(reinterpret_cast<char*>(&size_fs), sizeof(size_fs)), std::format("Stopped reading at index {}", index_fs));
-    ns_log::debug()("Filesystem size is '{}'", size_fs);
+    logger("D::Filesystem size is '{}'", size_fs);
     // Validate filesystem size
     ebreak_if(size_fs <= 0, std::format("Invalid filesystem size '{}' at index {}", size_fs, index_fs));
     // Skip size bytes
@@ -289,13 +289,13 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     auto size_result = Catch(fs::file_size(path_file_layer));
     if (!size_result)
     {
-      ns_log::error()("Failed to get file size for layer: {}", path_file_layer.string());
+      logger("E::Failed to get file size for layer: {}", path_file_layer.string());
       continue;
     }
     auto mount_result = f_mount(path_file_layer, path_dir_mount, index_fs, 0, size_result.value());
     if (!mount_result)
     {
-      ns_log::error()("Failed to mount filesystem at index {}", index_fs);
+      logger("E::Failed to mount filesystem at index {}", index_fs);
       continue;
     }
     // Go to next filesystem if exists

@@ -60,7 +60,7 @@ inline UnionFs::UnionFs(pid_t pid_to_die_for
 {
   if(auto ret = this->mount(); not ret)
   {
-    ns_log::error()("Could not mount unionfs filesystem to '{}': {}", path_dir_mount, ret.error());
+    logger("E::Could not mount unionfs filesystem to '{}': {}", path_dir_mount, ret.error());
   }
 }
 

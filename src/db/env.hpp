@@ -78,11 +78,11 @@ namespace fs = std::filesystem;
   {
     if( db.erase(entry) )
     {
-      ns_log::info()("Erase key '{}'", entry);
+      logger("I::Erase key '{}'", entry);
     }
     else
     {
-      ns_log::info()("Key '{}' not found for deletion", entry);
+      logger("I::Key '{}' not found for deletion", entry);
     }
   });
   Pop(ns_reserved::ns_env::write(path_file_binary, Pop(db.dump())));
@@ -105,7 +105,7 @@ namespace fs = std::filesystem;
   for (auto&& [key,value] : map(entries))
   {
     db(key) = value;
-    ns_log::info()("Included variable '{}' with value '{}'", key, value);
+    logger("I::Included variable '{}' with value '{}'", key, value);
   }
   // Write to the database
   Pop(ns_reserved::ns_env::write(path_file_binary, Pop(db.dump())));

@@ -85,9 +85,9 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   );
   // Get exit code
   int code = (not WIFEXITED(status))? 1 : WEXITSTATUS(status);
-  ns_log::debug()("Exit code: {}", code);
+  logger("D::Exit code: {}", code);
   // Send exit code of child through a fifo
-  write_fifo_exit(code, db).discard("C::Failed to write exit code to fifo: {}");
+  write_fifo_exit(code, db).discard("C::Failed to write exit code to fifo");
 }
 
 /**
@@ -154,7 +154,7 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   Pop(f_open_fd(db, "stderr", STDERR_FILENO, O_WRONLY));
   // Perform execve
   int ret_execve = execve(argv_custom[0], (char**) argv_custom.get(), (char**) env_custom.get());
-  ns_log::error()("Could not perform execve({}): {}", ret_execve, strerror(errno));
+  logger("E::Could not perform execve({}): {}", ret_execve, strerror(errno));
   _exit(1);
 }
 

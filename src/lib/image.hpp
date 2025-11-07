@@ -38,7 +38,7 @@ inline Value<void> resize_impl(fs::path const& path_file_src
   namespace gil = boost::gil;
 
   // Create icon directory and set file name
-  ns_log::info()("Reading image {}", path_file_src);
+  logger("I::Reading image {}", path_file_src);
   qreturn_if(not fs::is_regular_file(path_file_src), std::unexpected(std::format("File '{}' does not exist or is not a regular file", path_file_src.string())));
 
   // Determine image format
@@ -61,8 +61,8 @@ inline Value<void> resize_impl(fs::path const& path_file_src
   {
     gil::read_and_convert_image(path_file_src, img, gil::png_tag());
   }
-  ns_log::info()("Image size is {}x{}", std::to_string(img.width()), std::to_string(img.height()));
-  ns_log::info()("Saving image to {}", path_file_dst);
+  logger("I::Image size is {}x{}", std::to_string(img.width()), std::to_string(img.height()));
+  logger("I::Saving image to {}", path_file_dst);
   // Search for imagemagick
   fs::path path_bin_magick = Pop(ns_env::search_path("magick"));
   // Resize

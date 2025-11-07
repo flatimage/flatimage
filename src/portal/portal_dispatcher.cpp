@@ -83,7 +83,7 @@ void signal_handler(int sig)
   , fs::path const& path_file_log
   , fs::path const& path_file_env)
 {
-  ns_log::debug()("Sending message through pipe: {}", path_daemon_fifo);
+  logger("D::Sending message through pipe: {}", path_daemon_fifo);
   // Create command
   auto db = ns_db::Db();
   db("command") = command;
@@ -125,12 +125,12 @@ void signal_handler(int sig)
   );
   qreturn_if(bytes_read != sizeof(pid_child), Error("E::{}", strerror(errno)));
   opt_child = pid_child;
-  ns_log::debug()("Child pid: {}", pid_child);
+  logger("D::Child pid: {}", pid_child);
   // Connect to stdin, stdout, and stderr with fifos
   pid_t pid_stdin = redirect_fd_to_fifo(pid_child, STDIN_FILENO, hash_name_fifo.at("stdin"));
   pid_t pid_stdout = redirect_fifo_to_fd(pid_child, hash_name_fifo.at("stdout"), STDOUT_FILENO);
   pid_t pid_stderr = redirect_fifo_to_fd(pid_child, hash_name_fifo.at("stderr"), STDERR_FILENO);
-  ns_log::debug()("Connected to stdin/stdout/stderr fifos");
+  logger("D::Connected to stdin/stdout/stderr fifos");
   // Wait for processes to exit
   waitpid(pid_stdin, nullptr, 0);
   waitpid(pid_stdout, nullptr, 0);

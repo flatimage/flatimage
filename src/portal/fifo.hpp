@@ -77,7 +77,7 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
     {
       if(errno != EWOULDBLOCK and errno != EAGAIN and errno != EINTR)
       {
-        ns_log::error()("Failed read with error: {}", strerror(errno));
+        logger("E::Failed read with error: {}", strerror(errno));
         return false;
       }
       return true;

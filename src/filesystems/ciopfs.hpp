@@ -45,7 +45,7 @@ inline Ciopfs::Ciopfs(pid_t pid_to_die_for, fs::path const& path_dir_lower, fs::
 {
   if(auto ret = this->mount(); not ret)
   {
-    ns_log::error()("Could u mount ciopfs filesystem from '{}' to '{}': {}", path_dir_lower, path_dir_upper, ret.error());
+    logger("E::Could u mount ciopfs filesystem from '{}' to '{}': {}", path_dir_lower, path_dir_upper, ret.error());
   }
 }
 

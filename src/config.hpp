@@ -286,7 +286,7 @@ struct FlatimageConfig
   // Check for case folding usage constraints
   if(is_casefold and overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
   {
-    ns_log::warn()("casefold cannot be used with bwrap overlayfs, falling back to unionfs");
+    logger("W::casefold cannot be used with bwrap overlayfs, falling back to unionfs");
     overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
   }
 

@@ -49,17 +49,17 @@ void cleanup(int)
   // Create a novel session for the child process
   pid_t pid_session = setsid();
   qreturn_if(pid_session < 0, std::unexpected("Failed to create a novel session for janitor"));
-  ns_log::info()("Session id is '{}'", pid_session);
+  logger("I::Session id is '{}'", pid_session);
   // Wait for parent process to exit
   while ( kill(pid_parent, 0) == 0 and G_CONTINUE )
   {
     std::this_thread::sleep_for(std::chrono::milliseconds{100});
   }
-  ns_log::info()("Parent process with pid '{}' finished", pid_parent);
+  logger("I::Parent process with pid '{}' finished", pid_parent);
   // Cleanup of mountpoints
   for (auto&& path_dir_mountpoint : std::vector<std::filesystem::path>(argv+1, argv+argc))
   {
-    ns_log::info()("Un-mount '{}'", path_dir_mountpoint);
+    logger("I::Un-mount '{}'", path_dir_mountpoint);
     ns_fuse::unmount(path_dir_mountpoint).discard("E::Could not un-mount '{}'", path_dir_mountpoint);
   }
   return {};

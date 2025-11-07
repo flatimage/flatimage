@@ -140,7 +140,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   {
     std::error_code ec;
     uint64_t offset_beg = offset_end;
-    ns_log::debug()("Writting binary file '{}'", path_file);
+    logger("D::Writting binary file '{}'", path_file);
     // Set file position
     file_binary.seekg(offset_beg);
     // Read size bytes (FATAL if fails)
@@ -203,7 +203,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   qreturn_if(offset_end != offset
     , Error("E::Broken image actual offset({}) != offset({})", offset_end, offset)
   );
-  ns_log::debug()("FIM_OFFSET: {}", offset_end);
+  logger("D::FIM_OFFSET: {}", offset_end);
 
   // Option to show offset and exit (to manually mount the fs with fuse2fs)
   if( getenv("FIM_MAIN_OFFSET") ){ std::println("{}", offset_end); exit(0); }
@@ -212,7 +212,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   if ( getenv("FIM_DEBUG") != nullptr )
   {
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    ns_log::debug()("Copy binaries finished in '{}' ms", elapsed.count());
+    logger("D::Copy binaries finished in '{}' ms", elapsed.count());
   } // if
 
   // Launch Runner

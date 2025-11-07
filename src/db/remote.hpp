@@ -38,7 +38,7 @@ namespace fs = std::filesystem;
   ns_db::Db db;
   // Insert URL
   db("url") = url;
-  ns_log::info()("Set remote URL to '{}'", url);
+  logger("I::Set remote URL to '{}'", url);
   // Write to the database
   Pop(ns_reserved::ns_remote::write(path_file_binary, Pop(db.dump())));
   return {};
@@ -77,7 +77,7 @@ namespace fs = std::filesystem;
   ns_db::Db db;
   // Write empty database
   Pop(ns_reserved::ns_remote::write(path_file_binary, Pop(db.dump())));
-  ns_log::info()("Cleared remote URL");
+  logger("I::Cleared remote URL");
   return {};
 }
 

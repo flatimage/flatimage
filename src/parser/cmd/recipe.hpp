@@ -127,7 +127,7 @@ namespace ns_recipe
   // If use_existing is true and file exists, use the cached version
   if (use_existing && Try(fs::exists(path_file_output)))
   {
-    ns_log::info()("Using existing recipe from '{}'", path_file_output.string());
+    logger("I::Using existing recipe from '{}'", path_file_output.string());
     // Read the local JSON file
     std::ifstream file(path_file_output);
     if (!file.is_open())
@@ -154,13 +154,13 @@ namespace ns_recipe
   // Create the output directory if it doesn't exist
   Try(ns_fs::create_directories(path_dir_output));
   // Download the recipe using wget
-  ns_log::info()("Downloading recipe from '{}'", recipe_url);
-  ns_log::info()("Saving to '{}'", path_file_output.string());
+  logger("I::Downloading recipe from '{}'", recipe_url);
+  logger("I::Saving to '{}'", path_file_output.string());
   // Execute wget to download the file
   Try(ns_subprocess::Subprocess(path_file_downloader)
     .with_args("-O", path_file_output.string(), recipe_url)
     .wait());
-  ns_log::info()("Successfully downloaded recipe '{}' to '{}'", recipe, path_file_output.string());
+  logger("I::Successfully downloaded recipe '{}' to '{}'", recipe, path_file_output.string());
   // Read the downloaded JSON file
   std::ifstream file(path_file_output);
   if (!file.is_open())

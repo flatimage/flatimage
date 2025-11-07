@@ -156,7 +156,7 @@ namespace fs = std::filesystem;
   fs::path path_file_desktop = Pop(get_path_file_desktop(desktop));
   // Create parent directories for entry
   Try(fs::create_directories(path_file_desktop.parent_path()));
-  ns_log::info()("Integrating desktop entry...");
+  logger("I::Integrating desktop entry...");
   // Open desktop file
   std::ofstream file_desktop(path_file_desktop, std::ios::out | std::ios::trunc);
   qreturn_if(not file_desktop.is_open() , Error("E::Could not open desktop file {}", path_file_desktop));
@@ -196,7 +196,7 @@ namespace fs = std::filesystem;
 {
   fs::path xdg_data_home = Pop(ns_env::xdg_data_home());
   fs::path path_bin_mime = Pop(ns_env::search_path("update-mime-database"));
-  ns_log::info()("Updating mime database...");
+  logger("I::Updating mime database...");
   Try(ns_subprocess::Subprocess(path_bin_mime)
     .with_args(xdg_data_home / "mime", "update-mime-database")
     .with_log_stdio()
@@ -279,11 +279,11 @@ namespace fs = std::filesystem;
   // Check if should update mime database
   if(is_update_mime_database(path_file_binary, path_file_xml) )
   {
-    ns_log::info()("Integrating mime database...");
+    logger("I::Integrating mime database...");
   }
   else
   {
-    ns_log::debug()("Skipping mime database update...");
+    logger("D::Skipping mime database update...");
     return {};
   }
   // Create application mimetype file
@@ -309,12 +309,12 @@ namespace fs = std::filesystem;
   Pop(ns_fs::create_directories(path_icon_app.parent_path()));
   auto f_copy_icon = [](fs::path const& path_icon_src, fs::path const& path_icon_dst)
   {
-    ns_log::debug()("Copy '{}' to '{}'", path_icon_src, path_icon_dst);
+    logger("D::Copy '{}' to '{}'", path_icon_src, path_icon_dst);
     std::error_code ec;
     if (not fs::exists(path_icon_dst, ec)
     and not fs::copy_file(path_icon_src, path_icon_dst, ec))
     {
-      ns_log::error()("Could not copy file '{}' to '{}': '{}'"
+      logger("E::Could not copy file '{}' to '{}': '{}'"
         , path_icon_src
         , path_icon_dst
         , (ec)? ec.message() : "Unknown error"
@@ -354,7 +354,7 @@ namespace fs = std::filesystem;
     // Duplicate icon to app directory
     if (not fs::copy_file(path_icon_mimetype, path_icon_app, fs::copy_options::skip_existing, ec))
     {
-      ns_log::error()("Could not copy file '{}': '{}'", path_icon_app, ec.message());
+      logger("E::Could not copy file '{}': '{}'", path_icon_app, ec.message());
     }
   }
   return {};
@@ -451,27 +451,27 @@ namespace fs = std::filesystem;
   auto desktop = Pop(ns_db::ns_desktop::deserialize(str_raw_json)
     , "D::Missing or misconfigured desktop integration"
   );
-  ns_log::debug()("Json desktop data: {}", str_raw_json);
+  logger("D::Json desktop data: {}", str_raw_json);
 
   // Create desktop entry
   if(desktop.get_integrations().contains(IntegrationItem::ENTRY))
   {
-    ns_log::info()("Integrating desktop entry...");
+    logger("I::Integrating desktop entry...");
     Pop(integrate_desktop_entry(desktop, config.path_file_binary));
   }
   // Create and update mime
   if(desktop.get_integrations().contains(IntegrationItem::MIMETYPE))
   {
-    ns_log::info()("Integrating mime database...");
+    logger("I::Integrating mime database...");
     Pop(integrate_mime_database(desktop,  config.path_file_binary));
   }
   // Create desktop icons
   if(desktop.get_integrations().contains(IntegrationItem::ICON))
   {
-    ns_log::info()("Integrating desktop icons...");
+    logger("I::Integrating desktop icons...");
     if(auto ret = integrate_icons(config, desktop); not ret)
     {
-      ns_log::debug()("Could not integrate icons: '{}'", ret.error());
+      logger("D::Could not integrate icons: '{}'", ret.error());
     }
   }
   // Check if should notify
@@ -496,7 +496,7 @@ namespace fs = std::filesystem;
   }
   else
   {
-    ns_log::debug()("Notify is disabled");
+    logger("D::Notify is disabled");
   }
   
   return {};
@@ -605,11 +605,11 @@ namespace fs = std::filesystem;
     fs::remove(path, ec);
     if(ec)
     {
-      ns_log::error()("Could not remove '{}': {}", path, ec.message());
+      logger("E::Could not remove '{}': {}", path, ec.message());
     }
     else
     {
-      ns_log::info()("Removed file '{}'", path);
+      logger("I::Removed file '{}'", path);
     }
   };
   // Remove entry

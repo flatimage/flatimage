@@ -73,11 +73,11 @@ inline void Binds::erase(size_t index)
 {
   if (std::erase_if(m_binds, [&](auto&& bind){ return bind.index == index; }) > 0)
   {
-    ns_log::info()("Erase element with index '{}'", index);
+    logger("I::Erase element with index '{}'", index);
   }
   else
   {
-    ns_log::info()("No element with index '{}' found", index);
+    logger("I::No element with index '{}' found", index);
   }
   for(long i{}; auto& bind : m_binds) { bind.index = i++; }
 }
@@ -122,7 +122,7 @@ inline bool Binds::empty() const noexcept
     }
     else
     {
-      ns_log::warn()("Failed to parse bind index '{}'", key);
+      logger("W::Failed to parse bind index '{}'", key);
       continue;
     }
   }

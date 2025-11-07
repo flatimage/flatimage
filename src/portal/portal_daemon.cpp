@@ -111,7 +111,7 @@ int main(int argc, char** argv)
     }
     // Create a safe view over read data
     std::string_view msg{buffer, static_cast<size_t>(bytes_read)};
-    ns_log::info()("Recovered message: {}", msg);
+    logger("I::Recovered message: {}", msg);
     // Validate json data
     auto validation = validate(msg);
     econtinue_if(not validation, std::format("Could not perform the validation of the message: {}", validation.error()));
@@ -119,7 +119,7 @@ int main(int argc, char** argv)
     // Spawn child
     if(pid_t pid = fork(); pid < 0)
     {
-      ns_log::error()("Could not fork child");
+      logger("E::Could not fork child");
     }
     else if (pid == 0)
     {

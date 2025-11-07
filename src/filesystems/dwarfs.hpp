@@ -57,7 +57,7 @@ inline Dwarfs::Dwarfs(pid_t pid_to_die_for, fs::path const& path_dir_mount, fs::
 {
   if(auto ret = this->mount(); not ret)
   {
-    ns_log::error()("Could not mount filesystem '{}' to '{}': {}", path_file_image, path_dir_mount, ret.error());
+    logger("E::Could not mount filesystem '{}' to '{}': {}", path_file_image, path_dir_mount, ret.error());
   }
 }
 

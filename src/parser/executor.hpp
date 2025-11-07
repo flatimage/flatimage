@@ -86,7 +86,7 @@ using namespace ns_parser::ns_interface;
       : config.path_dir_mount_overlayfs;
     // Get uid and gid from config (checks environment database or uses defaults)
     ns_config::User user = Pop(config.configure_user(), "E::Failed to configure user data");
-    ns_log::debug()("User: {}", user);
+    logger("D::User: {}", user);
     // Create bwrap command
     ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(
         user.name
@@ -128,7 +128,7 @@ using namespace ns_parser::ns_interface;
     // Retry with fallback if bwrap overlayfs failed
     if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP and bwrap_run_ret.syscall_nr == SYS_mount )
     {
-      ns_log::error()("Bwrap failed SYS_mount, retrying with fuse-unionfs...");
+      logger("E::Bwrap failed SYS_mount, retrying with fuse-unionfs...");
       config.overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
       bwrap_run_ret = Pop(f_bwrap_impl(program, args), "E::Failed to execute bwrap");
     } // if
