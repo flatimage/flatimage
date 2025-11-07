@@ -51,7 +51,7 @@ class TestFimLayer(unittest.TestCase):
     self.create_script(self.dir_root, content)
     # Create layer
     out,err,code = self.run_cmd("fim-layer", "create", str(self.dir_root), str(self.file_layer))
-    self.assertIn("filesystem created without errors", err)
+    self.assertIn("filesystem created without errors", out)
     self.assertEqual(code, 0)
     # Add layer
     out,err,code = self.run_cmd("fim-layer", "add", str(self.file_layer))
