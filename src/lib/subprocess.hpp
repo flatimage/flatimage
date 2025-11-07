@@ -107,7 +107,7 @@ class Subprocess
     template<ns_string::static_string S = "D">
     [[maybe_unused]] [[nodiscard]] Subprocess& with_log_stdio();
 
-    [[maybe_unused]] [[nodiscard]] Subprocess& with_log_file(std::filesystem::path path);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_log_file(std::filesystem::path const& path);
 
     template<typename F>
     [[maybe_unused]] [[nodiscard]] Subprocess& with_stdout_handle(F&& f);
@@ -544,9 +544,9 @@ inline Subprocess& Subprocess::with_log_stdio()
  *     .spawn();
  * @endcode
  */
-inline Subprocess& Subprocess::with_log_file(std::filesystem::path path)
+inline Subprocess& Subprocess::with_log_file(std::filesystem::path const& path)
 {
-  m_log_file = std::move(path);
+  m_log_file = path;
   return *this;
 }
 
