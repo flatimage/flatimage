@@ -126,6 +126,7 @@
 #include <iostream>
 #include <fstream>
 #include <print>
+#include <ranges>
 #include <unistd.h>
 
 #include "../std/concept.hpp"
@@ -153,6 +154,7 @@ class Logger
   private:
     std::ofstream m_sink;
     Level m_level;
+    pid_t m_pid;  ///< PID at logger initialization (used to detect forked children)
   public:
     Logger();
     Logger(Logger const&) = delete;
@@ -161,6 +163,7 @@ class Logger
     Logger& operator=(Logger&&) = delete;
     void set_level(Level level);
     [[nodiscard]] Level get_level() const;
+    [[nodiscard]] pid_t get_pid() const;
     void set_sink_file(fs::path const& path_file_sink);
     void flush();
     [[nodiscard]] std::ofstream& get_sink_file();
@@ -197,6 +200,10 @@ static void fork_handler_parent()
  * This function is registered via pthread_atfork() and automatically executes
  * in child processes after fork(). It resets the logger to a fresh state with
  * /dev/null sink, preventing file descriptor sharing issues.
+ *
+ * NOTE: m_pid is intentionally NOT updated here. This allows child processes
+ * to detect they are forks (getpid() != m_pid) and log their PID instead of
+ * file location.
  */
 void fork_handler_child()
 {
@@ -210,6 +217,7 @@ void fork_handler_child()
 inline Logger::Logger()
   : m_sink("/dev/null")
   , m_level(Level::CRITICAL)
+  , m_pid(getpid())
 {
   static thread_local bool registered = false;
   if (!registered)
@@ -273,12 +281,26 @@ inline void Logger::set_level(Level level)
 
 /**
  * @brief Get current verbosity level of the logger
- * 
- * @return Level 
+ *
+ * @return Level
  */
 inline Level Logger::get_level() const
 {
   return m_level;
+}
+
+/**
+ * @brief Get the PID that was active when this logger was initialized
+ *
+ * This returns the PID from when the Logger constructor ran, which may differ
+ * from the current PID if this is a forked child process. This enables fork
+ * detection: if getpid() != get_pid(), we're in a child process.
+ *
+ * @return pid_t The original process ID (parent's PID in forked children)
+ */
+inline pid_t Logger::get_pid() const
+{
+  return m_pid;
 }
 
 }
@@ -404,14 +426,27 @@ class Writer
     requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
     void operator()(T&& format, Args&&... args)
     {
+      // Get current PID to detect if this is a forked child process
+      pid_t pid = getpid();
+      // Create string
       std::string line;
-      line += std::format("{}::{}::", m_prefix, m_loc.get())
-              + vformat(ns_string::to_string(format), ns_string::to_string(args)...)
-              + '\n';
+      // Parent: show "PREFIX::file::line::", Child: show "PREFIX::child_pid::"
+      line += (pid == logger.get_pid())? std::format("{}::{}::", m_prefix, m_loc.get())
+        : std::format("{}::{}::", m_prefix, pid);
+      // Append format and args
+      line += vformat(ns_string::to_string(format), ns_string::to_string(args)...)
+        // Remove new lines to avoid printing without a prefix
+        | std::views::filter([](char c){ return c != '\n'; })
+        // Make it into a string
+        | std::ranges::to<std::string>();
+      // Append a single newline
+      line += '\n';
+      // Push to file
       if(std::ofstream& sink = logger.get_sink_file(); sink.is_open())
       {
         sink << line;
       }
+      // Push to stream
       if(logger.get_level() >= m_level)
       {
         ostream.get() << line;
