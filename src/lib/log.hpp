@@ -165,6 +165,7 @@ class Logger
     [[nodiscard]] Level get_level() const;
     [[nodiscard]] pid_t get_pid() const;
     void set_sink_file(fs::path const& path_file_sink);
+    void set_as_fork();
     void flush();
     [[nodiscard]] std::ofstream& get_sink_file();
 };
@@ -303,6 +304,19 @@ inline pid_t Logger::get_pid() const
   return m_pid;
 }
 
+/**
+ * @brief Marks the logger as being in a forked child process
+ *
+ * Sets m_pid to an invalid value (0) so that getpid() will always differ
+ * from it. This ensures log messages always display the current PID instead
+ * of file location information, making it clear these logs come from a
+ * separate child process.
+ */
+inline void Logger::set_as_fork()
+{
+  m_pid = 0;
+}
+
 }
 
 /**
@@ -327,12 +341,43 @@ inline Level get_level()
 
 /**
  * @brief Sets the sink file of the logger
- * 
- * @param path_file_sink The path to the logger sink file 
+ *
+ * @param path_file_sink The path to the logger sink file
  */
 inline void set_sink_file(fs::path const& path_file_sink)
 {
   logger.set_sink_file(path_file_sink);
+}
+
+/**
+ * @brief Marks the logger as being in a forked child process
+ *
+ * For processes that need to explicitly indicate they are children (e.g., pipe
+ * readers forked from the parent), this function sets the logger's tracked PID
+ * to an invalid value (0) so that subsequent log messages always display the
+ * current process ID instead of file location information.
+ *
+ * **Usage Example:**
+ * @code
+ * pid_t pid = fork();
+ * if (pid == 0) {
+ *   // Child process
+ *   ns_log::set_as_fork();  // Ensure logs show this process's PID
+ *   ns_log::set_sink_file(log_path);
+ *   logger("I::Starting in child process");
+ * }
+ * @endcode
+ *
+ * **Effect on Log Output:**
+ * - **Before**: `I::boot.cpp::50::Message` (if m_pid matched current PID)
+ * - **After**: `I::12345::Message` (always shows current PID since m_pid=0)
+ *
+ * **Note:** This is typically automatic after fork() + pthread_atfork handlers,
+ * but can be called explicitly for clarity or in special circumstances.
+ */
+inline void set_as_fork()
+{
+  logger.set_as_fork();
 }
 
 /**
