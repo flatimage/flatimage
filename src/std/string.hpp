@@ -17,17 +17,42 @@
 
 namespace ns_string
 {
-  
+
 template<size_t N>
-struct static_string 
+struct static_string
 {
   char data[N];
-  constexpr static_string(const char (&str)[N]) 
+  // Functions
+  constexpr static_string(const char (&str)[N])
   {
     std::copy_n(str, N, data);
   }
+  constexpr static_string() = default;
   constexpr operator const char*() const { return data; }
-  constexpr operator std::string_view() const { return data; }
+  constexpr operator std::string_view() const { return std::string_view(data, N - 1); }
+  constexpr size_t size() const { return N - 1; }
+  // Concatenate this string with other static_strings
+  // Use 'auto' to accept any static_string<M> as NTTP
+  template <auto... Strs>
+  constexpr auto join() const noexcept
+  {
+    // Total string length
+    constexpr std::size_t total_len = (N - 1) + (Strs.size() + ... + 0);
+    // Result of the operation
+    static_string<total_len + 1> result{};
+    // Copy the member string
+    std::copy_n(data, N, result.data);
+    // Copy all other strings
+    auto append = [i=N-1, &result](auto const& s) mutable
+    {
+      std::copy_n(s.data, s.size(), result.data+i);
+      i += s.size();
+    };
+    (append(Strs), ...);
+    // String terminator
+    result.data[total_len] = '\0';
+    return result;
+  }
 };
 
 /**
