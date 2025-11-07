@@ -26,7 +26,7 @@ namespace fs = std::filesystem;
 class Portal
 {
   private:
-    std::unique_ptr<ns_subprocess::Subprocess> m_process;
+    std::unique_ptr<ns_subprocess::Child> m_child;
     fs::path m_path_file_daemon;
     fs::path m_path_file_guest;
     Portal();
@@ -38,7 +38,7 @@ class Portal
 };
 
 inline Portal::Portal()
-  : m_process(nullptr)
+  : m_child(nullptr)
   , m_path_file_daemon()
   , m_path_file_guest()
 {
@@ -46,10 +46,10 @@ inline Portal::Portal()
 
 inline Portal::~Portal()
 {
-  if (m_process)
+  if (m_child)
   {
-    m_process->kill(SIGTERM);
-    std::ignore = m_process->wait();
+    m_child->kill(SIGTERM);
+    std::ignore = m_child->wait();
   }
 }
 
@@ -66,10 +66,11 @@ inline Portal::~Portal()
   portal->m_path_file_guest = fs::path{str_dir_app_bin} / "fim_portal";
   qreturn_if(not fs::exists(portal->m_path_file_guest), Error("E::Guest not found in {}", portal->m_path_file_guest));
   // Create a portal that uses the reference file to create an unique communication key
-  portal->m_process = std::make_unique<ns_subprocess::Subprocess>(portal->m_path_file_daemon);
   // Spawn process to background
-  std::ignore = portal->m_process->with_piped_outputs()
+  using enum ns_subprocess::Stream;
+  portal->m_child = ns_subprocess::Subprocess(portal->m_path_file_daemon)
     .with_args(pid_reference, mode)
+    .with_log_stdio()
     .spawn();
   return portal;
 }

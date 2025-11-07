@@ -11,7 +11,6 @@
 #include <filesystem>
 #include <unistd.h>
 
-#include "../lib/subprocess.hpp"
 #include "../lib/fuse.hpp"
 
 namespace ns_filesystem
@@ -23,7 +22,7 @@ class Filesystem
   protected:
     pid_t m_pid_to_die_for;
     std::filesystem::path m_path_dir_mount;
-    std::unique_ptr<ns_subprocess::Subprocess> m_subprocess;
+    std::unique_ptr<ns_subprocess::Child> m_child;
     Filesystem(pid_t pid_to_die_for, std::filesystem::path const& path_dir_mount);
     
   public:
@@ -44,7 +43,7 @@ class Filesystem
 inline Filesystem::Filesystem(pid_t pid_to_die_for, std::filesystem::path const& path_dir_mount)
   : m_pid_to_die_for(pid_to_die_for)
   , m_path_dir_mount(path_dir_mount)
-  , m_subprocess(nullptr)
+  , m_child(nullptr)
 {
 }
 
@@ -57,20 +56,14 @@ inline Filesystem::~Filesystem()
   // Un-mount the fuse file system
   ns_fuse::unmount(m_path_dir_mount).discard("E::Could not un-mount filesystem '{}'", m_path_dir_mount);
   // Check for subprocess
-  if(not m_subprocess)
-  {
-    ns_log::error()("No fuse sub-process for '{}'", m_path_dir_mount);
-    return;
-  }
+  ereturn_if(not m_child, std::format("No fuse sub-process for '{}'", m_path_dir_mount.string()));
   // Tell process to exit with SIGTERM
-  if (pid_t pid = m_subprocess->get_pid().value_or(-1); pid > 0)
+  if (pid_t pid = m_child->get_pid().value_or(-1); pid > 0)
   {
     kill(pid, SIGTERM);
   }
-  // Wait for process to exit
-  auto ret = m_subprocess->wait();
-  dreturn_if(not ret, std::format("Mount '{}' exited unexpectedly", m_path_dir_mount.string()));
-  dreturn_if(ret and *ret != 0, std::format("Mount '{}' exited with non-zero exit code '{}'", m_path_dir_mount.string(), *ret));
+  // Wait for process to exit and log result
+  std::ignore = m_child->wait();
 }
 
 } // namespace ns_filesystem

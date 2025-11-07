@@ -197,7 +197,10 @@ namespace fs = std::filesystem;
   fs::path xdg_data_home = Pop(ns_env::xdg_data_home());
   fs::path path_bin_mime = Pop(ns_env::search_path("update-mime-database"));
   ns_log::info()("Updating mime database...");
-  ns_subprocess::log(ns_subprocess::wait(path_bin_mime, xdg_data_home / "mime"), "update-mime-database");
+  Try(ns_subprocess::Subprocess(path_bin_mime)
+    .with_args(xdg_data_home / "mime", "update-mime-database")
+    .with_log_stdio()
+    .wait());
   return {};
 }
 
@@ -474,22 +477,22 @@ namespace fs = std::filesystem;
   // Check if should notify
   if (config.is_notify)
   {
-    std::error_code ec;
     // Get bash binary
     fs::path path_file_binary_bash = Pop(ns_env::search_path("bash"));
     // Get possible icon paths
     fs::path path_file_icon = ({
       fs::path path_file_icon_png = Pop(get_path_file_icon_png(desktop.get_name(), 64)).second;
       fs::path path_file_icon_svg = Pop(get_path_file_icon_svg(desktop.get_name())).second;
-      fs::exists(path_file_icon_png, ec)? path_file_icon_png : path_file_icon_svg;
+      Try(fs::exists(path_file_icon_png))? path_file_icon_png : path_file_icon_svg;
     });
     // Path to mimetype icon
-    std::ignore = ns_subprocess::Subprocess(path_file_binary_bash)
-      .with_piped_outputs()
+    using enum ns_subprocess::Stream;
+    ns_subprocess::Subprocess(path_file_binary_bash)
       .with_args("-c", R"(notify-send "$@")", "--")
       .with_args("-i", path_file_icon, std::format("Started '{}' FlatImage", desktop.get_name()))
-      .spawn()
-      .wait();
+      .with_log_stdio()
+      .wait()
+      .discard("E::Failed to send notification");
   }
   else
   {

@@ -78,13 +78,13 @@ inline Value<void> Dwarfs::mount()
   );
   // Find command in PATH
   auto path_file_dwarfs = Pop(ns_env::search_path("dwarfs"), "E::Could not find dwarfs in PATH");
-  // Create command
-  m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_dwarfs);
   // Spawn command
-  std::ignore = m_subprocess->with_piped_outputs()
+  using enum ns_subprocess::Stream;
+  m_child = ns_subprocess::Subprocess(path_file_dwarfs)
     .with_args(m_path_file_image, m_path_dir_mount)
     .with_args("-f", "-o", std::format("auto_unmount,offset={},imagesize={}", m_offset, m_size_image))
     .with_die_on_pid(m_pid_to_die_for)
+    .with_log_stdio()
     .spawn();
   // Wait for mount
   ns_fuse::wait_fuse(m_path_dir_mount);

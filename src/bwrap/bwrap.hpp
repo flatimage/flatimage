@@ -236,30 +236,27 @@ inline void Bwrap::set_xdg_runtime_dir()
 inline Value<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src)
 {
   // Test current bwrap binary
+  using enum ns_subprocess::Stream;
   auto ret = ns_subprocess::Subprocess(path_file_bwrap_src)
-    .with_piped_outputs()
     .with_args("--bind", "/", "/", "bash", "-c", "echo")
-    .spawn()
+    .with_log_stdio()
     .wait();
   qreturn_if (ret and *ret == 0, path_file_bwrap_src);
   // Try to use bwrap installed by flatimage
   fs::path path_file_bwrap_opt = "/opt/flatimage/bwrap";
   ret = ns_subprocess::Subprocess(path_file_bwrap_opt)
-    .with_piped_outputs()
     .with_args("--bind", "/", "/", "bash", "-c", "echo")
-    .spawn()
+    .with_log_stdio()
     .wait();
   qreturn_if (ret and *ret == 0, path_file_bwrap_opt);
   // Error might be EACCES, try to integrate with apparmor
   fs::path path_file_pkexec = Pop(ns_env::search_path("pkexec"));
   fs::path path_file_bwrap_apparmor = Pop(ns_env::search_path("fim_bwrap_apparmor"));
   fs::path path_dir_mount = Pop(ns_env::get_expected("FIM_DIR_MOUNT"));
-  ret = ns_subprocess::Subprocess(path_file_pkexec)
+  Try(ns_subprocess::Subprocess(path_file_pkexec)
     .with_args(path_file_bwrap_apparmor, path_dir_mount, path_file_bwrap_src)
-    .spawn()
-    .wait();
-  qreturn_if(not ret, Error("E::Could not find create profile (abnormal exit)"));
-  qreturn_if(ret and *ret != 0, Error("E::Could not find create profile with exit code '{}'", *ret));
+    .with_log_stdio()
+    .wait());
   return path_file_bwrap_opt;
 }
 
@@ -754,10 +751,8 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
     .with_args(path_file_bash, "-c", std::format(R"(&>/dev/null nohup "{}" "{}" guest & disown; "{}" "$@")", path_file_daemon.string(), getpid(), m_path_file_program.string()), "--")
     .with_args(m_program_args)
     .with_env(m_program_env)
-    .spawn()
-    .wait();
-  if ( not code ) { ns_log::error()("bwrap exited abnormally"); }
-  if ( code.value() != 0 ) { ns_log::error()("bwrap exited with non-zero exit code '{}'", code.value()); }
+    .wait()
+    .value_or(125);
 
   // Failed syscall and errno
   int syscall_nr = -1;
@@ -772,7 +767,7 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   close(pipe_error[1]);
 
   // Return value and possible errors
-  return bwrap_run_ret_t{.code=code.value_or(125), .syscall_nr=syscall_nr, .errno_nr=errno_nr};
+  return bwrap_run_ret_t{.code=code, .syscall_nr=syscall_nr, .errno_nr=errno_nr};
 }
 
 } // namespace ns_bwrap

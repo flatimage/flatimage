@@ -80,8 +80,6 @@ inline Value<void> Overlayfs::mount()
   Pop(ns_fs::create_directories(m_path_dir_mount), "E::Failed to create mount directory");
   // Find overlayfs
   auto path_file_overlayfs = Pop(ns_env::search_path("overlayfs"), "E::Could not find overlayfs in PATH");
-  // Create subprocess
-  m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_overlayfs);
   // Get user and group ids
   uid_t user_id = getuid();
   gid_t group_id = getgid();
@@ -94,14 +92,16 @@ inline Value<void> Overlayfs::mount()
     | std::ranges::to<std::string>();
   arg_lowerdir = "lowerdir=" + arg_lowerdir;
   // Include arguments and spawn process
-  std::ignore = m_subprocess->
-     with_args("-f")
+  using enum ns_subprocess::Stream;
+  m_child = ns_subprocess::Subprocess(path_file_overlayfs)
+    .with_args("-f")
     .with_args("-o", std::format("squash_to_uid={}", user_id))
     .with_args("-o", std::format("squash_to_gid={}", group_id))
     .with_args("-o", arg_lowerdir)
     .with_args("-o", std::format("upperdir={}", m_path_dir_upper.string()))
     .with_args("-o", std::format("workdir={}", m_path_dir_work.string()))
     .with_args(m_path_dir_mount)
+    .with_log_stdio()
     .with_die_on_pid(m_pid_to_die_for)
     .spawn();
   // Wait for mount

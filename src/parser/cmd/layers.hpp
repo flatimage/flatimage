@@ -95,16 +95,14 @@ namespace ns_layers
   // Compress filesystem
   ns_log::info()("Compression level: '{}'", compression_level);
   ns_log::info()("Compress filesystem to '{}'", path_file_dst);
-  auto ret = ns_subprocess::Subprocess(path_file_mkdwarfs)
+  Try(ns_subprocess::Subprocess(path_file_mkdwarfs)
     .with_args("-f")
     .with_args("-i", path_dir_src, "-o", path_file_dst)
     .with_args("-l", compression_level)
     .with_args("--input-list", path_file_list)
-    .spawn()
-    .wait();
-  qreturn_if(not ret, Error("E::mkdwarfs process exited abnormally"));
-  qreturn_if(ret.value() != 0, Error("E::mkdwarfs process exited with error code '{}'", ret.value()));
-  return {};
+    .with_log_stdio<"I">()
+    .wait());
+  return{};
 }
 
 /**

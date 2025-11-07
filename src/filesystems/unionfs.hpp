@@ -76,8 +76,6 @@ inline Value<void> UnionFs::mount()
   Pop(ns_fs::create_directories(m_path_dir_mount), "E::Could not create lower directory");
   // Find unionfs
   auto path_file_unionfs = Pop(ns_env::search_path("unionfs"), "E::Could not find unionfs in PATH");
-  // Create subprocess
-  m_subprocess = std::make_unique<ns_subprocess::Subprocess>(path_file_unionfs);
   // Create string to represent layers argumnet
   // First layer is the writteable one
   // Layers are overlayed as top_branch:lower_branch:...:lowest_branch
@@ -87,12 +85,14 @@ inline Value<void> UnionFs::mount()
     arg_layers += std::format(":{}=RO", path_dir_layer.string());
   } // for
   // Include arguments and spawn process
-  std::ignore = m_subprocess->
-     with_args("-f")
+  using enum ns_subprocess::Stream;
+  m_child = ns_subprocess::Subprocess(path_file_unionfs)
+    .with_args("-f")
     .with_args("-o", "cow")
     .with_args(arg_layers)
     .with_args(m_path_dir_mount)
     .with_die_on_pid(m_pid_to_die_for)
+    .with_log_stdio()
     .spawn();
   // Wait for mount
   ns_fuse::wait_fuse(m_path_dir_mount);

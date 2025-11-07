@@ -441,12 +441,10 @@ using namespace ns_parser::ns_interface;
       qreturn_if(cmd_exec->id < 0 or static_cast<size_t>(cmd_exec->id) >= instances.size()
         , Error("C::Instance index out of bounds")
       );
-      return ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
+      return Try(ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
         .with_args("--connect", instances.at(cmd_exec->id))
         .with_args(cmd_exec->args)
-        .spawn()
-        .wait()
-        .value_or(125);
+        .wait());
     }
     else if(std::get_if<CmdInstance::List>(&(cmd->sub_cmd)))
     {

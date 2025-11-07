@@ -157,15 +157,9 @@ namespace ns_recipe
   ns_log::info()("Downloading recipe from '{}'", recipe_url);
   ns_log::info()("Saving to '{}'", path_file_output.string());
   // Execute wget to download the file
-  int ret_code = ns_subprocess::Subprocess(path_file_downloader)
+  Try(ns_subprocess::Subprocess(path_file_downloader)
     .with_args("-O", path_file_output.string(), recipe_url)
-    .spawn()
-    .wait()
-    .value_or(125);
-  // Check return code
-  qreturn_if(ret_code != 0,
-    Error("E::Failed to download recipe '{}' from '{}' (exit code: {})", recipe, recipe_url, ret_code)
-  );
+    .wait());
   ns_log::info()("Successfully downloaded recipe '{}' to '{}'", recipe, path_file_output.string());
   // Read the downloaded JSON file
   std::ifstream file(path_file_output);

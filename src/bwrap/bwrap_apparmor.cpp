@@ -56,7 +56,7 @@ int main(int argc, char const* argv[])
   // Reload profile
   return Pop(ns_subprocess::Subprocess(path_file_apparmor_parser)
     .with_args("-r", path_file_profile)
-    .spawn()
+    .with_log_stdio()
     .wait()
   );
 } // main

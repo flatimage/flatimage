@@ -86,16 +86,23 @@ inline Value<void> unmount(fs::path const& path_dir_mount)
   auto path_file_fusermount = Pop(ns_env::search_path("fusermount"));
 
   // Un-mount filesystem
-  auto ret = ns_subprocess::Subprocess(path_file_fusermount)
-    .with_piped_outputs()
+  using enum ns_subprocess::Stream;
+  int code = ns_subprocess::Subprocess(path_file_fusermount)
     .with_args("-zu", path_dir_mount)
-    .spawn()
-    .wait();
+    .with_log_stdio()
+    .wait()
+    .forward("E::")
+    .value_or(-1);
+
 
   // Check for successful un-mount
-  if(ret and *ret == 0)
+  if(code == 0)
   {
-    ns_log::debug()(std::format("Un-mounted filesystem '{}'", path_dir_mount.string()));
+    logger("D::Un-mounted filesystem '{}'", path_dir_mount.string());
+  }
+  else
+  {
+    logger("D::Failed to un-mount filesystem '{}'", path_dir_mount.string());
   }
 
   // Filesystem could be busy for a bit after un-mount

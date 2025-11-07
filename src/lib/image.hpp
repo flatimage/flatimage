@@ -66,14 +66,12 @@ inline Value<void> resize_impl(fs::path const& path_file_src
   // Search for imagemagick
   fs::path path_bin_magick = Pop(ns_env::search_path("magick"));
   // Resize
-  int code = Pop(ns_subprocess::Subprocess(path_bin_magick)
+  Try(ns_subprocess::Subprocess(path_bin_magick)
     .with_args(path_file_src)
     .with_args("-resize", (img.width() > img.height())? std::format("{}x", width) : std::format("x{}", height))
     .with_args(path_file_dst)
-    .spawn()
-    .wait()
-  );
-  qreturn_if(code != 0, std::unexpected(std::format("Failure to resize image with code {}", code)))
+    .with_log_stdio()
+    .wait());
   return {};
 }
 
