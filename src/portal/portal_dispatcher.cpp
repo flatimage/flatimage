@@ -96,7 +96,7 @@ void signal_handler(int sig)
   db("environment") = path_file_env;
   // Get json string
   std::string data = Pop(db.dump());
-  ns_log::debug()(data);
+  logger("D::{}", data);
   // Write to fifo
   ssize_t size_writen = ns_linux::open_write_with_timeout(path_daemon_fifo
     , std::chrono::seconds(SECONDS_TIMEOUT)
@@ -240,7 +240,7 @@ int main(int argc, char** argv)
   // Reflect the original process return code
   if(result) { return result.value(); }
   // Error on process request
-  ns_log::error()(result.error());
+  logger("E::{}", result.error());
   return EXIT_FAILURE;
 }
 

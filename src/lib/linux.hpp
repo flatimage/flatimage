@@ -126,7 +126,7 @@ template<typename Data>
   InterruptTimer interrupt;
   if(auto ret = interrupt.start(timeout); not ret)
   {
-    ns_log::error()(ret.error());
+    logger("E::{}", ret.error());
     return -1;
   }
   return ::read(fd, buf.data(), buf.size()*sizeof(Element));
@@ -150,7 +150,7 @@ template<typename Data>
   InterruptTimer interrupt;
   if(auto ret = interrupt.start(timeout); not ret)
   {
-    ns_log::error()(ret.error());
+    logger("E::{}", ret.error());
     return -1;
   }
   return ::open(path_file_src.c_str(), oflag);

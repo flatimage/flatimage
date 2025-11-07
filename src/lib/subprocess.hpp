@@ -527,7 +527,7 @@ inline Subprocess& Subprocess::with_log_stdio()
  * @brief Sets the log file path for the child process logger
  *
  * Configures where the child process's ns_log output will be written.
- * This is set up via ns_log::set_sink_file() in the child process.
+ * This is set up via set_sink_file() in the child process.
  *
  * @param path Path to the log file (e.g., "/dev/null", "/tmp/child.log")
  * @return Subprocess& A reference to *this for method chaining
@@ -739,7 +739,7 @@ Subprocess& Subprocess::with_stderr_handle(F&& f)
  * child runs asynchronously. Call wait() on the returned handle
  * to synchronize and retrieve the exit code.
  *
- * Use with_log_file() before spawn() to redirect child's ns_log output (not stdout/stderr).
+ * Use with_log_file() before spawn() to redirect child's log output (not stdout/stderr).
  *
  * @return std::unique_ptr<Child> Unique pointer to the spawned process with wait() methods
  *
@@ -754,7 +754,7 @@ Subprocess& Subprocess::with_stderr_handle(F&& f)
  * auto proc = Subprocess("/bin/app")
  *     .with_log_file("/tmp/child_debug.log")
  *     .spawn();
- * // Child's ns_log::info() etc. goes to /tmp/child_debug.log
+ * // Child's info() etc. goes to /tmp/child_debug.log
  *
  * // Background process (destructor waits automatically)
  * {

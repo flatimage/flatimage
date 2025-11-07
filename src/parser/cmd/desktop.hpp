@@ -405,7 +405,7 @@ namespace fs = std::filesystem;
   // Check for existing integration
   if (fs::exists(path_file_icon, ec))
   {
-    ns_log::debug()(std::format("Icons are integrated, found {}", path_file_icon.string()));
+    logger("D::Icons are integrated, found {}", path_file_icon.string());
     return {};
   }
   qreturn_if(ec, Error("E::Could not check if icon exists: {}", ec.message()));

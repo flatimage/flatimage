@@ -78,7 +78,7 @@ constexpr auto __expected_fn = [](auto&& e) { return e; };
   auto __expected_ret = (expr);                                                       \
   if (!__expected_ret)                                                                \
   {                                                                                   \
-    NOPT(ns_log::debug()("D::{}", __expected_ret.error()) __VA_OPT__(,) __VA_ARGS__); \
+    NOPT(logger("D::{}", __expected_ret.error()) __VA_OPT__(,) __VA_ARGS__); \
     __VA_OPT__(logger(__VA_ARGS__));                                                  \
     return __expected_fn(std::unexpected(std::move(__expected_ret).error()));         \
   }                                                                                   \

@@ -158,7 +158,7 @@ inline Controller::~Controller()
   // Is parent
   if(m_opt_pid_janitor > 0)
   {
-    ns_log::debug()(std::format("Spawned janitor with PID '{}'", *m_opt_pid_janitor));
+    logger("D::Spawned janitor with PID '{}'", *m_opt_pid_janitor);
     return {};
   }
 
