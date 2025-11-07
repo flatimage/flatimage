@@ -34,7 +34,7 @@ class Controller
     std::vector<fs::path> m_vec_path_dir_mountpoints;
     std::vector<std::unique_ptr<ns_dwarfs::Dwarfs>> m_layers;
     std::vector<std::unique_ptr<ns_filesystem::Filesystem>> m_filesystems;
-    std::optional<pid_t> m_opt_pid_janitor;
+    std::unique_ptr<ns_subprocess::Child> m_child_janitor;
     [[nodiscard]] uint64_t mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_file_binary, uint64_t offset);
     void mount_ciopfs(fs::path const& path_dir_lower, fs::path const& path_dir_upper);
     void mount_unionfs(std::vector<fs::path> const& vec_path_dir_layer
@@ -69,7 +69,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
   , m_vec_path_dir_mountpoints()
   , m_layers()
   , m_filesystems()
-  , m_opt_pid_janitor(std::nullopt)
+  , m_child_janitor(nullptr)
 {
   // Mount compressed layers
   [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_mount_layers, config.path_file_binary, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
@@ -123,22 +123,18 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
  */
 inline Controller::~Controller()
 {
-  // Terminate janitor
-  if ( m_opt_pid_janitor and m_opt_pid_janitor.value() > 0)
-  {
-    // Stop janitor loop & wait for cleanup
-    kill(m_opt_pid_janitor.value(), SIGTERM);
-    // Wait for janitor to finish execution
-    int status;
-    waitpid(m_opt_pid_janitor.value(), &status, 0);
-    dreturn_if(not WIFEXITED(status), "Janitor exited abnormally");
-    int code = WEXITSTATUS(status);
-    dreturn_if(code != 0, std::format("Janitor exited with code '{}'", code));
-  }
-  else
-  {
-    logger("E::Janitor is not running");
-  }
+  // Check if janitor is running
+  dreturn_if(not m_child_janitor, "Janitor is not running");
+  // Get janitor pid
+  pid_t pid = m_child_janitor->get_pid().value_or(0);
+  dreturn_if(pid <= 0, "Failed to get janitor PID");
+  // Stop janitor loop
+  kill(pid, SIGTERM);
+  // Wait for janitor to finish execution
+  int status;
+  waitpid(pid, &status, 0);
+  dreturn_if(not WIFEXITED(status), "Janitor exited abnormally");
+  logger("D::Janitor exited with code '{}'", WEXITSTATUS(status));
 }
 
 /**
@@ -149,50 +145,26 @@ inline Controller::~Controller()
 {
   // Find janitor binary
   fs::path path_file_janitor = fs::path{Pop(ns_env::get_expected("FIM_DIR_APP_BIN"))} / "fim_janitor";
-
-  // Fork and execve into the janitor process
-  pid_t pid_parent = getpid();
-  m_opt_pid_janitor = fork();
-  qreturn_if(m_opt_pid_janitor < 0, std::unexpected("Failed to fork janitor"));
-
-  // Is parent
-  if(m_opt_pid_janitor > 0)
+  // Set log location
+  fs::path path_file_log = Pop(ns_env::get_expected("FIM_DIR_MOUNT")) + ".janitor.log";
+  // Spawn
+  m_child_janitor = ns_subprocess::Subprocess(path_file_janitor)
+    .with_args(getpid(), path_file_log, this->m_vec_path_dir_mountpoints)
+    .with_log_file(path_file_log)
+    .with_log_stdio()
+    .spawn();
+  // Check if janitor is running
+  qreturn_if(not m_child_janitor, Error("E::Failed to start janitor"));
+  // Check if child is running
+  if(auto pid = m_child_janitor->get_pid().value_or(-1); pid > 0)
   {
-    logger("D::Spawned janitor with PID '{}'", *m_opt_pid_janitor);
-    return {};
+    logger("D::Spawned janitor with PID '{}'", pid);
   }
-
-  // Redirect stdout/stderr to a log file
-  fs::path path_stdout = std::string{Pop(ns_env::get_expected("FIM_DIR_MOUNT"))} + ".janitor.stdout.log";
-  fs::path path_stderr = std::string{Pop(ns_env::get_expected("FIM_DIR_MOUNT"))} + ".janitor.stderr.log";
-  int fd_stdout = open(path_stdout.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  int fd_stderr = open(path_stderr.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  e_exitif(fd_stdout < 0, "Failed to open stdout janitor file", 1);
-  e_exitif(fd_stderr < 0, "Failed to open stderr janitor file", 1);
-  e_exitif(dup2(fd_stdout, STDOUT_FILENO) < 0, "Failed to dup2 fd_stdout", 1);
-  e_exitif(dup2(fd_stderr, STDERR_FILENO) < 0, "Failed to dup2 fd_sterr", 1);
-  close(fd_stdout);
-  close(fd_stderr);
-  close(STDIN_FILENO);
-
-  // Keep parent pid in a variable
-  ns_env::set("PID_PARENT", pid_parent, ns_env::Replace::Y);
-
-  // Create args to janitor
-  std::vector<std::string> vec_argv_custom;
-  vec_argv_custom.push_back(path_file_janitor);
-  std::copy(m_vec_path_dir_mountpoints.rbegin(), m_vec_path_dir_mountpoints.rend(), std::back_inserter(vec_argv_custom));
-
-  auto argv_custom = std::make_unique<const char*[]>(vec_argv_custom.size() + 1);
-  argv_custom[vec_argv_custom.size()] = nullptr;
-  std::ranges::transform(vec_argv_custom, argv_custom.get(), [](auto&& e) { return e.c_str(); });
-
-  // Execve to janitor
-  execve(path_file_janitor.c_str(), const_cast<char**>(argv_custom.get()), environ);
-
-  // If execve returns, it failed - log error and exit
-  logger("E::Failed to execve janitor: {}", strerror(errno));
-  _exit(1);
+  else
+  {
+    return Error("E::Failed to fork janitor");
+  }
+  return {};
 }
 
 /**

@@ -18,6 +18,8 @@
 #include <sys/types.h>
 #include <ranges>
 #include <format>
+#include <filesystem>
+#include <optional>
 
 #include "../../macro.hpp"
 #include "../../lib/log.hpp"
@@ -35,6 +37,7 @@ namespace ns_pipe
  * @param pipestderr Stderr pipe
  * @param fstdout Stdout handler function
  * @param fstderr Stderr handler function
+ * @param path_file_log Optional log file path (creates .stdout.log and .stderr.log)
  * @return std::pair<pid_t, pid_t> Pair of PIDs (stdout reader, stderr reader)
  */
 inline std::pair<pid_t, pid_t> pipes_parent(
@@ -42,7 +45,8 @@ inline std::pair<pid_t, pid_t> pipes_parent(
   int pipestdout[2],
   int pipestderr[2],
   std::function<void(std::string)> const& fstdout,
-  std::function<void(std::string)> const& fstderr
+  std::function<void(std::string)> const& fstderr,
+  std::optional<std::filesystem::path> const& path_file_log = std::nullopt
 )
 {
   pid_t pid_stdout = -1;
@@ -52,7 +56,7 @@ inline std::pair<pid_t, pid_t> pipes_parent(
   ereturn_if(close(pipestdout[1]) == -1, std::format("pipestdout[1]: {}", strerror(errno)), std::make_pair(pid_stdout, pid_stderr));
   ereturn_if(close(pipestderr[1]) == -1, std::format("pipestderr[1]: {}", strerror(errno)), std::make_pair(pid_stdout, pid_stderr));
 
-  auto f_read_pipe = [child_pid](int id_pipe, auto const& handler) -> pid_t
+  auto f_read_pipe = [child_pid, path_file_log](int id_pipe, auto const& handler, std::string_view stream_type) -> pid_t
   {
     // Fork a reader process
     pid_t pid = fork();
@@ -66,6 +70,24 @@ inline std::pair<pid_t, pid_t> pipes_parent(
     // Backup cleanup: Dies if parent dies via PR_SET_PDEATHSIG(SIGKILL)
     e_exitif(prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, strerror(errno), 1);
     e_exitif(::kill(child_pid, 0) < 0, std::format("Child died, prctl will not have effect: {}", strerror(errno)), 1);
+
+    // Initialize logger sink if log file specified
+    if (path_file_log)
+    {
+      // Create log file path: path.parent.reader.{stream_type}
+      // Strip .log suffix from original path to avoid redundancy
+      // Example: mount.janitor.log > mount.janitor.parent.reader.stdout
+      std::string base_path = path_file_log->string();
+      if (base_path.ends_with(".log"))
+      {
+        base_path = base_path.substr(0, base_path.length() - 4);
+      }
+      std::string log_path = base_path + ".parent.reader." + std::string(stream_type) + ".log";
+      // Configure the logger to write to this file
+      ns_log::set_sink_file(log_path);
+      ns_log::set_level(ns_log::Level::DEBUG);
+    }
+
     // Apply handler to incoming data from pipe
     char buffer[1024];
     ssize_t count;
@@ -81,10 +103,9 @@ inline std::pair<pid_t, pid_t> pipes_parent(
       std::ranges::for_each(chunk
           | std::views::split('\n')
           | std::views::transform([](auto&& e){ return std::string{e.begin(), e.end()}; })
-          | std::views::filter([](auto const& s){
-              return not s.empty() && not std::ranges::all_of(s, ::isspace);
-            })
-        , [&](auto const& line){ handler(line); }
+          | std::views::filter([](auto const& s){ return not s.empty(); })
+          | std::views::filter([](auto const& s){ return not std::ranges::all_of(s, ::isspace); })
+        , [&](auto const& line) { logger("D::{}", line); handler(line); }
       );
     } // while
     close(id_pipe);
@@ -92,8 +113,8 @@ inline std::pair<pid_t, pid_t> pipes_parent(
     exit(0);
   };
   // Create pipes from fifo to ostream
-  pid_stdout = f_read_pipe(pipestdout[0], fstdout);
-  pid_stderr = f_read_pipe(pipestderr[0], fstderr);
+  pid_stdout = f_read_pipe(pipestdout[0], fstdout, "stdout");
+  pid_stderr = f_read_pipe(pipestderr[0], fstderr, "stderr");
 
   return std::make_pair(pid_stdout, pid_stderr);
 }
@@ -131,6 +152,7 @@ inline void pipes_child(int pipestdout[2], int pipestderr[2])
  * @param pipestderr Stderr pipe
  * @param fstdout Stdout handler function
  * @param fstderr Stderr handler function
+ * @param path_file_log Optional log file path (creates .stdout.log and .stderr.log)
  * @return std::pair<pid_t, pid_t> Pair of PIDs for pipe readers (stdout, stderr), or (-1, -1) if child
  */
 inline std::pair<pid_t, pid_t> setup(
@@ -138,13 +160,14 @@ inline std::pair<pid_t, pid_t> setup(
   int pipestdout[2],
   int pipestderr[2],
   std::function<void(std::string)> const& fstdout,
-  std::function<void(std::string)> const& fstderr
+  std::function<void(std::string)> const& fstderr,
+  std::optional<std::filesystem::path> const& path_file_log = std::nullopt
 )
 {
   // On parent, setup pipe readers
   if ( pid > 0 )
   {
-    return pipes_parent(pid, pipestdout, pipestderr, fstdout, fstderr);
+    return pipes_parent(pid, pipestdout, pipestderr, fstdout, fstderr, path_file_log);
   }
 
   // On child, redirect stdout/stderr to pipes

@@ -16,15 +16,14 @@
 
 #include "../std/expected.hpp"
 #include "../lib/log.hpp"
-#include "../lib/env.hpp"
 #include "../lib/fuse.hpp"
 #include "../macro.hpp"
 
-std::atomic_bool G_CONTINUE(true);
+std::atomic_bool G_PARENT_OK(false);
 
 void cleanup(int)
 {
-  G_CONTINUE = false;
+  G_PARENT_OK = true;
 }
 
 
@@ -37,27 +36,40 @@ void cleanup(int)
  */
 [[nodiscard]] Value<void> boot(int argc, char** argv)
 {
-  // Register signal handler
+  // Register signal handlers
   signal(SIGTERM, cleanup);
-  // Initialize logger
-  ns_log::set_sink_file(Pop(ns_env::get_expected("FIM_DIR_MOUNT")) + ".janitor.log");
+  // Ignore SIGPIPE - when parent dies and pipe readers close, we can still cleanup
+  signal(SIGPIPE, SIG_IGN);
   // Check argc
-  qreturn_if(argc < 2, std::unexpected("Incorrect usage"));
+  qreturn_if(argc < 3, std::unexpected("Incorrect usage: fim_janitor <parent_pid> <log_path>"));
   // Get pid to wait for
-  std::string str_pid_parent = Pop(ns_env::get_expected("PID_PARENT"));
-  pid_t pid_parent = Try(std::stoi(str_pid_parent));
+  pid_t pid_parent = Try(std::stoi(argv[1]));
+  // Get log path from parent
+  std::string path_log_file = argv[2];
   // Create a novel session for the child process
   pid_t pid_session = setsid();
   qreturn_if(pid_session < 0, std::unexpected("Failed to create a novel session for janitor"));
+  // Enable logger to write INFO messages to stdout (for pipe capture)
+  ns_log::set_level(ns_log::Level::DEBUG);
+  ns_log::set_as_fork();
+  // Configure logger sink to write directly to file (fallback if pipe readers die)
+  ns_log::set_sink_file(path_log_file);
   logger("I::Session id is '{}'", pid_session);
   // Wait for parent process to exit
-  while ( kill(pid_parent, 0) == 0 and G_CONTINUE )
+  while (not G_PARENT_OK and kill(pid_parent, 0) == 0)
   {
     std::this_thread::sleep_for(std::chrono::milliseconds{100});
   }
-  logger("I::Parent process with pid '{}' finished", pid_parent);
+  // Check if should skip clean
+  if(G_PARENT_OK)
+  {
+    logger("I::Parent process with pid '{}' finished", pid_parent);
+    return {};
+  }
+  // Log that parent exited abnormally
+  logger("E::Parent process with pid '{}' failed to send skip signal", pid_parent);
   // Cleanup of mountpoints
-  for (auto&& path_dir_mountpoint : std::vector<std::filesystem::path>(argv+1, argv+argc))
+  for (auto&& path_dir_mountpoint : std::vector<std::filesystem::path>(argv+2, argv+argc))
   {
     logger("I::Un-mount '{}'", path_dir_mountpoint);
     ns_fuse::unmount(path_dir_mountpoint).discard("E::Could not un-mount '{}'", path_dir_mountpoint);

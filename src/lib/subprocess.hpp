@@ -71,7 +71,7 @@ class Subprocess
 
     void die_on_pid(pid_t pid);
     void to_dev_null();
-    std::pair<pid_t, pid_t> setup_pipes(pid_t child_pid, int pipestdout[2], int pipestderr[2]);
+    std::pair<pid_t, pid_t> setup_pipes(pid_t child_pid, int pipestdout[2], int pipestderr[2], std::optional<std::filesystem::path> const& path_file_log = std::nullopt);
     [[noreturn]] void exec_child();
 
   public:
@@ -524,30 +524,42 @@ inline Subprocess& Subprocess::with_log_stdio()
 }
 
 /**
- * @brief Sets the log file path for the child process logger
+ * @brief Captures child process stdout/stderr and writes to separate log files
  *
- * Configures where the child process's ns_log output will be written.
- * This is set up via set_sink_file() in the child process.
+ * Automatically sets up pipe redirection so that all child process output
+ * (stdout and stderr) is captured by the parent and written to separate files.
  *
- * @param path Path to the log file (e.g., "/dev/null", "/tmp/child.log")
+ * The child's stdout/stderr are redirected to pipes, and those pipes are
+ * read by parent processes that write directly to log files. This works
+ * even if the child process calls execve(), as the pipe readers remain in
+ * the parent.
+ *
+ * **Generated files:**
+ * - `path.stdout.log` - All stdout lines from child
+ * - `path.stderr.log` - All stderr lines from child
+ *
+ * If stdout/stderr handlers are registered via with_stdout_handle() or
+ * with_stderr_handle(), they are called in addition to file writing.
+ *
+ * @param path Base path for log files (e.g., "/tmp/app.log")
  * @return Subprocess& A reference to *this for method chaining
  *
  * @code
- * // Discard child's internal logging
+ * // Capture child's stdout/stderr to separate files
  * Subprocess("/usr/bin/app")
- *     .with_log_file("/dev/null")
+ *     .with_log_file("/tmp/app.log")
  *     .spawn();
  *
- * // Save child's logging to file
- * Subprocess("/usr/bin/app")
- *     .with_log_file("/tmp/child_debug.log")
- *     .spawn();
+ * // Creates:
+ * // /tmp/app.log.stdout.log - Contains all stdout lines
+ * // /tmp/app.log.stderr.log - Contains all stderr lines
  * @endcode
  */
 inline Subprocess& Subprocess::with_log_file(std::filesystem::path const& path)
 {
   m_log_file = path;
-  return *this;
+  // Set up pipe mode - pipe readers will configure logger sink to path.stdout.log and path.stderr.log
+  return this->with_stdio(Stream::Pipe);
 }
 
 /**
@@ -590,9 +602,10 @@ inline void Subprocess::to_dev_null()
  * @param child_pid The PID of the child process
  * @param pipestdout Stdout pipe (must be created before fork)
  * @param pipestderr Stderr pipe (must be created before fork)
+ * @param path_file_log Optional log file path (pipe readers will create .stdout.log and .stderr.log)
  * @return std::pair<pid_t, pid_t> PIDs of stdout and stderr reader processes
  */
-inline std::pair<pid_t, pid_t> Subprocess::setup_pipes(pid_t child_pid, int pipestdout[2], int pipestderr[2])
+inline std::pair<pid_t, pid_t> Subprocess::setup_pipes(pid_t child_pid, int pipestdout[2], int pipestderr[2], std::optional<std::filesystem::path> const& path_file_log)
 {
   // Setup pipes for parent or child
   auto [pid_stdout, pid_stderr] = ns_pipe::setup(child_pid
@@ -600,6 +613,7 @@ inline std::pair<pid_t, pid_t> Subprocess::setup_pipes(pid_t child_pid, int pipe
     , pipestderr
     , m_fstdout.value_or([](std::string const&){})
     , m_fstderr.value_or([](std::string const&){})
+    , path_file_log
   );
 
   // Return the pipe reader PIDs for the parent to manage
@@ -807,7 +821,7 @@ inline std::unique_ptr<Child> Subprocess::spawn()
   // Setup pipes for parent or child (only if Stream::Pipe)
   if ( m_stream_mode == Stream::Pipe )
   {
-    stdio_pids = this->setup_pipes(child_pid, pipestdout, pipestderr);
+    stdio_pids = this->setup_pipes(child_pid, pipestdout, pipestderr, m_log_file);
   }
 
   // Parent returns here, child continues to execve
@@ -818,12 +832,6 @@ inline std::unique_ptr<Child> Subprocess::spawn()
   }
 
   // Child process continues here
-
-  // Setup logger file if provided
-  if ( m_log_file )
-  {
-    ns_log::set_sink_file(m_log_file.value());
-  }
 
   // Handle stdio redirection based on mode
   if ( m_stream_mode == Stream::Null )
