@@ -41,10 +41,10 @@
  * Parent opens /tmp/parent.log  // FD 5 points to file
  * fork()
  * -> pthread_atfork child handler runs automatically
- * -> child_handler() executes: logger = Logger{}
- * -> Move-assigns fresh Logger (closes FD 5 in child, opens /dev/null)
+ * -> fork_handler_child() calls logger.set_sink_file("/dev/null")
+ * -> Closes FD 5 in child, opens /dev/null (new FD)
  * -> Parent: FD 5 still valid (reference count decremented but not closed)
- * -> Child:  FD 5 closed, /dev/null open (clean slate)
+ * -> Child:  FD 5 closed, new FD for /dev/null (clean slate)
  * ```
  *
  * ### pthread_atfork() Registration
@@ -53,14 +53,14 @@
  * ```cpp
  * static thread_local bool registered = false;
  * if (!registered) {
- *   pthread_atfork(nullptr, nullptr, child_handler);
+ *   pthread_atfork(nullptr, nullptr, fork_handler_child);
  *   registered = true;
  * }
  * ```
  *
  * - Registered once per thread (static thread_local guard)
- * - `child_handler` runs in child process after fork()
- * - Resets logger to default state (/dev/null sink, CRITICAL level)
+ * - `fork_handler_child` runs in child process after fork()
+ * - Resets logger file to (/dev/null)
  * - Child can then set its own log file independently
  *
  * ### File Descriptor Semantics
@@ -74,27 +74,20 @@
  *
  * Therefore, closing the file in the child does NOT affect the parent's ability to log.
  *
- * ### Move Semantics (Private)
+ * ### Non-Copyable, Non-Movable Design
  *
- * The move constructor and move assignment are private:
+ * The Logger class is completely non-copyable and non-movable:
  * ```cpp
- * Logger(Logger&&) = default;              // Private move constructor
- * Logger& operator=(Logger&&) = default;   // Private move assignment
+ * Logger(Logger const&) = delete;          // Deleted copy constructor
+ * Logger& operator=(Logger const&) = delete; // Deleted copy assignment
+ * Logger(Logger&&) = delete;               // Deleted move constructor
+ * Logger& operator=(Logger&&) = delete;    // Deleted move assignment
  * ```
  *
- * - Public API: Non-copyable, non-movable (deleted copy/move constructors)
- * - Internal use: `child_handler()` is a friend that uses move assignment
- * - Move assignment closes old m_sink (via std::ofstream's move assignment)
- * - Fresh Logger opens /dev/null (safe default sink)
- *
- * ### /dev/null Default Sink
- *
- * All loggers start with `m_sink("/dev/null")`::optional:
- *
- * Benefits:
- * - Always valid stream (no null checks needed)
- * - Logs silently discarded until set_sink_file() called
- * - Efficient (kernel discards writes to /dev/null)
+ * - Each thread_local Logger instance is tied to its thread
+ * - After fork(), `fork_handler_child()` calls `set_sink_file("/dev/null")`
+ * - This closes the old file descriptor and opens /dev/null in the child
+ * - No move/copy operations needed - just reopen the sink file
  *
  * ### Usage Example
  *
@@ -133,6 +126,7 @@
 #include <iostream>
 #include <fstream>
 #include <print>
+#include <unistd.h>
 
 #include "../std/concept.hpp"
 #include "../std/string.hpp"
@@ -180,6 +174,23 @@ class Logger
  */
 thread_local Logger logger;
 
+
+/**
+ * @brief Fork preparation handler that flushes all output buffers
+ *
+ * This function is registered as the prepare handler via pthread_atfork() and
+ * automatically executes in the parent process BEFORE fork() happens. It ensures
+ * all buffered output is written.
+ *
+ * The fflush(nullptr) call flushes ALL streams
+ */
+static void fork_handler_parent()
+{
+  std::cout.flush();
+  std::cerr.flush();
+  ::fflush(nullptr);
+}
+
 /**
  * @brief Fork handler that resets the logger in child processes
  *
@@ -187,7 +198,7 @@ thread_local Logger logger;
  * in child processes after fork(). It resets the logger to a fresh state with
  * /dev/null sink, preventing file descriptor sharing issues.
  */
-void child_handler()
+void fork_handler_child()
 {
   logger.set_sink_file("/dev/null");
 }
@@ -203,7 +214,7 @@ inline Logger::Logger()
   static thread_local bool registered = false;
   if (!registered)
   {
-    pthread_atfork(nullptr, nullptr, child_handler);
+    pthread_atfork(fork_handler_parent, nullptr, fork_handler_child);
     registered = true;
   }
 }
