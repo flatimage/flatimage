@@ -10,11 +10,11 @@ The Portal consists of dual daemons (host and guest) that receive process execut
 
 ### Key Components
 
-1. **Portal Daemon** [portal_daemon.cpp](../../src/portal/portal_daemon.cpp) - Main daemon process running on both host and guest
-2. **Portal Dispatcher** [portal_dispatcher.cpp](../../src/portal/portal_dispatcher.cpp) - Client interface (`fim_portal`) for sending process requests
-3. **Child Spawner** [child.hpp](../../src/portal/child.hpp) - Handles process forking and execution
-4. **FIFO Communication** [fifo.hpp](../../src/portal/fifo.hpp) - Named pipe creation and management
-5. **Portal Manager** [portal.hpp](../../src/portal/portal.hpp) - Spawns and manages portal daemon lifecycle
+1. **Portal Daemon** `portal_daemon.cpp` - Main daemon process running on both host and guest
+2. **Portal Dispatcher** `portal_dispatcher.cpp` - Client interface (`fim_portal`) for sending process requests
+3. **Child Spawner** `child.hpp` - Handles process forking and execution
+4. **FIFO Communication** `fifo.hpp` - Named pipe creation and management
+5. **Portal Manager** `portal.hpp` - Spawns and manages portal daemon lifecycle
 
 ### Daemon Modes
 
