@@ -18,54 +18,24 @@
 #include <csignal>
 #include <filesystem>
 #include <unistd.h>
-#include <unordered_map>
 
 #include "../std/expected.hpp"
 #include "../lib/log.hpp"
 #include "../lib/env.hpp"
 #include "../macro.hpp"
-#include "../db/db.hpp"
+#include "../db/portal/message.hpp"
 #include "config.hpp"
 #include "child.hpp"
 #include "fifo.hpp"
 
 namespace fs = std::filesystem;
+namespace ns_message = ns_db::ns_portal::ns_message;
 
 extern char** environ;
 
-/**
- * @brief Validates the received message to contain the expected fields with proper types
- * 
- * @param msg The message to validate
- * @return Value<bool> The boolean result or the respective error
- */
-[[nodiscard]] Value<bool> validate(std::string_view msg) noexcept
-{
-  // Open database
-  auto db = Pop(ns_db::from_string(msg));
-  // Define keys and types
-  std::unordered_map<std::string, ns_db::KeyType> hash_key_type {{
-      {"command", ns_db::KeyType::array}
-    , {"stdin", ns_db::KeyType::string}
-    , {"stdout", ns_db::KeyType::string}
-    , {"stderr", ns_db::KeyType::string}
-    , {"exit", ns_db::KeyType::string}
-    , {"pid", ns_db::KeyType::string}
-    , {"log", ns_db::KeyType::string}
-    , {"environment", ns_db::KeyType::string}
-  }};
-  // Validate keys and types
-  for(auto [key,type] : hash_key_type)
-  {
-    ereturn_if(not db.contains(key), std::format("Key {} is missing", key), false);
-    ereturn_if(not (db(key).type() == type), std::format("Key {} is missing", key), false);
-  }
-  return true;
-}
-
 int main(int argc, char** argv)
 {
-  auto __expected_fn = [](auto&&){ return 1; };
+  auto __expected_fn = [](auto&&){ return EXIT_FAILURE; };
   // Create directory for the portal data
   fs::path path_dir_instance = Pop(ns_env::get_expected("FIM_DIR_INSTANCE"));
   fs::path path_dir_portal = path_dir_instance / "portal";
@@ -92,6 +62,7 @@ int main(int argc, char** argv)
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
   ereturn_if(fd_fifo < 0, strerror(errno), EXIT_FAILURE);
 
+
   // Create dummy writter to keep fifo open
   [[maybe_unused]] int fd_dummy = ::open(path_fifo_in.c_str(), O_WRONLY);
 
@@ -112,10 +83,9 @@ int main(int argc, char** argv)
     // Create a safe view over read data
     std::string_view msg{buffer, static_cast<size_t>(bytes_read)};
     logger("I::Recovered message: {}", msg);
-    // Validate json data
-    auto validation = validate(msg);
-    econtinue_if(not validation, std::format("Could not perform the validation of the message: {}", validation.error()));
-    econtinue_if(not validation.value(), "Failed to validate message")
+    // Validate and deserialize message
+    auto message = ns_message::deserialize(msg);
+    econtinue_if(not message, std::format("Could not parse message: {}", message.error()));
     // Spawn child
     if(pid_t pid = fork(); pid < 0)
     {
@@ -123,7 +93,7 @@ int main(int argc, char** argv)
     }
     else if (pid == 0)
     {
-      child::spawn(path_dir_portal, msg).discard("C::Could not spawn child");
+      child::spawn(path_dir_portal, message.value()).discard("C::Could not spawn child");
       _exit(1);
     }
   } // for

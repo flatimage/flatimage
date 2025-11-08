@@ -18,7 +18,7 @@
 #include "../std/expected.hpp"
 #include "../lib/linux.hpp"
 #include "../lib/env.hpp"
-#include "../db/db.hpp"
+#include "../db/portal/message.hpp"
 #include "config.hpp"
 
 namespace fs = std::filesystem;
@@ -28,15 +28,15 @@ namespace child
 
 /**
  * @brief Write a PID to a fifo
- * 
+ *
  * @param pid The pid to write
- * @param db The database that writes the value of the "pid" key
+ * @param message The message that contains the "pid" fifo path
  * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Value<void> write_fifo_pid(pid_t const pid, ns_db::Db& db)
+[[nodiscard]] inline Value<void> write_fifo_pid(pid_t const pid, ns_db::ns_portal::ns_message::Message const& message)
 {
   // Get pid fifo
-  auto path_fifo_pid = Pop(db("pid").template value<std::string>());
+  auto path_fifo_pid = message.get_pid();
   // Write to fifo
   ssize_t bytes_written = ns_linux::open_write_with_timeout(path_fifo_pid
     , std::chrono::seconds(SECONDS_TIMEOUT)
@@ -49,15 +49,15 @@ namespace child
 
 /**
  * @brief Writes an exit code to a fifo
- * 
+ *
  * @param code The exit code to write
- * @param db The database that writes the value of the "exit" key
+ * @param message The message that contains the "exit" fifo path
  * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Value<void> write_fifo_exit(int const code, ns_db::Db& db)
+[[nodiscard]] inline Value<void> write_fifo_exit(int const code, ns_db::ns_portal::ns_message::Message const& message)
 {
   // Get exit code fifo
-  auto path_file_fifo = Pop(db("exit").template value<std::string>());
+  auto path_file_fifo = message.get_exit();
   // Write to fifo
   ssize_t bytes_written = ns_linux::open_write_with_timeout(path_file_fifo
     , std::chrono::seconds(SECONDS_TIMEOUT)
@@ -70,14 +70,14 @@ namespace child
 
 /**
  * @brief Waits for a child pid to exit
- * 
+ *
  * @param pid The pid to wait for
- * @param db The database to write the pid into
+ * @param message The message to write the pid and exit code into
  */
-inline void parent_wait(pid_t const pid, ns_db::Db& db)
+inline void parent_wait(pid_t const pid, ns_db::ns_portal::ns_message::Message const& message)
 {
   // Write pid to fifo
-  write_fifo_pid(pid, db).discard("C::Failed to write pid to fifo");
+  write_fifo_pid(pid, message).discard("C::Failed to write pid to fifo");
   // Wait for child to finish
   int status = -1;
   elog_if(::waitpid(pid, &status, 0) < 0
@@ -87,39 +87,17 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   int code = (not WIFEXITED(status))? 1 : WEXITSTATUS(status);
   logger("D::Exit code: {}", code);
   // Send exit code of child through a fifo
-  write_fifo_exit(code, db).discard("C::Failed to write exit code to fifo");
-}
-
-/**
- * @brief Reads a file with environment variables
- * 
- * @param db The database that writes the value of the file pointed by the "environment" key
- * @return Value<std::vector<std::string>> The read variables or the respective error
- */
-[[nodiscard]] inline Value<std::vector<std::string>> read_file_environment(ns_db::Db& db)
-{
-  // Fetch environment file path from db
-  auto path_file_environment = Pop(db("environment").template value<std::string>());
-  // Open environment file
-  std::ifstream file_environment(path_file_environment);
-  qreturn_if(not file_environment.is_open(), Error("E::Could not open environment fifo file"));
-  // Collect environment variables
-  std::vector<std::string> out;
-  for (std::string entry; std::getline(file_environment, entry);)
-  {
-    out.push_back(entry);
-  }
-  return out;
+  write_fifo_exit(code, message).discard("C::Failed to write exit code to fifo");
 }
 
 /**
  * @brief Forks a child
- * 
+ *
  * @param vec_argv Arguments to the child process
- * @param db Database with the process details, e.g. (stdin/stdout/stderr) pipes
- * @return Value<void> 
+ * @param message Message with the process details, e.g. (stdin/stdout/stderr) pipes
+ * @return Value<void>
  */
-[[nodiscard]] inline Value<void> child_execve(std::vector<std::string> const& vec_argv, ns_db::Db& db)
+[[nodiscard]] inline Value<void> child_execve(std::vector<std::string> const& vec_argv, ns_db::ns_portal::ns_message::Message const& message)
 {
   // Create arguments for execve
   auto argv_custom = std::make_unique<const char*[]>(vec_argv.size()+1);
@@ -128,8 +106,8 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
      , argv_custom.get()
      , [](auto&& e){ return e.c_str(); }
   );
-  // Create environment vector execve
-  std::vector<std::string> vec_environment = Pop(read_file_environment(db));
+  // Get environment vector from message
+  std::vector<std::string> const& vec_environment = message.get_environment();
   auto env_custom = std::make_unique<const char*[]>(vec_environment.size()+1);
   env_custom[vec_environment.size()] = nullptr;
   std::ranges::transform(vec_environment
@@ -137,21 +115,20 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
      , [](auto&& e){ return e.c_str(); }
   );
   // Configure pipes
-  auto f_open_fd = [](ns_db::Db& db, std::string const& name, int const fileno, int const oflag) -> Value<void>
+  auto f_open_fd = [](fs::path const& path_fifo, int const fileno, int const oflag) -> Value<void>
   {
-    auto path_fifo_stdin = Pop(db(name).template value<fs::path>());
-    int fd = ns_linux::open_with_timeout(path_fifo_stdin
+    int fd = ns_linux::open_with_timeout(path_fifo
       , std::chrono::seconds(SECONDS_TIMEOUT)
       , oflag
     );
-    qreturn_if(fd < 0, Error("E::open fd {} failed", name));
-    qreturn_if(dup2(fd, fileno) < 0, Error("E::dup2 {} failed", name));
+    qreturn_if(fd < 0, Error("E::open fd failed"));
+    qreturn_if(dup2(fd, fileno) < 0, Error("E::dup2 failed"));
     close(fd);
     return {};
   };
-  Pop(f_open_fd(db, "stdin", STDIN_FILENO, O_RDONLY));
-  Pop(f_open_fd(db, "stdout", STDOUT_FILENO, O_WRONLY));
-  Pop(f_open_fd(db, "stderr", STDERR_FILENO, O_WRONLY));
+  Pop(f_open_fd(message.get_stdin(), STDIN_FILENO, O_RDONLY));
+  Pop(f_open_fd(message.get_stdout(), STDOUT_FILENO, O_WRONLY));
+  Pop(f_open_fd(message.get_stderr(), STDERR_FILENO, O_WRONLY));
   // Perform execve
   int ret_execve = execve(argv_custom[0], (char**) argv_custom.get(), (char**) env_custom.get());
   logger("E::Could not perform execve({}): {}", ret_execve, strerror(errno));
@@ -160,22 +137,21 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
 
 /**
  * @brief Forks and execve a new child
- * 
+ *
  * @param path_dir_portal Path to the portal directory of the child process
- * @param msg Database received as a message to be parsed
+ * @param message The message containing the command and process details
  * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] inline Value<void> spawn(fs::path const& path_dir_portal, std::string_view msg)
+[[nodiscard]] inline Value<void> spawn(fs::path const& path_dir_portal, ns_db::ns_portal::ns_message::Message const& message)
 {
   ns_log::set_sink_file(path_dir_portal / std::format("spawned_parent_{}.log", getpid()));
   ns_log::set_level(ns_log::Level::CRITICAL);
-  auto db = Pop(ns_db::from_string(msg));
-  // Get command
-  auto vec_argv = Pop(db("command").template value<std::vector<std::string>>());
-  // Search for command in PATH and replace vec_argv[0] with the full path to the binary
-  vec_argv[0] = Pop(ns_env::search_path(vec_argv[0]));
+  // Get command from message
+  auto vec_argv = message.get_command();
   // Ignore on empty command
   if ( vec_argv.empty() ) { return Error("E::Empty command"); }
+  // Search for command in PATH and replace vec_argv[0] with the full path to the binary
+  vec_argv[0] = Pop(ns_env::search_path(vec_argv[0]));
   // Create child
   pid_t ppid = getpid();
   pid_t pid = fork();
@@ -187,7 +163,7 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   // Is parent
   else if (pid > 0)
   {
-    parent_wait(pid, db);
+    parent_wait(pid, message);
     _exit(0);
   }
   // Is child
@@ -199,7 +175,7 @@ inline void parent_wait(pid_t const pid, ns_db::Db& db)
   // Check if parent still exists
   qreturn_if(::kill(ppid, 0) < 0, Error("E::Parent pid is already dead"));
   // Perform execve
-  Pop(child_execve(vec_argv, db));
+  Pop(child_execve(vec_argv, message));
   _exit(1);
 }
 

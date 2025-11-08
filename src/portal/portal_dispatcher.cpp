@@ -17,21 +17,20 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
-#include <unordered_map>
 
 #include "../macro.hpp"
 #include "../std/expected.hpp"
 #include "../lib/env.hpp"
 #include "../lib/log.hpp"
 #include "../lib/linux.hpp"
-#include "../db/db.hpp"
+#include "../db/portal/message.hpp"
 #include "fifo.hpp"
 #include "config.hpp"
 
-extern char** environ;
-
 namespace fs = std::filesystem;
+namespace ns_message = ns_db::ns_portal::ns_message;
 
+extern char** environ;
 std::optional<pid_t> opt_child = std::nullopt;
 
 /**
@@ -48,54 +47,33 @@ void signal_handler(int sig)
 }
 
 /**
- * @brief Populates the input file with the current environment
- * 
- * @param path_file_env Path to the environment file to create, discards existing contents
- * @return Value<void> Nothing on success or the respective error
+ * @brief Collects the current environment variables into a vector
+ *
+ * @return Value<std::vector<std::string>> The environment variables or the respective error
  */
-[[nodiscard]] Value<void> set_environment(fs::path const& path_file_env)
+[[nodiscard]] Value<std::vector<std::string>> get_environment()
 {
-  std::error_code ec;
-  fs::path path_dir_env = path_file_env.parent_path();
-  qreturn_if(not fs::exists(path_dir_env, ec) and not fs::create_directories(path_dir_env, ec)
-    , Error("E::Could not create upper directories of file '{}': '{}'", path_file_env.string(), ec.message())
-  );
-  std::ofstream ofile_env(path_file_env, std::ios::out | std::ios::trunc);
-  qreturn_if(not ofile_env.is_open(), Error("E::Could not open file '{}'", path_file_env));
-  for(char **env = environ; *env != NULL; ++env) { ofile_env << *env << '\n'; }
-  ofile_env.close();
-  return {};
+  std::vector<std::string> environment;
+  for(char **env = environ; *env != NULL; ++env)
+  {
+    environment.push_back(*env);
+  }
+  return environment;
 }
 
 /**
  * @brief Sends a message to the portal daemon
- * 
+ *
  * @param path_daemon_fifo Path to the fifo which the daemon receives commands from
- * @param command Command to send with arguments
- * @param hash_name_fifo The hash with process pipes to write/read to/from
- * @param path_file_log Path to the log file of the requested child process
- * @param path_file_env Path to the environment to use in the child process
+ * @param message The message to send
  * @return Value<void> Nothing on success or the respective error
  */
 [[nodiscard]] Value<void> send_message(fs::path const& path_daemon_fifo
-  , std::vector<std::string> command
-  , std::unordered_map<std::string, fs::path> const& hash_name_fifo
-  , fs::path const& path_file_log
-  , fs::path const& path_file_env)
+  , ns_message::Message const& message)
 {
   logger("D::Sending message through pipe: {}", path_daemon_fifo);
-  // Create command
-  auto db = ns_db::Db();
-  db("command") = command;
-  db("stdin") = hash_name_fifo.at("stdin");
-  db("stdout") = hash_name_fifo.at("stdout");
-  db("stderr") = hash_name_fifo.at("stderr");
-  db("exit") = hash_name_fifo.at("exit");
-  db("pid") = hash_name_fifo.at("pid");
-  db("log") = path_file_log.c_str();
-  db("environment") = path_file_env;
-  // Get json string
-  std::string data = Pop(db.dump());
+  // Serialize to json string
+  std::string data = Pop(ns_message::serialize(message));
   logger("D::{}", data);
   // Write to fifo
   ssize_t size_writen = ns_linux::open_write_with_timeout(path_daemon_fifo
@@ -110,16 +88,16 @@ void signal_handler(int sig)
 
 /**
  * @brief Waits for the requested process to finish
- * 
+ *
  * Forwards the child's stdin/stdout/stderr to itself
- * 
- * @param hash_name_fifo The hash with process pipes to write/read to/from
- * @return Value<int> Nothing on success or the respective error
+ *
+ * @param message The message containing the FIFO paths
+ * @return Value<int> The process exit code or the respective error
  */
-[[nodiscard]] Value<int> process_wait(std::unordered_map<std::string, fs::path> const& hash_name_fifo)
+[[nodiscard]] Value<int> process_wait(ns_message::Message const& message)
 {
   pid_t pid_child;
-  ssize_t bytes_read = ns_linux::open_read_with_timeout(hash_name_fifo.at("pid")
+  ssize_t bytes_read = ns_linux::open_read_with_timeout(message.get_pid()
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , std::span<pid_t>(&pid_child, 1)
   );
@@ -127,9 +105,9 @@ void signal_handler(int sig)
   opt_child = pid_child;
   logger("D::Child pid: {}", pid_child);
   // Connect to stdin, stdout, and stderr with fifos
-  pid_t pid_stdin = redirect_fd_to_fifo(pid_child, STDIN_FILENO, hash_name_fifo.at("stdin"));
-  pid_t pid_stdout = redirect_fifo_to_fd(pid_child, hash_name_fifo.at("stdout"), STDOUT_FILENO);
-  pid_t pid_stderr = redirect_fifo_to_fd(pid_child, hash_name_fifo.at("stderr"), STDERR_FILENO);
+  pid_t pid_stdin = redirect_fd_to_fifo(pid_child, STDIN_FILENO, message.get_stdin());
+  pid_t pid_stdout = redirect_fifo_to_fd(pid_child, message.get_stdout(), STDOUT_FILENO);
+  pid_t pid_stderr = redirect_fifo_to_fd(pid_child, message.get_stderr(), STDERR_FILENO);
   logger("D::Connected to stdin/stdout/stderr fifos");
   // Wait for processes to exit
   waitpid(pid_stdin, nullptr, 0);
@@ -137,7 +115,7 @@ void signal_handler(int sig)
   waitpid(pid_stderr, nullptr, 0);
   // Open exit code fifo and retrieve the exit code of the requested process
   int code_exit{};
-  int bytes_exit = ns_linux::open_read_with_timeout(hash_name_fifo.at("exit").c_str()
+  int bytes_exit = ns_linux::open_read_with_timeout(message.get_exit().c_str()
     , std::chrono::seconds{SECONDS_TIMEOUT}
     , std::span<int>(&code_exit, 1)
   );
@@ -158,7 +136,7 @@ void signal_handler(int sig)
   , fs::path const& path_dir_instance)
 {
   using namespace std::chrono_literals;
-  // Forward signal to spawned child
+
   signal(SIGABRT, signal_handler);
   signal(SIGTERM, signal_handler);
   signal(SIGINT, signal_handler);
@@ -182,28 +160,21 @@ void signal_handler(int sig)
   qreturn_if(std::error_code ec; (fs::create_directories(path_file_log.parent_path(), ec))
     , Error("E::Error to create log file: {}", ec.message())
   );
-  // Create fifos
+  // Create fifos and build message
   fs::path path_dir_fifo = path_dir_portal / "fifo";
-  std::unordered_map<std::string, fs::path> hash_name_fifo =
-  {{
-      {"stdin" ,  Pop(create_fifo(path_dir_fifo / "stdin"))}
-    , {"stdout",  Pop(create_fifo(path_dir_fifo / "stdout"))}
-    , {"stderr",  Pop(create_fifo(path_dir_fifo / "stderr"))}
-    , {"exit"  ,  Pop(create_fifo(path_dir_fifo / "exit"))}
-    , {"pid"   ,  Pop(create_fifo(path_dir_fifo / "pid"))}
-  }};
-  // Save environment
-  fs::path path_file_env = path_dir_portal / "environment";
-  Pop(set_environment(path_file_env));
+  auto message = ns_message::Message()
+    .with_command(cmd)
+    .with_stdin(Pop(create_fifo(path_dir_fifo / "stdin")))
+    .with_stdout(Pop(create_fifo(path_dir_fifo / "stdout")))
+    .with_stderr(Pop(create_fifo(path_dir_fifo / "stderr")))
+    .with_exit(Pop(create_fifo(path_dir_fifo / "exit")))
+    .with_pid(Pop(create_fifo(path_dir_fifo / "pid")))
+    .with_log(path_file_log)
+    .with_environment(Pop(get_environment()));
   // Send message to daemon
-  Pop(send_message(path_dir_portal / std::format("daemon.{}.fifo", daemon_target)
-    , cmd
-    , hash_name_fifo
-    , path_file_log
-    , path_file_env
-  ));
-  // Retrieve child pid
-  return Pop(process_wait(hash_name_fifo));
+  Pop(send_message(path_dir_portal / std::format("daemon.{}.fifo", daemon_target), message));
+  // Wait for child process and retrieve exit code
+  return Pop(process_wait(message));
 }
 
 int main(int argc, char** argv)
