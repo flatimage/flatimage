@@ -93,7 +93,7 @@ int main(int argc, char** argv)
     }
     else if (pid == 0)
     {
-      child::spawn(path_dir_portal, message.value()).discard("C::Could not spawn child");
+      child::spawn(message.value()).discard("C::Could not spawn child");
       _exit(1);
     }
   } // for
