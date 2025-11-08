@@ -46,6 +46,7 @@ inline std::pair<pid_t, pid_t> pipes_parent(
   int pipestderr[2],
   std::function<void(std::string)> const& fstdout,
   std::function<void(std::string)> const& fstderr,
+  ns_log::Level const& level,
   std::optional<std::filesystem::path> const& path_file_log = std::nullopt
 )
 {
@@ -56,7 +57,7 @@ inline std::pair<pid_t, pid_t> pipes_parent(
   ereturn_if(close(pipestdout[1]) == -1, std::format("pipestdout[1]: {}", strerror(errno)), std::make_pair(pid_stdout, pid_stderr));
   ereturn_if(close(pipestderr[1]) == -1, std::format("pipestderr[1]: {}", strerror(errno)), std::make_pair(pid_stdout, pid_stderr));
 
-  auto f_read_pipe = [child_pid, path_file_log](int id_pipe, auto const& handler, std::string_view stream_type) -> pid_t
+  auto f_read_pipe = [level, child_pid, path_file_log](int id_pipe, auto const& handler, std::string_view stream_type) -> pid_t
   {
     // Fork a reader process
     pid_t pid = fork();
@@ -85,8 +86,10 @@ inline std::pair<pid_t, pid_t> pipes_parent(
       std::string log_path = base_path + ".parent.reader." + std::string(stream_type) + ".log";
       // Configure the logger to write to this file
       ns_log::set_sink_file(log_path);
-      ns_log::set_level(ns_log::Level::DEBUG);
     }
+
+    // Set log level
+    ns_log::set_level(level);
 
     // Apply handler to incoming data from pipe
     char buffer[1024];
@@ -161,13 +164,14 @@ inline std::pair<pid_t, pid_t> setup(
   int pipestderr[2],
   std::function<void(std::string)> const& fstdout,
   std::function<void(std::string)> const& fstderr,
+  ns_log::Level const& level,
   std::optional<std::filesystem::path> const& path_file_log = std::nullopt
 )
 {
   // On parent, setup pipe readers
   if ( pid > 0 )
   {
-    return pipes_parent(pid, pipestdout, pipestderr, fstdout, fstderr, path_file_log);
+    return pipes_parent(pid, pipestdout, pipestderr, fstdout, fstderr, level, path_file_log);
   }
 
   // On child, redirect stdout/stderr to pipes

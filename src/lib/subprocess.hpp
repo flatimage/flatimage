@@ -68,10 +68,15 @@ class Subprocess
     Stream m_stream_mode;
     std::optional<pid_t> m_die_on_pid;
     std::optional<std::filesystem::path> m_log_file;
+    ns_log::Level m_log_level;
 
     void die_on_pid(pid_t pid);
     void to_dev_null();
-    std::pair<pid_t, pid_t> setup_pipes(pid_t child_pid, int pipestdout[2], int pipestderr[2], std::optional<std::filesystem::path> const& path_file_log = std::nullopt);
+    std::pair<pid_t, pid_t> setup_pipes(pid_t child_pid
+        , int pipestdout[2]
+        , int pipestderr[2]
+        , ns_log::Level const& level
+        , std::optional<std::filesystem::path> const& path_file_log = std::nullopt);
     [[noreturn]] void exec_child();
 
   public:
@@ -108,6 +113,8 @@ class Subprocess
     [[maybe_unused]] [[nodiscard]] Subprocess& with_log_stdio();
 
     [[maybe_unused]] [[nodiscard]] Subprocess& with_log_file(std::filesystem::path const& path);
+
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_log_level(ns_log::Level const& level);
 
     template<typename F>
     [[maybe_unused]] [[nodiscard]] Subprocess& with_stdout_handle(F&& f);
@@ -152,6 +159,7 @@ Subprocess::Subprocess(T&& t)
   , m_stream_mode(Stream::Inherit)
   , m_die_on_pid(std::nullopt)
   , m_log_file(std::nullopt)
+  , m_log_level(ns_log::get_level())
 {
   // argv0 is program name
   m_args.push_back(m_program);
@@ -549,10 +557,6 @@ inline Subprocess& Subprocess::with_log_stdio()
  * Subprocess("/usr/bin/app")
  *     .with_log_file("/tmp/app.log")
  *     .spawn();
- *
- * // Creates:
- * // /tmp/app.log.stdout.log - Contains all stdout lines
- * // /tmp/app.log.stderr.log - Contains all stderr lines
  * @endcode
  */
 inline Subprocess& Subprocess::with_log_file(std::filesystem::path const& path)
@@ -560,6 +564,49 @@ inline Subprocess& Subprocess::with_log_file(std::filesystem::path const& path)
   m_log_file = path;
   // Set up pipe mode - pipe readers will configure logger sink to path.stdout.log and path.stderr.log
   return this->with_stdio(Stream::Pipe);
+}
+
+/**
+ * @brief Sets the logging level for the child process
+ *
+ * Configures the verbosity level for the child process's logger. The log level
+ * determines which messages are displayed on the console:
+ * - Level::CRITICAL: Only critical messages (always shown)
+ * - Level::ERROR: Critical and error messages
+ * - Level::WARN: Critical, error, and warning messages
+ * - Level::INFO: Critical, error, warning, and info messages
+ * - Level::DEBUG: All messages including debug (most verbose)
+ *
+ * This is applied in the child process after fork() but before execve(),
+ * so it affects logging from the subprocess library itself (not the executed program).
+ *
+ * @param level The logging level to set (ns_log::Level enum)
+ * @return Subprocess& A reference to *this for method chaining
+ *
+ * @code
+ * // Enable debug logging in child process
+ * Subprocess proc("/usr/bin/app");
+ * proc.with_log_level(ns_log::Level::DEBUG)
+ *     .with_log_file("/tmp/app.log")
+ *     .spawn();
+ *
+ * // Minimal logging (only critical messages)
+ * Subprocess quiet("/usr/bin/background_task");
+ * quiet.with_log_level(ns_log::Level::CRITICAL)
+ *      .with_stdio(Stream::Null)
+ *      .spawn();
+ *
+ * // Standard info level logging
+ * Subprocess normal("/usr/bin/service");
+ * normal.with_log_level(ns_log::Level::INFO)
+ *       .with_log_stdio()
+ *       .spawn();
+ * @endcode
+ */
+inline Subprocess& Subprocess::with_log_level(ns_log::Level const& level)
+{
+  m_log_level = level;
+  return *this;
 }
 
 /**
@@ -605,7 +652,11 @@ inline void Subprocess::to_dev_null()
  * @param path_file_log Optional log file path (pipe readers will create .stdout.log and .stderr.log)
  * @return std::pair<pid_t, pid_t> PIDs of stdout and stderr reader processes
  */
-inline std::pair<pid_t, pid_t> Subprocess::setup_pipes(pid_t child_pid, int pipestdout[2], int pipestderr[2], std::optional<std::filesystem::path> const& path_file_log)
+inline std::pair<pid_t, pid_t> Subprocess::setup_pipes(pid_t child_pid
+  , int pipestdout[2]
+  , int pipestderr[2]
+  , ns_log::Level const& level
+  , std::optional<std::filesystem::path> const& path_file_log)
 {
   // Setup pipes for parent or child
   auto [pid_stdout, pid_stderr] = ns_pipe::setup(child_pid
@@ -613,6 +664,7 @@ inline std::pair<pid_t, pid_t> Subprocess::setup_pipes(pid_t child_pid, int pipe
     , pipestderr
     , m_fstdout.value_or([](std::string const&){})
     , m_fstderr.value_or([](std::string const&){})
+    , level
     , path_file_log
   );
 
@@ -821,7 +873,7 @@ inline std::unique_ptr<Child> Subprocess::spawn()
   // Setup pipes for parent or child (only if Stream::Pipe)
   if ( m_stream_mode == Stream::Pipe )
   {
-    stdio_pids = this->setup_pipes(child_pid, pipestdout, pipestderr, m_log_file);
+    stdio_pids = this->setup_pipes(child_pid, pipestdout, pipestderr, m_log_level, m_log_file);
   }
 
   // Parent returns here, child continues to execve
