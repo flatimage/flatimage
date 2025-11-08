@@ -36,6 +36,7 @@ nav:
   - Architecture:
     - Environment: architecture/environment.md
     - Directories: architecture/directories.md
+    - Portal: architecture/portal.md
 theme: readthedocs
 plugins:
   - search
