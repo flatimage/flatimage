@@ -46,6 +46,24 @@ void signal_handler(int sig)
   }
 }
 
+void register_signals()
+{
+  signal(SIGABRT, signal_handler);
+  signal(SIGTERM, signal_handler);
+  signal(SIGINT, signal_handler);
+  signal(SIGCONT, signal_handler);
+  signal(SIGHUP, signal_handler);
+  signal(SIGIO, signal_handler);
+  signal(SIGIOT, signal_handler);
+  signal(SIGPIPE, signal_handler);
+  signal(SIGPOLL, signal_handler);
+  signal(SIGQUIT, signal_handler);
+  signal(SIGURG, signal_handler);
+  signal(SIGUSR1, signal_handler);
+  signal(SIGUSR2, signal_handler);
+  signal(SIGVTALRM, signal_handler);
+}
+
 /**
  * @brief Collects the current environment variables into a vector
  *
@@ -136,21 +154,6 @@ void signal_handler(int sig)
   , fs::path const& path_dir_instance)
 {
   using namespace std::chrono_literals;
-
-  signal(SIGABRT, signal_handler);
-  signal(SIGTERM, signal_handler);
-  signal(SIGINT, signal_handler);
-  signal(SIGCONT, signal_handler);
-  signal(SIGHUP, signal_handler);
-  signal(SIGIO, signal_handler);
-  signal(SIGIOT, signal_handler);
-  signal(SIGPIPE, signal_handler);
-  signal(SIGPOLL, signal_handler);
-  signal(SIGQUIT, signal_handler);
-  signal(SIGURG, signal_handler);
-  signal(SIGUSR1, signal_handler);
-  signal(SIGUSR2, signal_handler);
-  signal(SIGVTALRM, signal_handler);
   // Set log level
   ns_log::set_level(ns_env::exists("FIM_DEBUG", "1")? ns_log::Level::DEBUG : ns_log::Level::ERROR);
   // Get portal directory
@@ -206,6 +209,8 @@ int main(int argc, char** argv)
       ret.value();
     });
   }
+  // Register signals
+  register_signals();
   // Request process from daemon
   auto result = process_request(args, daemon_target, path_dir_instance);
   // Reflect the original process return code
