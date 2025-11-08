@@ -23,7 +23,13 @@
 #include "../lib/linux.hpp"
 #include "config.hpp"
 
+namespace ns_portal::ns_fifo
+{
+
+namespace
+{
 namespace fs = std::filesystem;
+}
 
 /**
  * @brief Create a fifo object
@@ -31,7 +37,7 @@ namespace fs = std::filesystem;
  * @param path_file_fifo Where to saved the fifo to
  * @return Value<fs::path> The path to the created fifo, or the respective error
  */
-[[nodiscard]] inline Value<fs::path> create_fifo(fs::path const& path_file_fifo)
+[[nodiscard]] inline Value<fs::path> create(fs::path const& path_file_fifo)
 {
   std::error_code ec;
   fs::path path_dir_parent = path_file_fifo.parent_path();
@@ -152,3 +158,5 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
   // Exit without cleanup
   _exit(0);
 }
+
+} // namespace ns_portal::ns_fifo

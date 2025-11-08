@@ -105,9 +105,9 @@ void signal_handler(int sig)
   opt_child = pid_child;
   logger("D::Child pid: {}", pid_child);
   // Connect to stdin, stdout, and stderr with fifos
-  pid_t pid_stdin = redirect_fd_to_fifo(pid_child, STDIN_FILENO, message.get_stdin());
-  pid_t pid_stdout = redirect_fifo_to_fd(pid_child, message.get_stdout(), STDOUT_FILENO);
-  pid_t pid_stderr = redirect_fifo_to_fd(pid_child, message.get_stderr(), STDERR_FILENO);
+  pid_t pid_stdin = ns_portal::ns_fifo::redirect_fd_to_fifo(pid_child, STDIN_FILENO, message.get_stdin());
+  pid_t pid_stdout = ns_portal::ns_fifo::redirect_fifo_to_fd(pid_child, message.get_stdout(), STDOUT_FILENO);
+  pid_t pid_stderr = ns_portal::ns_fifo::redirect_fifo_to_fd(pid_child, message.get_stderr(), STDERR_FILENO);
   logger("D::Connected to stdin/stdout/stderr fifos");
   // Wait for processes to exit
   waitpid(pid_stdin, nullptr, 0);
@@ -164,11 +164,11 @@ void signal_handler(int sig)
   fs::path path_dir_fifo = path_dir_portal / "fifo";
   auto message = ns_message::Message()
     .with_command(cmd)
-    .with_stdin(Pop(create_fifo(path_dir_fifo / "stdin")))
-    .with_stdout(Pop(create_fifo(path_dir_fifo / "stdout")))
-    .with_stderr(Pop(create_fifo(path_dir_fifo / "stderr")))
-    .with_exit(Pop(create_fifo(path_dir_fifo / "exit")))
-    .with_pid(Pop(create_fifo(path_dir_fifo / "pid")))
+    .with_stdin(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "stdin")))
+    .with_stdout(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "stdout")))
+    .with_stderr(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "stderr")))
+    .with_exit(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "exit")))
+    .with_pid(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "pid")))
     .with_log(path_file_log)
     .with_environment(Pop(get_environment()));
   // Send message to daemon

@@ -24,7 +24,7 @@
 
 namespace fs = std::filesystem;
 
-namespace child
+namespace ns_portal::ns_child
 {
 
 [[nodiscard]] inline Value<void> write_fifo(int const value, fs::path const& path_file_fifo)
@@ -121,4 +121,4 @@ inline void parent_wait(pid_t const pid, ns_db::ns_portal::ns_message::Message c
   _exit(0);
 }
 
-} // namespace child
+} // namespace ns_portal::ns_child

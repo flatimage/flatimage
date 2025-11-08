@@ -19,6 +19,7 @@
 #include <filesystem>
 #include <unistd.h>
 
+#include "../std/filesystem.hpp"
 #include "../std/expected.hpp"
 #include "../lib/log.hpp"
 #include "../lib/env.hpp"
@@ -39,11 +40,7 @@ int main(int argc, char** argv)
   // Create directory for the portal data
   fs::path path_dir_instance = Pop(ns_env::get_expected("FIM_DIR_INSTANCE"));
   fs::path path_dir_portal = path_dir_instance / "portal";
-  ereturn_if(std::error_code ec;
-      not fs::exists(path_dir_portal, ec) and not fs::create_directories(path_dir_portal, ec)
-    , std::format("Could not create portal daemon directories: {}", ec.message())
-    , EXIT_FAILURE
-  );
+  Pop(ns_fs::create_directories(path_dir_portal), "C::Could not create portal daemon directories: {}");
 
   // Retrieve referece pid argument, run the loop as long as it exists
   ereturn_if(argc < 3, "Missing PID argument", EXIT_FAILURE);
@@ -58,10 +55,9 @@ int main(int argc, char** argv)
   ns_log::set_sink_file(path_file_log);
   ns_log::set_level((ns_env::exists("FIM_DEBUG", "1"))? ns_log::Level::DEBUG : ns_log::Level::CRITICAL);
   // Create a fifo to receive commands from
-  fs::path path_fifo_in = Pop(create_fifo(path_dir_portal / std::format("daemon.{}.fifo", mode)));
+  fs::path path_fifo_in = Pop(ns_portal::ns_fifo::create(path_dir_portal / std::format("daemon.{}.fifo", mode)));
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
   ereturn_if(fd_fifo < 0, strerror(errno), EXIT_FAILURE);
-
 
   // Create dummy writter to keep fifo open
   [[maybe_unused]] int fd_dummy = ::open(path_fifo_in.c_str(), O_WRONLY);
@@ -93,7 +89,7 @@ int main(int argc, char** argv)
     }
     else if (pid == 0)
     {
-      child::spawn(message.value()).discard("C::Could not spawn child");
+      ns_portal::ns_child::spawn(message.value()).discard("C::Could not spawn child");
       _exit(1);
     }
   } // for
