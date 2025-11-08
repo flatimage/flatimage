@@ -14,21 +14,37 @@
 #include <fcntl.h>
 #include <string>
 #include <filesystem>
+#include <optional>
 #include <sys/time.h>
 #include <unistd.h>
 #include <cassert>
 
 #include "../macro.hpp"
 #include "../std/expected.hpp"
+#include "log.hpp"
 
 namespace ns_linux
 {
 
+extern "C" inline void alarm_handler(int) { /* no-op */ }
 namespace
 {
 
 namespace fs = std::filesystem;
 
+/**
+ * @brief RAII wrapper for POSIX interval timers with SIGALRM
+ *
+ * @warning NOT THREAD-SAFE: Uses process-wide resources (SIGALRM, ITIMER_REAL).
+ *          Multiple instances or concurrent use will cause race conditions.
+ *          Only use in single-threaded contexts or with external synchronization.
+ *
+ * @note Signal behavior:
+ *       - Replaces existing SIGALRM handler (preserved and restored in destructor)
+ *       - Sets sa_flags = 0 (no SA_RESTART, syscalls will be interrupted)
+ *       - Uses empty signal mask (sigemptyset)
+ *       - Old handler and timer are restored in destructor
+ */
 class InterruptTimer
 {
   private:
@@ -48,21 +64,37 @@ class InterruptTimer
 
     Value<void> start(std::chrono::milliseconds const& timeout)
     {
+      // Validate timeout range
+      if (timeout.count() <= 0)
+      {
+        return Error("E::Timeout must be positive (zero timeout disarms the timer)");
+      }
+      // Check for overflow on 32-bit systems (time_t might be 32-bit)
+      // Convert to seconds first to avoid overflow in multiplication
+      auto const timeout_seconds = timeout.count() / 1000;
+      if (timeout_seconds > std::numeric_limits<time_t>::max())
+      {
+        return Error("E::Timeout too large: {} ms (max: {} seconds)"
+          , timeout.count()
+          , std::numeric_limits<time_t>::max()
+        );
+      }
+
       struct sigaction  old_sa;
       struct itimerval  old_timer;
       // save old handler
       if (sigaction(SIGALRM, nullptr, &old_sa) < 0)
       {
-        return std::unexpected(std::format("Failed to save action: {}", strerror(errno)));
+        return Error("E::Failed to save action: {}", strerror(errno));
       }
       else
       {
         m_old_sa = old_sa;
       }
       // save old timer
-      if (setitimer(ITIMER_REAL, nullptr, &old_timer) < 0)
+      if (getitimer(ITIMER_REAL, &old_timer) < 0)
       {
-        return std::unexpected(std::format("Failed to save timer: {}", strerror(errno)));
+        return Error("E::Failed to save timer: {}", strerror(errno));
       }
       else
       {
@@ -71,26 +103,26 @@ class InterruptTimer
 
       // Set mask for novel action
       struct sigaction sa{};
-      sa.sa_handler = [](int){};
+      sa.sa_handler = alarm_handler;
       if (sigemptyset(&sa.sa_mask) < 0)
       {
-        return std::unexpected(std::format("Failed to set mask: {}", strerror(errno)));
+        return Error("E::Failed to set mask: {}", strerror(errno));
       }
       // Install novel action
       sa.sa_flags = 0;
       if (sigaction(SIGALRM, &sa, nullptr) < 0)
       {
-        return std::unexpected(std::format("Failed to set action: {}", strerror(errno)));
+        return Error("E::Failed to set action: {}", strerror(errno));
       }
       // Arm new timer
       struct itimerval tm{};
-      tm.it_value.tv_sec  = timeout.count()/1000; // integer seconds -> 1
-      tm.it_value.tv_usec = (timeout.count()%1000)*1000; // remaining ms -> 500 ms, convert to μs -> 500 000 μs
-      tm.it_interval.tv_sec = 0;
+      tm.it_value.tv_sec  = timeout.count()/1000; // Convert ms to seconds (e.g., 1500ms -> 1s)
+      tm.it_value.tv_usec = (timeout.count()%1000)*1000; // Remainder as μs (e.g., 1500ms -> 500ms -> 500000μs)
+      tm.it_interval.tv_sec = 0;  // One-shot timer: no repeat interval
       tm.it_interval.tv_usec = 0;
       if (setitimer(ITIMER_REAL, &tm, nullptr) < 0)
       {
-        return std::unexpected(std::format("Could not arm timer: {}", strerror(errno)));
+        return Error("E::Could not arm timer: {}", strerror(errno));
       }
       return {};
     }
@@ -98,16 +130,30 @@ class InterruptTimer
     void clean()
     {
       // restore old handler
-      if(m_old_sa) { sigaction(SIGALRM, &m_old_sa.value(), nullptr); }
+      if(m_old_sa)
+      {
+        if (sigaction(SIGALRM, &m_old_sa.value(), nullptr) < 0)
+        {
+          logger("E::Failed to restore SIGALRM handler: {}", strerror(errno));
+        }
+        m_old_sa.reset();
+      }
       // restore old timer
-      if(m_old_timer) { setitimer(ITIMER_REAL, &m_old_timer.value(), nullptr); }
+      if(m_old_timer)
+      {
+        if (setitimer(ITIMER_REAL, &m_old_timer.value(), nullptr) < 0)
+        {
+          logger("E::Failed to restore timer: {}", strerror(errno));
+        }
+        m_old_timer.reset();
+      }
     }
 };
 
 }
 
 /**
- * @brief Reads from the file descriptor or exits within a timeout
+ * @brief Reads from the file descriptor with a timeout
  *
  * @tparam Data Type of data elements in the buffer
  * @param fd The file descriptor
@@ -115,6 +161,7 @@ class InterruptTimer
  * @param buf The buffer in which to store the read data
  * @return ssize_t The number of read bytes or -1 and errno is set
  *
+ * @note If timeout expires, read() is interrupted and returns -1 with errno = EINTR
  * @todo Make this return Value due to timer
  */
 template<typename Data>
@@ -129,17 +176,45 @@ template<typename Data>
     logger("E::{}", ret.error());
     return -1;
   }
-  return ::read(fd, buf.data(), buf.size()*sizeof(Element));
+  return ::read(fd, buf.data(), buf.size() * sizeof(Element));
 }
 
 /**
- * @brief Opens a given file or exits within a timeout
- * 
+ * @brief Writes to the file descriptor with a timeout
+ *
+ * @tparam Data Type of data elements in the buffer
+ * @param fd The file descriptor
+ * @param timeout The timeout in std::chrono::milliseconds
+ * @param buf The buffer with the data to write
+ * @return ssize_t The number of written bytes or -1 and errno is set
+ *
+ * @note If timeout expires, write() is interrupted and returns -1 with errno = EINTR
+ * @todo Make this return Value due to timer
+ */
+template<typename Data>
+[[nodiscard]] inline ssize_t write_with_timeout(int fd
+  , std::chrono::milliseconds const& timeout
+  , std::span<Data> buf)
+{
+  using Element = typename std::decay_t<typename decltype(buf)::value_type>;
+  InterruptTimer interrupt;
+  if(auto ret = interrupt.start(timeout); not ret)
+  {
+    logger("E::{}", ret.error());
+    return -1;
+  }
+  return ::write(fd, buf.data(), buf.size() * sizeof(Element));
+}
+
+/**
+ * @brief Opens a given file with a timeout
+ *
  * @param path_file_src Path for the file to open
  * @param timeout The timeout in std::chrono::milliseconds
  * @param oflag The open flags O_*
  * @return int The file descriptor or -1 on error and errno is set
  *
+ * @note If timeout expires, open() is interrupted and returns -1 with errno = EINTR
  * @todo Make this return Value due to timer
  */
 [[nodiscard]] inline int open_with_timeout(
@@ -191,10 +266,9 @@ template<typename Data>
   , std::chrono::milliseconds const& timeout
   , std::span<Data> buf)
 {
-  using Element = typename std::decay_t<typename decltype(buf)::value_type>;
   int fd = open_with_timeout(path_file_src, timeout, O_WRONLY);
   qreturn_if(fd < 0, fd);
-  ssize_t bytes_written = write(fd, buf.data(), buf.size()*sizeof(Element));
+  ssize_t bytes_written = write_with_timeout(fd, timeout, buf);
   close(fd);
   return bytes_written;
 }
@@ -208,7 +282,7 @@ template<typename Data>
 [[nodiscard]] inline Value<bool> module_check(std::string_view str_name)
 {
   std::ifstream file_modules("/proc/modules");
-  qreturn_if(not file_modules.is_open(), std::unexpected("Could not open modules file"));
+  qreturn_if(not file_modules.is_open(), Error("E::Could not open modules file"));
 
   std::string line;
   while ( std::getline(file_modules, line) )
