@@ -37,7 +37,7 @@ namespace ns_pipe
  * @param pipestderr Stderr pipe
  * @param fstdout Stdout handler function
  * @param fstderr Stderr handler function
- * @param path_file_log Optional log file path (creates .stdout.log and .stderr.log)
+ * @param path_file_log Optional log file path (creates .parent.reader.stdout.log and .parent.reader.stderr.log)
  * @return std::pair<pid_t, pid_t> Pair of PIDs (stdout reader, stderr reader)
  */
 inline std::pair<pid_t, pid_t> pipes_parent(
@@ -155,7 +155,7 @@ inline void pipes_child(int pipestdout[2], int pipestderr[2])
  * @param pipestderr Stderr pipe
  * @param fstdout Stdout handler function
  * @param fstderr Stderr handler function
- * @param path_file_log Optional log file path (creates .stdout.log and .stderr.log)
+ * @param path_file_log Optional log file path (creates .parent.reader.stdout.log and .parent.reader.stderr.log)
  * @return std::pair<pid_t, pid_t> Pair of PIDs for pipe readers (stdout, stderr), or (-1, -1) if child
  */
 inline std::pair<pid_t, pid_t> setup(
