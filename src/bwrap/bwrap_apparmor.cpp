@@ -30,7 +30,7 @@ int main(int argc, char const* argv[])
   // Check arguments
   ereturn_if(argc != 3, "Incorrect # of arguments for bwrap-apparmor", EXIT_FAILURE);
   // Set log file location
-  fs::path path_file_log = std::string{argv[1]} + ".bwrap-apparmor.log";
+  fs::path path_file_log = std::string{argv[1]};
   ns_log::set_sink_file(path_file_log);
   // Find apparmor_parser
   fs::path path_file_apparmor_parser = Pop(ns_env::search_path("apparmor_parser"));

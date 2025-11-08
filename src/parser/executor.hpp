@@ -88,8 +88,8 @@ using namespace ns_parser::ns_interface;
     ns_config::User user = Pop(config.configure_user(), "E::Failed to configure user data");
     logger("D::User: {}", user);
     // Create bwrap command
-    ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(
-        user.name
+    ns_bwrap::Bwrap bwrap = ns_bwrap::Bwrap(config.logs.bwrap
+      , user.name
       , user.id.uid
       , user.id.gid
       , bwrap_overlay

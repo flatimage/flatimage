@@ -41,6 +41,16 @@ struct Overlay
   fs::path path_dir_work;
 };
 
+struct Logs
+{
+  fs::path const path_dir_log;
+  fs::path const path_file_apparmor;
+  Logs(fs::path const& path_dir_log)
+    : path_dir_log(path_dir_log)
+    , path_file_apparmor(path_dir_log / "apparmor.log")
+  {}
+};
+
 using Permissions = ns_reserved::ns_permissions::Permissions;
 using Permission = ns_reserved::ns_permissions::Permission;
 
@@ -49,6 +59,8 @@ struct bwrap_run_ret_t { int code; int syscall_nr; int errno_nr; };
 class Bwrap
 {
   private:
+    // Logging
+    Logs m_logs;
     // Program to run, its arguments and environment
     fs::path m_path_file_program;
     std::vector<std::string> m_program_args;
@@ -73,7 +85,8 @@ class Bwrap
     Value<fs::path> test_and_setup(fs::path const& path_file_bwrap);
 
   public:
-    Bwrap(std::string_view user
+    Bwrap(Logs logs
+      , std::string_view user
       , mode_t uid
       , mode_t gid
       , std::optional<Overlay> opt_overlay
@@ -125,7 +138,8 @@ class Bwrap
  * @param program_args Arguments for the program launched in the sandbox
  * @param program_env Environment for the program launched in the sandbox
  */
-inline Bwrap::Bwrap(std::string_view user
+inline Bwrap::Bwrap(Logs logs
+    , std::string_view user
     , mode_t uid
     , mode_t gid
     , std::optional<Overlay> opt_overlay
@@ -137,7 +151,8 @@ inline Bwrap::Bwrap(std::string_view user
     , fs::path const& path_file_program
     , std::vector<std::string> const& program_args
     , std::vector<std::string> const& program_env)
-  : m_path_file_program(path_file_program)
+  : m_logs(logs)
+  , m_path_file_program(path_file_program)
   , m_program_args(program_args)
   , m_opt_path_dir_work(opt_overlay.transform([](auto&& e){ return e.path_dir_work; }))
   , m_is_root(uid == 0)
@@ -252,9 +267,8 @@ inline Value<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src
   // Error might be EACCES, try to integrate with apparmor
   fs::path path_file_pkexec = Pop(ns_env::search_path("pkexec"));
   fs::path path_file_bwrap_apparmor = Pop(ns_env::search_path("fim_bwrap_apparmor"));
-  fs::path path_dir_mount = Pop(ns_env::get_expected("FIM_DIR_MOUNT"));
   Try(ns_subprocess::Subprocess(path_file_pkexec)
-    .with_args(path_file_bwrap_apparmor, path_dir_mount, path_file_bwrap_src)
+    .with_args(path_file_bwrap_apparmor, m_logs.path_file_apparmor, path_file_bwrap_src)
     .with_log_stdio()
     .wait());
   return path_file_bwrap_opt;

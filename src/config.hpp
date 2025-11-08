@@ -25,6 +25,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "bwrap/bwrap.hpp"
 #include "common.hpp"
 #include "lib/env.hpp"
 #include "db/env.hpp"
@@ -190,6 +191,27 @@ namespace fs = std::filesystem;
 
 } // namespace
 
+struct Logs
+{
+  private:
+    fs::path const path_dir_log;
+
+  public:
+  ns_bwrap::Logs bwrap;
+  fs::path const path_file_janitor;
+  fs::path const path_file_boot;
+  
+  Logs() = delete;
+  Logs(fs::path const& path_dir_log)
+    : path_dir_log(path_dir_log)
+    , bwrap(path_dir_log / "bwrap")
+    , path_file_janitor(path_dir_log / "janitor.log")
+    , path_file_boot(path_dir_log / "boot.log")
+  {
+    fs::create_directories(path_dir_log);
+  }
+};
+
 struct FlatimageConfig
 {
   // Distribution name
@@ -199,9 +221,11 @@ struct FlatimageConfig
   bool is_debug{};
   bool is_casefold{};
   bool is_notify{};
+  // Logging
+  Logs logs;
   // Type of overlay filesystem (bwrap,overlayfs,unionfs)
   ns_reserved::ns_overlay::OverlayType overlay_type;
-  // Useful directories
+  // Structural directories
   fs::path const path_dir_global;
   fs::path const path_dir_mount;
   fs::path const path_dir_app;
@@ -222,10 +246,14 @@ struct FlatimageConfig
   fs::path const path_dir_upper_overlayfs;
   fs::path const path_dir_work_overlayfs;
   fs::path const path_dir_mount_overlayfs;
+  // Binary files
+  fs::path const path_bin_janitor;
+  fs::path const path_bin_portal_daemon;
+  fs::path const path_bin_portal_dispatcher;
   //Compression level
-  uint32_t layer_compression_level{};
+  uint32_t const layer_compression_level;
   // PATH environment variable
-  std::string env_path;
+  std::string const env_path;
 
   Value<User> configure_user()
   {
@@ -246,7 +274,7 @@ struct FlatimageConfig
   // pid and distribution variables
   ns_env::set("FIM_PID", getpid(), ns_env::Replace::Y);
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
-
+  
   // Standard paths
   fs::path path_dir_global = Pop(ns_env::get_expected("FIM_DIR_GLOBAL"));
   fs::path path_file_binary = Pop(ns_env::get_expected("FIM_FILE_BINARY"));
@@ -259,6 +287,14 @@ struct FlatimageConfig
   fs::path path_file_bash = path_dir_app_bin / "bash";
   fs::path path_dir_mount_layers = path_dir_mount / "layers";
   fs::path path_dir_mount_overlayfs = path_dir_mount / "overlayfs";
+
+  // Binary files
+  fs::path path_bin_janitor = path_dir_app_bin / "fim_janitor";
+  fs::path path_bin_portal_dispatcher = path_dir_app_bin / "fim_portal";
+  fs::path path_bin_portal_daemon = path_dir_app_bin / "fim_portal_daemon";
+
+  // Log files
+  Logs logs = Try(Logs(path_dir_instance / "logs"));
 
   // Distribution
   Distribution distribution = Pop(Distribution::from_string(FIM_DIST));
@@ -364,6 +400,7 @@ struct FlatimageConfig
     .is_debug = is_debug,
     .is_casefold = is_casefold,
     .is_notify = is_notify,
+    .logs = logs,
     .overlay_type = overlay_type,
     .path_dir_global = path_dir_global,
     .path_dir_mount = path_dir_mount,
@@ -385,6 +422,9 @@ struct FlatimageConfig
     .path_dir_upper_overlayfs = path_dir_upper_overlayfs,
     .path_dir_work_overlayfs = path_dir_work_overlayfs,
     .path_dir_mount_overlayfs = path_dir_mount_overlayfs,
+    .path_bin_janitor = path_bin_janitor,
+    .path_bin_portal_daemon = path_bin_portal_daemon,
+    .path_bin_portal_dispatcher = path_bin_portal_dispatcher,
     .layer_compression_level = layer_compression_level,
     .env_path = env_path,
   }, deleter);

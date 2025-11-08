@@ -47,7 +47,7 @@ class Controller
       , fs::path const& path_dir_workdir
     );
     // In case the parent process fails to clean the mountpoints, this child does it
-    [[nodiscard]] Value<void> spawn_janitor();
+    [[nodiscard]] Value<void> spawn_janitor(fs::path const& path_bin_janitor, fs::path const& path_file_log);
 
   public:
     Controller(ns_config::FlatimageConfig const& config);
@@ -114,7 +114,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
     logger("D::casefold is disabled");
   }
   // Spawn janitor, make it permissive since flatimage works without it
-  spawn_janitor().discard("E::Could not spawn janitor");
+  spawn_janitor(config.path_bin_janitor, config.logs.path_file_janitor).discard("E::Could not spawn janitor");
 }
 
 /**
@@ -141,14 +141,11 @@ inline Controller::~Controller()
  * @brief Spawns the janitor.
  * In case the parent process fails to clean the mountpoints, this child does it
  */
-[[nodiscard]] inline Value<void> Controller::spawn_janitor()
+[[nodiscard]] inline Value<void> Controller::spawn_janitor(fs::path const& path_bin_janitor
+  , fs::path const& path_file_log)
 {
-  // Find janitor binary
-  fs::path path_file_janitor = fs::path{Pop(ns_env::get_expected("FIM_DIR_APP_BIN"))} / "fim_janitor";
-  // Set log location
-  fs::path path_file_log = Pop(ns_env::get_expected("FIM_DIR_MOUNT")) + ".janitor.log";
   // Spawn
-  m_child_janitor = ns_subprocess::Subprocess(path_file_janitor)
+  m_child_janitor = ns_subprocess::Subprocess(path_bin_janitor)
     .with_args(getpid(), path_file_log, this->m_vec_path_dir_mountpoints)
     .with_log_file(path_file_log)
     .with_log_stdio()

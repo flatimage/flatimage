@@ -46,7 +46,7 @@ extern char** environ;
   std::shared_ptr<ns_config::FlatimageConfig> config = Pop(ns_config::config());
   qreturn_if(config == nullptr, Error("E::Failed to initialize configuration"));
   // Set log file, permissive
-  ns_log::set_sink_file(config->path_dir_mount.string() + ".boot.log");
+  ns_log::set_sink_file(config->logs.path_file_boot);
   // Start host portal, permissive
   [[maybe_unused]] auto portal = ns_portal::create(getpid(), "host")
     .forward("E::Could not start portal daemon");
