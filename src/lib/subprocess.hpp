@@ -281,7 +281,7 @@ inline Subprocess& Subprocess::env_clear()
 template<ns_concept::StringRepresentable K, ns_concept::StringRepresentable V>
 Subprocess& Subprocess::with_var(K&& k, V&& v)
 {
-  rm_var(k);
+  std::ignore = rm_var(k);
   m_env.push_back(std::format("{}={}", k, v));
   return *this;
 }
