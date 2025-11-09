@@ -19,12 +19,12 @@
 #include <filesystem>
 #include <unistd.h>
 
-#include "../std/filesystem.hpp"
 #include "../std/expected.hpp"
 #include "../lib/log.hpp"
 #include "../lib/env.hpp"
 #include "../macro.hpp"
 #include "../db/portal/message.hpp"
+#include "../db/portal/daemon.hpp"
 #include "config.hpp"
 #include "child.hpp"
 #include "fifo.hpp"
@@ -34,28 +34,28 @@ namespace ns_message = ns_db::ns_portal::ns_message;
 
 extern char** environ;
 
-int main(int argc, char** argv)
-{
-  auto __expected_fn = [](auto&&){ return EXIT_FAILURE; };
-  // Create directory for the portal data
-  fs::path path_dir_instance = Pop(ns_env::get_expected("FIM_DIR_INSTANCE"));
-  fs::path path_dir_portal = path_dir_instance / "portal";
-  Pop(ns_fs::create_directories(path_dir_portal), "C::Could not create portal daemon directories: {}");
+namespace ns_daemon = ns_db::ns_portal::ns_daemon;
 
-  // Retrieve referece pid argument, run the loop as long as it exists
-  ereturn_if(argc < 3, "Missing PID argument", EXIT_FAILURE);
-  pid_t pid_reference = Try(std::stoi(argv[1]));
-  // Operation mode
-  // host == Runs on host
-  // guest == Runs on container
-  std::string mode = (std::string_view{argv[2]} == "host")? "host" : "guest";
+int main()
+{
+  auto __expected_fn = [](auto&& e){ logger("E::{}", e.error()); return EXIT_FAILURE; };
+  // Notify
+  logger("D::Started host daemon");
+
+  // Retrieve daemon configuration from environment variables or command-line arguments
+  std::string daemon_cfg_str = Pop(ns_env::get_expected("FIM_DAEMON_CFG"));
+  std::string daemon_log_str = Pop(ns_env::get_expected("FIM_DAEMON_LOG"));
+
+  // Parse arguments
+  auto args_cfg = Pop(ns_daemon::deserialize(daemon_cfg_str));
+  auto args_log = Pop(ns_daemon::ns_log::deserialize(daemon_log_str));
 
   // Configure logger file
-  fs::path path_file_log = fs::path{path_dir_portal} / std::format("daemon.{}.log", mode);
-  ns_log::set_sink_file(path_file_log);
-  ns_log::set_level((ns_env::exists("FIM_DEBUG", "1"))? ns_log::Level::DEBUG : ns_log::Level::CRITICAL);
+  ns_log::set_sink_file(args_log.get_path_file_parent());
+  logger("D::Initialized portal daemon in {} mode", args_cfg.get_mode().lower());
+
   // Create a fifo to receive commands from
-  fs::path path_fifo_in = Pop(ns_portal::ns_fifo::create(path_dir_portal / std::format("daemon.{}.fifo", mode)));
+  fs::path path_fifo_in = Pop(ns_portal::ns_fifo::create(args_cfg.get_path_fifo_listen()));
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
   ereturn_if(fd_fifo < 0, strerror(errno), EXIT_FAILURE);
 
@@ -63,6 +63,7 @@ int main(int argc, char** argv)
   [[maybe_unused]] int fd_dummy = ::open(path_fifo_in.c_str(), O_WRONLY);
 
   // Recover messages
+  pid_t pid_reference = args_cfg.get_pid_reference();
   for(char buffer[16384]; kill(pid_reference, 0) == 0;)
   {
     ssize_t bytes_read = ::read(fd_fifo, &buffer, SIZE_BUFFER_READ);
@@ -70,11 +71,21 @@ int main(int argc, char** argv)
     // == 0 -> EOF
     // <  0 -> error (possible retry, because of non-blocking operation)
     // >  0 -> Possibly valid data to parse
-    if (bytes_read == 0) { break; }
-    if (bytes_read < 0)
+    if (bytes_read == 0)
     {
-      if (errno != EAGAIN and errno != EWOULDBLOCK) { break; }
-      else { std::this_thread::sleep_for(std::chrono::milliseconds{100}); continue; }
+      break;
+    }
+    else if (bytes_read < 0)
+    {
+      if (errno != EAGAIN and errno != EWOULDBLOCK)
+      {
+        break;
+      }
+      else
+      {
+        std::this_thread::sleep_for(std::chrono::milliseconds{100});
+        continue;
+      }
     }
     // Create a safe view over read data
     std::string_view msg{buffer, static_cast<size_t>(bytes_read)};
@@ -89,7 +100,7 @@ int main(int argc, char** argv)
     }
     else if (pid == 0)
     {
-      ns_portal::ns_child::spawn(message.value()).discard("C::Could not spawn child");
+      ns_portal::ns_child::spawn(args_log, message.value()).discard("C::Could not spawn child");
       _exit(1);
     }
   } // for

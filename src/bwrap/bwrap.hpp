@@ -16,6 +16,8 @@
 #include <regex>
 
 #include "../db/bind.hpp"
+#include "../db/portal/daemon.hpp"
+#include "../db/portal/dispatcher.hpp"
 #include "../reserved/permissions.hpp"
 #include "../std/expected.hpp"
 #include "../std/vector.hpp"
@@ -48,7 +50,9 @@ struct Logs
   Logs(fs::path const& path_dir_log)
     : path_dir_log(path_dir_log)
     , path_file_apparmor(path_dir_log / "apparmor.log")
-  {}
+  {
+    fs::create_directories(path_file_apparmor.parent_path());
+  }
 };
 
 using Permissions = ns_reserved::ns_permissions::Permissions;
@@ -123,7 +127,11 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind(fs::path const& src, fs::path const& dst);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
     [[maybe_unused]] [[nodiscard]] Value<bwrap_run_ret_t> run(Permissions const& permissions
-      , fs::path const& path_dir_app_bin);
+      , fs::path const& path_file_daemon
+      , ns_db::ns_portal::ns_dispatcher::Dispatcher const& arg1_dispatcher
+      , ns_db::ns_portal::ns_daemon::Daemon const& arg1_daemon
+      , ns_db::ns_portal::ns_daemon::ns_log::Logs const& arg2_daemon
+    );
 };
 
  /**
@@ -715,7 +723,10 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
  * @return bwrap_run_ret_t 
  */
 inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
-  , fs::path const& path_dir_app_bin)
+  , fs::path const& path_file_daemon
+  , ns_db::ns_portal::ns_dispatcher::Dispatcher const& arg1_dispatcher
+  , ns_db::ns_portal::ns_daemon::Daemon const& arg1_daemon
+  , ns_db::ns_portal::ns_daemon::ns_log::Logs const& arg2_daemon)
 {
   // Configure bindings
   if(permissions.contains(Permission::HOME)){ std::ignore = bind_home(); };
@@ -754,7 +765,16 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   }
 
   // Get path to daemon
-  fs::path path_file_daemon = path_dir_app_bin / "fim_portal_daemon";
+  std::string str_arg1_dispatcher = Pop(ns_db::ns_portal::ns_dispatcher::serialize(arg1_dispatcher));
+  std::string str_arg1_daemon = Pop(ns_db::ns_portal::ns_daemon::serialize(arg1_daemon));
+  std::string str_arg2_daemon = Pop(ns_db::ns_portal::ns_daemon::ns_log::serialize(arg2_daemon));
+
+  // Pass daemon configuration via environment variables to avoid shell escaping issues
+  // The daemon will read FIM_DAEMON_CFG and FIM_DAEMON_LOG from environment
+  ns_vector::push_back(m_args, "--setenv", "FIM_DISPATCHER_CFG", str_arg1_dispatcher);
+  ns_vector::push_back(m_args, "--setenv", "FIM_DAEMON_CFG", str_arg1_daemon);
+  ns_vector::push_back(m_args, "--setenv", "FIM_DAEMON_LOG", str_arg2_daemon);
+
   qreturn_if(not Try(fs::exists(path_file_daemon)), Error("E::Missing portal daemon to run binary file path"));
 
   // Run Bwrap
@@ -762,7 +782,7 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
     .with_args("-c", std::format(R"("{}" "$@")", path_file_bwrap.string()), "--")
     .with_args("--error-fd", std::to_string(pipe_error[1]))
     .with_args(m_args)
-    .with_args(path_file_bash, "-c", std::format(R"(&>/dev/null nohup "{}" "{}" guest & disown; "{}" "$@")", path_file_daemon.string(), getpid(), m_path_file_program.string()), "--")
+    .with_args(path_file_bash, "-c", std::format(R"(&>/dev/null nohup "{}" & disown; "{}" "$@")", path_file_daemon.string(), m_path_file_program.string()), "--")
     .with_args(m_program_args)
     .with_env(m_program_env)
     .wait()

@@ -42,14 +42,16 @@ extern char** environ;
  */
 [[nodiscard]] Value<int> boot(int argc, char** argv)
 {
+  using ns_db::ns_portal::ns_dispatcher::deserialize;
   // Create configuration object
   std::shared_ptr<ns_config::FlatimageConfig> config = Pop(ns_config::config());
   qreturn_if(config == nullptr, Error("E::Failed to initialize configuration"));
   // Set log file, permissive
   ns_log::set_sink_file(config->logs.path_file_boot);
   // Start host portal, permissive
-  [[maybe_unused]] auto portal = ns_portal::create(getpid(), "host")
-    .forward("E::Could not start portal daemon");
+  [[maybe_unused]] auto portal = ns_portal::spawn(config->daemon_host
+    , config->logs.daemon_host
+  ).forward("E::Could not start portal daemon");
   // Execute flatimage command if exists
   return Pop(ns_parser::execute_command(*config, argc, argv));
 }

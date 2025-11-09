@@ -667,7 +667,7 @@ class critical : public Writer
  * @see ns_log::set_level to control console output verbosity
  * @see ns_log::set_sink_file to enable file logging
  */
-#define logger(fmt, ...) ns_log::impl_log<fmt>(ns_log::Location{})(__VA_ARGS__)
+#define logger(fmt, ...) ::ns_log::impl_log<fmt>(::ns_log::Location{})(__VA_ARGS__)
 
 /**
  * @def logger_loc(loc, fmt, ...)
@@ -712,7 +712,7 @@ class critical : public Writer
  * @note Location is consteval, so it must be constructed at compile time
  * @see logger for automatic location capture
  */
-#define logger_loc(loc, fmt, ...) ns_log::impl_log<fmt>(loc)(__VA_ARGS__)
+#define logger_loc(loc, fmt, ...) ::ns_log::impl_log<fmt>(loc)(__VA_ARGS__)
 
 /**
  * @brief Implementation function for compile-time log level dispatch

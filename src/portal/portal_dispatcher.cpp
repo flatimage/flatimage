@@ -20,15 +20,18 @@
 
 #include "../macro.hpp"
 #include "../std/expected.hpp"
+#include "../std/filesystem.hpp"
 #include "../lib/env.hpp"
 #include "../lib/log.hpp"
 #include "../lib/linux.hpp"
 #include "../db/portal/message.hpp"
+#include "../db/portal/dispatcher.hpp"
 #include "fifo.hpp"
 #include "config.hpp"
 
 namespace fs = std::filesystem;
 namespace ns_message = ns_db::ns_portal::ns_message;
+namespace ns_dispatcher = ns_db::ns_portal::ns_dispatcher;
 
 extern char** environ;
 std::optional<pid_t> opt_child = std::nullopt;
@@ -64,37 +67,31 @@ void register_signals()
   signal(SIGVTALRM, signal_handler);
 }
 
-/**
- * @brief Collects the current environment variables into a vector
- *
- * @return Value<std::vector<std::string>> The environment variables or the respective error
- */
-[[nodiscard]] Value<std::vector<std::string>> get_environment()
+[[nodiscard]] Value<void> fifo_create(ns_message::Message const& msg)
 {
-  std::vector<std::string> environment;
-  for(char **env = environ; *env != NULL; ++env)
-  {
-    environment.push_back(*env);
-  }
-  return environment;
+  Pop(ns_portal::ns_fifo::create(msg.get_stdin()));
+  Pop(ns_portal::ns_fifo::create(msg.get_stdout()));
+  Pop(ns_portal::ns_fifo::create(msg.get_stderr()));
+  Pop(ns_portal::ns_fifo::create(msg.get_exit()));
+  Pop(ns_portal::ns_fifo::create(msg.get_pid()));
+  return {};
 }
 
 /**
  * @brief Sends a message to the portal daemon
  *
- * @param path_daemon_fifo Path to the fifo which the daemon receives commands from
+ * @param path_fifo_daemon Path to the fifo which the daemon receives commands from
  * @param message The message to send
  * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] Value<void> send_message(fs::path const& path_daemon_fifo
-  , ns_message::Message const& message)
+[[nodiscard]] Value<void> send_message(ns_message::Message const& message, fs::path const& path_fifo_daemon)
 {
-  logger("D::Sending message through pipe: {}", path_daemon_fifo);
+  logger("D::Sending message through pipe: {}", path_fifo_daemon);
   // Serialize to json string
   std::string data = Pop(ns_message::serialize(message));
   logger("D::{}", data);
   // Write to fifo
-  ssize_t size_writen = ns_linux::open_write_with_timeout(path_daemon_fifo
+  ssize_t size_writen = ns_linux::open_write_with_timeout(path_fifo_daemon
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , std::span(data.c_str(), data.length())
   );
@@ -114,18 +111,20 @@ void register_signals()
  */
 [[nodiscard]] Value<int> process_wait(ns_message::Message const& message)
 {
+  // Child pid received through a fifo
   pid_t pid_child;
   ssize_t bytes_read = ns_linux::open_read_with_timeout(message.get_pid()
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , std::span<pid_t>(&pid_child, 1)
   );
   qreturn_if(bytes_read != sizeof(pid_child), Error("E::{}", strerror(errno)));
+  // Forward signal to pid
   opt_child = pid_child;
   logger("D::Child pid: {}", pid_child);
   // Connect to stdin, stdout, and stderr with fifos
-  pid_t pid_stdin = ns_portal::ns_fifo::redirect_fd_to_fifo(pid_child, STDIN_FILENO, message.get_stdin());
-  pid_t pid_stdout = ns_portal::ns_fifo::redirect_fifo_to_fd(pid_child, message.get_stdout(), STDOUT_FILENO);
-  pid_t pid_stderr = ns_portal::ns_fifo::redirect_fifo_to_fd(pid_child, message.get_stderr(), STDERR_FILENO);
+  pid_t const pid_stdin = ns_portal::ns_fifo::redirect_fd_to_fifo(pid_child, STDIN_FILENO, message.get_stdin());
+  pid_t const pid_stdout = ns_portal::ns_fifo::redirect_fifo_to_fd(pid_child, message.get_stdout(), STDOUT_FILENO);
+  pid_t const pid_stderr = ns_portal::ns_fifo::redirect_fifo_to_fd(pid_child, message.get_stderr(), STDERR_FILENO);
   logger("D::Connected to stdin/stdout/stderr fifos");
   // Wait for processes to exit
   waitpid(pid_stdin, nullptr, 0);
@@ -149,75 +148,52 @@ void register_signals()
  * @param path_dir_instance Path to the instance directory to use
  * @return Value<int> The process return code or the respective error
  */
-[[nodiscard]] Value<int> process_request(std::vector<std::string> const& cmd
-  , std::string const& daemon_target
-  , fs::path const& path_dir_instance)
+[[nodiscard]] Value<int> process_request(fs::path const& path_fifo_daemon
+    , fs::path const& path_dir_fifo
+    , fs::path const& path_file_log
+    , std::vector<std::string> const& cmd
+  )
 {
   using namespace std::chrono_literals;
-  // Set log level
-  ns_log::set_level(ns_env::exists("FIM_DEBUG", "1")? ns_log::Level::DEBUG : ns_log::Level::ERROR);
-  // Get portal directory
-  fs::path path_dir_portal = path_dir_instance / "portal";
   // Create define log file for child
-  fs::path path_file_log = path_dir_portal / "cli.log";
-  qreturn_if(std::error_code ec; (fs::create_directories(path_file_log.parent_path(), ec))
-    , Error("E::Error to create log file: {}", ec.message())
-  );
+  Pop(ns_fs::create_directories(path_file_log.parent_path()));
+  // Get environment
+  auto environment = std::ranges::subrange(environ, std::unreachable_sentinel)
+    | std::views::take_while([](char* p) { return p != nullptr; })
+    | std::ranges::to<std::vector<std::string>>();
+  // Build message with dispatcher PID
+  auto message = ns_message::Message(getpid(), cmd, path_dir_fifo, path_file_log, environment);
   // Create fifos and build message
-  fs::path path_dir_fifo = path_dir_portal / "fifo";
-  auto message = ns_message::Message()
-    .with_command(cmd)
-    .with_stdin(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "stdin")))
-    .with_stdout(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "stdout")))
-    .with_stderr(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "stderr")))
-    .with_exit(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "exit")))
-    .with_pid(Pop(ns_portal::ns_fifo::create(path_dir_fifo / "pid")))
-    .with_log(path_file_log)
-    .with_environment(Pop(get_environment()));
+  Pop(fifo_create(message));
+  // Create parent directories
+  Pop(ns_fs::create_directories(message.get_exit().parent_path()));
   // Send message to daemon
-  Pop(send_message(path_dir_portal / std::format("daemon.{}.fifo", daemon_target), message));
+  Pop(send_message(message, path_fifo_daemon));
   // Wait for child process and retrieve exit code
   return Pop(process_wait(message));
 }
 
 int main(int argc, char** argv)
 {
-  auto __expected_fn = [](auto&&){ return EXIT_FAILURE; };
+  auto __expected_fn = [](auto&& e){ logger("E::{}", e.error()); return EXIT_FAILURE; };
+  // Set log level
+  ns_log::set_level(ns_env::exists("FIM_DEBUG", "1")? ns_log::Level::DEBUG : ns_log::Level::ERROR);
+  // Collect arguments
   std::vector<std::string> args(argv+1, argv+argc);
-  // Daemon target
-  // "host" - Sends a command to the 'host' daemon
-  // "guest" - Sends a command to the 'guest' daemon
-  std::string daemon_target = "host";
-  // Path to the current instance
-  fs::path path_dir_instance;
-  // Get instance path or acquire it from an environment variable
-  if (args.size() >= 2 and Try(args.at(0)) == "--connect")
-  {
-    daemon_target = "guest";
-    path_dir_instance = Try(args.at(1));
-    args.erase(args.begin(), args.begin()+2);
-  }
-  else
-  {
-    path_dir_instance = ({
-      auto ret = ns_env::get_expected("FIM_DIR_INSTANCE");
-      if(not ret)
-      {
-        std::cerr << "FIM_DIR_INSTANCE is undefined\n";
-        return EXIT_FAILURE;
-      }
-      ret.value();
-    });
-  }
+  // No arguments for portal
+  ereturn_if(args.empty(), "E::No arguments for dispatcher", EXIT_FAILURE);
+  // De-serialize FIM_DISPATCHER_CFG
+  ns_dispatcher::Dispatcher arg_cfg = Pop(
+    ns_dispatcher::deserialize(Pop(ns_env::get_expected("FIM_DISPATCHER_CFG")))
+  );
   // Register signals
   register_signals();
   // Request process from daemon
-  auto result = process_request(args, daemon_target, path_dir_instance);
-  // Reflect the original process return code
-  if(result) { return result.value(); }
-  // Error on process request
-  logger("E::{}", result.error());
-  return EXIT_FAILURE;
+  return Pop(process_request(arg_cfg.get_path_fifo_daemon()
+    , arg_cfg.get_path_dir_fifo()
+    , arg_cfg.get_path_file_log()
+    , args
+  ) , "E::Failure to dispatch process request");
 }
 
 /* vim: set expandtab fdm=marker ts=2 sw=2 tw=100 et :*/

@@ -27,6 +27,9 @@
 
 #include "bwrap/bwrap.hpp"
 #include "common.hpp"
+#include "db/db.hpp"
+#include "db/portal/daemon.hpp"
+#include "db/portal/dispatcher.hpp"
 #include "lib/env.hpp"
 #include "db/env.hpp"
 #include "lib/log.hpp"
@@ -36,6 +39,7 @@
 #include "reserved/casefold.hpp"
 #include "reserved/notify.hpp"
 #include "reserved/overlay.hpp"
+#include "std/filesystem.hpp"
 
 // Version
 #ifndef FIM_VERSION
@@ -198,6 +202,9 @@ struct Logs
 
   public:
   ns_bwrap::Logs bwrap;
+  ns_db::ns_portal::ns_daemon::ns_log::Logs daemon_host;
+  ns_db::ns_portal::ns_daemon::ns_log::Logs daemon_guest;
+  ns_db::ns_portal::ns_dispatcher::Logs dispatcher;
   fs::path const path_file_janitor;
   fs::path const path_file_boot;
   
@@ -205,6 +212,9 @@ struct Logs
   Logs(fs::path const& path_dir_log)
     : path_dir_log(path_dir_log)
     , bwrap(path_dir_log / "bwrap")
+    , daemon_host(path_dir_log / "daemon" / "host")
+    , daemon_guest(path_dir_log / "daemon" / "guest")
+    , dispatcher(path_dir_log / "dispatcher")
     , path_file_janitor(path_dir_log / "janitor.log")
     , path_file_boot(path_dir_log / "boot.log")
   {
@@ -216,6 +226,8 @@ struct FlatimageConfig
 {
   // Distribution name
   Distribution const distribution;
+  // Pid of the current instance
+  pid_t const pid;
   // Feature flags
   bool is_root{};
   bool is_debug{};
@@ -223,6 +235,9 @@ struct FlatimageConfig
   bool is_notify{};
   // Logging
   Logs logs;
+  // Daemon data and logs
+  ns_db::ns_portal::ns_daemon::Daemon const daemon_host;
+  ns_db::ns_portal::ns_daemon::Daemon const daemon_guest;
   // Type of overlay filesystem (bwrap,overlayfs,unionfs)
   ns_reserved::ns_overlay::OverlayType overlay_type;
   // Structural directories
@@ -271,8 +286,10 @@ struct FlatimageConfig
  */
 [[nodiscard]] inline Value<std::shared_ptr<FlatimageConfig>> config()
 {
+  // Get the current instance's pid
+  pid_t pid = getpid();
   // pid and distribution variables
-  ns_env::set("FIM_PID", getpid(), ns_env::Replace::Y);
+  ns_env::set("FIM_PID", pid, ns_env::Replace::Y);
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
   
   // Standard paths
@@ -364,6 +381,12 @@ struct FlatimageConfig
     Catch(std::stoi(str_compression_level)).value_or(7);
   });
 
+  // Initialize daemon configuration
+  fs::path path_dir_fifo = Pop(ns_fs::create_directories(path_dir_instance / "portal" / "fifo"));
+  using DaemonMode = ns_db::ns_portal::ns_daemon::Mode;
+  ns_db::ns_portal::ns_daemon::Daemon daemon_host(DaemonMode::HOST, path_bin_portal_daemon, path_dir_fifo);
+  ns_db::ns_portal::ns_daemon::Daemon daemon_guest(DaemonMode::GUEST, path_bin_portal_daemon, path_dir_fifo);
+
   // LD_LIBRARY_PATH
   if ( auto ret = ns_env::get_expected("LD_LIBRARY_PATH") )
   {
@@ -396,11 +419,14 @@ struct FlatimageConfig
 
   return std::shared_ptr<FlatimageConfig>(new FlatimageConfig{
     .distribution = distribution,
+    .pid = pid,
     .is_root = is_root,
     .is_debug = is_debug,
     .is_casefold = is_casefold,
     .is_notify = is_notify,
     .logs = logs,
+    .daemon_host = daemon_host,
+    .daemon_guest = daemon_guest,
     .overlay_type = overlay_type,
     .path_dir_global = path_dir_global,
     .path_dir_mount = path_dir_mount,

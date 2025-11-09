@@ -2,7 +2,7 @@
  * @file portal.hpp
  * @author Ruan Formigoni
  * @brief Spawns a portal daemon process
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -12,6 +12,7 @@
 #include "../std/expected.hpp"
 #include "../lib/env.hpp"
 #include "../lib/subprocess.hpp"
+#include "../db/portal/daemon.hpp"
 
 namespace ns_portal
 {
@@ -23,24 +24,25 @@ namespace fs = std::filesystem;
 
 } // anonymous namespace
 
+using Daemon = ns_db::ns_portal::ns_daemon::Daemon;
+using Logs = ns_db::ns_portal::ns_daemon::ns_log::Logs;
+
+namespace ns_daemon = ns_db::ns_portal::ns_daemon;
+
 class Portal
 {
   private:
     std::unique_ptr<ns_subprocess::Child> m_child;
-    fs::path m_path_file_daemon;
-    fs::path m_path_file_guest;
     Portal();
 
   public:
     ~Portal();
-    friend Value<std::unique_ptr<Portal>> create(pid_t const pid_reference, std::string const& mode);
+    friend Value<std::unique_ptr<Portal>> spawn(Daemon const& daemon, Logs const& logs);
     friend constexpr std::unique_ptr<Portal> std::make_unique<Portal>();
 };
 
 inline Portal::Portal()
   : m_child(nullptr)
-  , m_path_file_daemon()
-  , m_path_file_guest()
 {
 }
 
@@ -53,23 +55,19 @@ inline Portal::~Portal()
   }
 }
 
-[[nodiscard]] inline Value<std::unique_ptr<Portal>> create(pid_t const pid_reference, std::string const& mode)
+[[nodiscard]] inline Value<std::unique_ptr<Portal>> spawn(Daemon const& daemon, Logs const& logs)
 {
   auto portal = std::make_unique<Portal>();
+  // Path to daemon
+  fs::path path_bin_daemon = daemon.get_path_bin_daemon();
   qreturn_if(portal == nullptr, Error("E::Could not create portal object"));
-  // Path to flatimage binaries
-  std::string str_dir_app_bin = Pop(ns_env::get_expected("FIM_DIR_APP_BIN"));
-  // Create path to daemon
-  portal->m_path_file_daemon = fs::path{str_dir_app_bin} / "fim_portal_daemon";
-  qreturn_if(not fs::exists(portal->m_path_file_daemon), Error("E::Daemon not found in {}", portal->m_path_file_daemon));
-  // Create path to portal
-  portal->m_path_file_guest = fs::path{str_dir_app_bin} / "fim_portal";
-  qreturn_if(not fs::exists(portal->m_path_file_guest), Error("E::Guest not found in {}", portal->m_path_file_guest));
+  qreturn_if(not Try(fs::exists(path_bin_daemon)), Error("E::Daemon not found in {}", path_bin_daemon));
   // Create a portal that uses the reference file to create an unique communication key
   // Spawn process to background
   using enum ns_subprocess::Stream;
-  portal->m_child = ns_subprocess::Subprocess(portal->m_path_file_daemon)
-    .with_args(pid_reference, mode)
+  portal->m_child = ns_subprocess::Subprocess(path_bin_daemon)
+    .with_var("FIM_DAEMON_CFG", Pop(ns_daemon::serialize(daemon)))
+    .with_var("FIM_DAEMON_LOG", Pop(ns_daemon::ns_log::serialize(logs)))
     .with_log_stdio()
     .spawn();
   return portal;

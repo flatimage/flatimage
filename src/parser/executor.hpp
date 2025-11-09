@@ -47,6 +47,9 @@ namespace fs = std::filesystem;
 
 } // namespace
 
+namespace ns_dispatcher = ns_db::ns_portal::ns_dispatcher;
+namespace ns_daemon = ns_db::ns_portal::ns_daemon;
+
 using namespace ns_parser::ns_interface;
 
 /**
@@ -110,8 +113,20 @@ using namespace ns_parser::ns_interface;
     {
       std::ignore = bwrap.with_bind_gpu(config.path_dir_upper_overlayfs, config.path_dir_runtime_host);
     }
+    // Build the dispatcher object pointing it to the fifo of the host daemon
+    ns_dispatcher::Dispatcher dispatcher(config.pid
+      , ns_daemon::Mode::HOST
+      , config.path_dir_app
+      , config.logs.dispatcher.path_file_log
+    );
+    // Run the portal program with the guest dispatcher configuration
     // Run bwrap
-    return bwrap.run(permissions, config.path_dir_app_bin);
+    return bwrap.run(permissions
+      , config.path_bin_portal_daemon
+      , dispatcher
+      , config.daemon_guest
+      , config.logs.daemon_guest
+    );
   };
 
 
@@ -419,38 +434,48 @@ using namespace ns_parser::ns_interface;
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )
   {
+    struct Instance
+    {
+      pid_t pid;
+      fs::path path;
+    };
     // List instances
-    auto f_filename = [](auto&& e){ return e.path().filename().string(); };
+    auto f_pid = [&](auto&& e) { return Catch(std::stoi(e.path().filename().string())).value_or(0); };
     // Get instances
     auto instances = fs::directory_iterator(config.path_dir_app / "instance")
-      | std::views::filter([&](auto&& e){ return fs::exists(fs::path{"/proc"} / f_filename(e)); })
-      | std::views::filter([&](auto&& e){
-          auto pid_result = Catch(std::stoi(f_filename(e)));
-          return pid_result && pid_result.value() != getpid();
-        })
-      | std::views::transform([](auto&& e){ return e.path(); })
-      | std::ranges::to<std::vector<fs::path>>();
+      | std::views::transform([&](auto&& e){ return Instance(f_pid(e), e.path()); })
+      | std::views::filter([&](auto&& e){ return e.pid > 0; })
+      | std::views::filter([&](auto&& e){ return fs::exists(fs::path{"/proc"} / std::to_string(e.pid)); })
+      | std::views::filter([&](auto&& e){ return e.pid != getpid(); })
+      | std::ranges::to<std::vector<Instance>>();
     // Sort by pid (filename is a directory named as the pid of that instance)
-    std::ranges::sort(instances, {}, [](auto&& e){
-      auto pid_result = Catch(std::stoi(e.filename().string()));
-      return pid_result ? pid_result.value() : 0;
-    });
+    std::ranges::sort(instances, {}, [](auto&& e){ return e.pid; });
+    // Process the exec command
     if(auto cmd_exec = std::get_if<CmdInstance::Exec>(&(cmd->sub_cmd)))
     {
       qreturn_if(instances.size() == 0, Error("C::No instances are running"));
       qreturn_if(cmd_exec->id < 0 or static_cast<size_t>(cmd_exec->id) >= instances.size()
         , Error("C::Instance index out of bounds")
       );
-      return Try(ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
-        .with_args("--connect", instances.at(cmd_exec->id))
+      // Get instance
+      Instance instance = instances.at(cmd_exec->id);
+      // Build the dispatcher object pointing it to the fifo of the guest daemon
+      ns_dispatcher::Dispatcher dispatcher(instance.pid
+        , ns_daemon::Mode::GUEST
+        , config.path_dir_app
+        , config.logs.dispatcher.path_file_log
+      );
+      // Run the portal program with the guest dispatcher configuration
+      return Pop(ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
+        .with_var("FIM_DISPATCHER_CFG", Pop(ns_dispatcher::serialize(dispatcher)))
         .with_args(cmd_exec->args)
         .wait());
     }
     else if(std::get_if<CmdInstance::List>(&(cmd->sub_cmd)))
     {
-      for(uint32_t i = 0; fs::path const& instance : instances)
+      for(uint32_t i = 0; Instance const& instance : instances)
       {
-        std::println("{}:{}", i++, instance.filename().string());
+        std::println("{}:{}", i++, instance.path.filename().string());
       }
     }
     else

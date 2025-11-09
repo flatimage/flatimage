@@ -13,6 +13,7 @@
 #include <filesystem>
 
 #include "../../std/expected.hpp"
+#include "../../std/filesystem.hpp"
 #include "../db.hpp"
 
 namespace ns_db::ns_portal::ns_message
@@ -35,26 +36,24 @@ class Message
     fs::path m_log;
     std::vector<std::string> m_environment;
 
-  public:
     Message();
 
+  public:
+    Message(pid_t pid
+      , std::vector<std::string> const& command
+      , fs::path const& path_dir_fifo
+      , fs::path const& path_file_log
+      , std::vector<std::string> const& environment
+    );
+
     [[maybe_unused]] std::vector<std::string> const& get_command() const { return m_command; }
-    [[maybe_unused]] fs::path const& get_stdin() const { return m_stdin; }
-    [[maybe_unused]] fs::path const& get_stdout() const { return m_stdout; }
-    [[maybe_unused]] fs::path const& get_stderr() const { return m_stderr; }
-    [[maybe_unused]] fs::path const& get_exit() const { return m_exit; }
-    [[maybe_unused]] fs::path const& get_pid() const { return m_pid; }
+    [[maybe_unused]] fs::path get_stdin() const { return m_stdin; }
+    [[maybe_unused]] fs::path get_stdout() const { return m_stdout; }
+    [[maybe_unused]] fs::path get_stderr() const { return m_stderr; }
+    [[maybe_unused]] fs::path get_exit() const { return m_exit; }
+    [[maybe_unused]] fs::path get_pid() const { return m_pid; }
     [[maybe_unused]] fs::path const& get_log() const { return m_log; }
     [[maybe_unused]] std::vector<std::string> const& get_environment() const { return m_environment; }
-    // Builder pattern methods
-    [[maybe_unused]] Message& with_command(std::vector<std::string> const& command) { m_command = command; return *this; }
-    [[maybe_unused]] Message& with_stdin(fs::path const& path) { m_stdin = path; return *this; }
-    [[maybe_unused]] Message& with_stdout(fs::path const& path) { m_stdout = path; return *this; }
-    [[maybe_unused]] Message& with_stderr(fs::path const& path) { m_stderr = path; return *this; }
-    [[maybe_unused]] Message& with_exit(fs::path const& path) { m_exit = path; return *this; }
-    [[maybe_unused]] Message& with_pid(fs::path const& path) { m_pid = path; return *this; }
-    [[maybe_unused]] Message& with_log(fs::path const& path) { m_log = path; return *this; }
-    [[maybe_unused]] Message& with_environment(std::vector<std::string> const& environment) { m_environment = environment; return *this; }
 
     friend Value<Message> deserialize(std::string_view str_raw_json) noexcept;
     friend Value<std::string> serialize(Message const& message) noexcept;
@@ -72,6 +71,25 @@ inline Message::Message()
   , m_pid()
   , m_log()
   , m_environment()
+{}
+
+
+/**
+ * @brief Construct a new Message:: Message object
+ */
+inline Message::Message(pid_t pid
+    , std::vector<std::string> const& command
+    , fs::path const& path_dir_fifo
+    , fs::path const& path_file_log
+    , std::vector<std::string> const& environment
+  ) : m_command(command)
+    , m_stdin(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "stdin.fifo", pid))
+    , m_stdout(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "stdout.fifo", pid))
+    , m_stderr(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "stderr.fifo", pid))
+    , m_exit(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "exit.fifo", pid))
+    , m_pid(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "pid.fifo", pid))
+    , m_log(path_file_log)
+    , m_environment(environment)
 {}
 
 /**
@@ -111,13 +129,13 @@ inline Message::Message()
 {
   auto db = ns_db::Db();
   db("command") = message.m_command;
-  db("stdin") = message.m_stdin.string();
-  db("stdout") = message.m_stdout.string();
-  db("stderr") = message.m_stderr.string();
-  db("exit") = message.m_exit.string();
-  db("pid") = message.m_pid.string();
-  db("log") = message.m_log.string();
-  db("environment") = message.m_environment;
+  db("stdin") = message.get_stdin().string();
+  db("stdout") = message.get_stdout().string();
+  db("stderr") = message.get_stderr().string();
+  db("exit") = message.get_exit().string();
+  db("pid") = message.get_pid().string();
+  db("log") = message.get_log().string();
+  db("environment") = message.get_environment();
   return db.dump();
 }
 

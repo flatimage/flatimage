@@ -73,16 +73,16 @@ constexpr auto __expected_fn = [](auto&& e) { return e; };
 #define NOPT_IDENTITY(...) __VA_ARGS__
 #define NOPT_EAT(...)
 
-#define Pop(expr,...)                                                                 \
-({                                                                                    \
-  auto __expected_ret = (expr);                                                       \
-  if (!__expected_ret)                                                                \
-  {                                                                                   \
-    NOPT(logger("D::{}", __expected_ret.error()) __VA_OPT__(,) __VA_ARGS__); \
-    __VA_OPT__(logger(__VA_ARGS__));                                                  \
-    return __expected_fn(std::unexpected(std::move(__expected_ret).error()));         \
-  }                                                                                   \
-  std::move(__expected_ret).value();                                                  \
+#define Pop(expr,...)                                                         \
+({                                                                            \
+  auto __expected_ret = (expr);                                               \
+  if (!__expected_ret)                                                        \
+  {                                                                           \
+    NOPT(logger("D::{}", __expected_ret.error()) __VA_OPT__(,) __VA_ARGS__);  \
+    __VA_OPT__(logger(__VA_ARGS__));                                          \
+    return __expected_fn(std::unexpected(std::move(__expected_ret).error())); \
+  }                                                                           \
+  std::move(__expected_ret).value();                                          \
 })
 
 #define discard(fmt,...) discard_impl<fmt>(ns_log::Location() __VA_OPT__(,) __VA_ARGS__)
