@@ -119,7 +119,7 @@ template<typename T>
 
 /**
  * @brief Converts a container into a string if it has string convertible elements
- * 
+ *
  * @tparam T A container type
  * @param begin The begin iterator of the container to convert
  * @param end The end iterator of the container to convert
@@ -130,6 +130,35 @@ template<std::input_iterator It>
 [[nodiscard]] std::string from_container(It&& begin, It&& end, std::optional<char> sep = std::nullopt) noexcept
 {
   return from_container(std::ranges::subrange(begin, end), sep);
+}
+
+/**
+ * @brief Replace all occurrences of "{}" placeholders in a string with provided values
+ *
+ * This function iterates through the string and replaces "{}" placeholders with
+ * the provided arguments in order.
+ *
+ * @tparam Args The types of the arguments to replace
+ * @param str The string containing "{}" placeholders
+ * @param args The values to replace placeholders with
+ * @return The string with placeholders replaced
+ */
+template<typename... Args>
+[[nodiscard]] inline std::string placeholders_replace(std::string str, Args&&... args)
+{
+  std::vector<std::string> replacements;
+  // Convert all arguments to strings
+  ((replacements.push_back(to_string(std::forward<Args>(args)))), ...);
+
+  // Replace all occurrences of "{}" with the replacements in order
+  std::size_t arg_index = 0;
+  while (arg_index < replacements.size())
+  {
+    size_t pos = str.find("{}");
+    if (pos == std::string::npos) break;
+    str.replace(pos, 2, replacements[arg_index++]);
+  }
+  return str;
 }
 
 } // namespace ns_string

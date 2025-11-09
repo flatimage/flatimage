@@ -83,11 +83,11 @@ inline Message::Message(pid_t pid
     , fs::path const& path_file_log
     , std::vector<std::string> const& environment
   ) : m_command(command)
-    , m_stdin(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "stdin.fifo", pid))
-    , m_stdout(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "stdout.fifo", pid))
-    , m_stderr(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "stderr.fifo", pid))
-    , m_exit(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "exit.fifo", pid))
-    , m_pid(ns_fs::path_placeholders_replace(path_dir_fifo / "{}" / "pid.fifo", pid))
+    , m_stdin(ns_fs::placeholders_replace(path_dir_fifo / "{}" / "stdin.fifo", pid))
+    , m_stdout(ns_fs::placeholders_replace(path_dir_fifo / "{}" / "stdout.fifo", pid))
+    , m_stderr(ns_fs::placeholders_replace(path_dir_fifo / "{}" / "stderr.fifo", pid))
+    , m_exit(ns_fs::placeholders_replace(path_dir_fifo / "{}" / "exit.fifo", pid))
+    , m_pid(ns_fs::placeholders_replace(path_dir_fifo / "{}" / "pid.fifo", pid))
     , m_log(path_file_log)
     , m_environment(environment)
 {}

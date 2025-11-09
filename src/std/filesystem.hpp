@@ -17,6 +17,7 @@
 #include <linux/limits.h>
 
 #include "expected.hpp"
+#include "string.hpp"
 
 namespace ns_fs
 {
@@ -81,6 +82,30 @@ using perm_options = fs::perm_options;
       return std::unexpected(std::format("Could not create directory {}", p.string()));
     }
     return p;
+}
+
+/**
+ * @brief Replace placeholders in a path by traversing components
+ *
+ * This function iterates through each component of the path and replaces
+ * matching components with the provided arguments in order.
+ *
+ * @tparam Args The types of the arguments to replace
+ * @param path The path with placeholder components
+ * @param args The values to replace matching placeholders with
+ * @return The path with placeholders replaced
+ */
+template<typename... Args>
+[[nodiscard]] inline fs::path placeholders_replace(fs::path const& path, Args&&... args)
+{
+  fs::path result;
+  // Traverse each component of the path and replace placeholders
+  for (auto const& component : path)
+  {
+    std::string comp_str = ns_string::placeholders_replace(component.string(), std::forward<Args>(args)...);
+    result /= comp_str;
+  }
+  return result;
 }
 
 } // namespace: ns_fs

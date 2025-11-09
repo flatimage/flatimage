@@ -75,7 +75,7 @@ inline Dispatcher::Dispatcher()
  */
 inline Dispatcher::Dispatcher(pid_t pid, Mode mode, fs::path const& path_dir_app, fs::path const& path_dir_log)
   : m_mode(mode)
-  , m_path_dir_fifo(ns_fs::path_placeholders_replace(path_dir_app  / "instance" / "{}" / "portal" / "fifo", pid))
+  , m_path_dir_fifo(ns_fs::placeholders_replace(path_dir_app  / "instance" / "{}" / "portal" / "fifo", pid))
   , m_path_fifo_daemon(m_path_dir_fifo / std::format("daemon.{}.fifo", mode.lower()))
   , m_path_file_log(path_dir_log / std::format("dispatcher.{}.{}.log", mode.lower(), pid))
 {
