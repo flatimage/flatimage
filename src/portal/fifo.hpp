@@ -43,7 +43,7 @@ namespace fs = std::filesystem;
   fs::path path_dir_parent = path_file_fifo.parent_path();
   // Create parent directory(ies)
   qreturn_if(not fs::exists(path_dir_parent, ec) and not fs::create_directories(path_dir_parent, ec)
-    , Error("E::Failed to create upper directories for fifo")
+    , Error("E::Failed to create upper directories '{}' for fifo '{}'", path_dir_parent.string(), path_file_fifo.string())
   );
   // Replace old fifo if exists
   if (fs::exists(path_file_fifo, ec))
@@ -52,7 +52,7 @@ namespace fs = std::filesystem;
   }
   // Create fifo
   qreturn_if(mkfifo(path_file_fifo.c_str(), 0666) < 0
-    , Error("E::{}", strerror(errno))
+    , Error("E::Failed to create fifo '{}' with error '{}'", path_file_fifo.string(), strerror(errno))
   );
   return path_file_fifo;
 }
@@ -83,12 +83,12 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
     {
       if(errno != EWOULDBLOCK and errno != EAGAIN and errno != EINTR)
       {
-        logger("E::Failed read with error: {}", strerror(errno));
+        logger("E::Failed to read from file descriptor '{}' with error '{}'", fd_src, strerror(errno));
         return false;
       }
       return true;
     }
-    dlog_if(::write(fd_dst, buf, n) < 0, std::format("Could not perform write: {}", strerror(errno)));
+    dlog_if(::write(fd_dst, buf, n) < 0, std::format("Could not write to file descriptor '{}' with error '{}'", fd_dst, strerror(errno)));
     return true;
   };
   // Try to read from the src fifo with 50ms delays
@@ -120,7 +120,7 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , O_RDONLY
   );
-  e_exitif(fd_src == -1, strerror(errno), 1);
+  e_exitif(fd_src == -1, std::format("Failed to open fifo '{}' with error '{}'", path_file_fifo.string(), strerror(errno)), 1);
   // Redirect fifo to stdout
   redirect_fd_to_fd(ppid, fd_src, fd_dst);
   // Close fifo
@@ -150,7 +150,7 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , O_WRONLY
   );
-  e_exitif(fd_dst == -1, strerror(errno), 1);
+  e_exitif(fd_dst == -1, std::format("Failed to open fifo '{}' with error '{}'", path_file_fifo.string(), strerror(errno)), 1);
   // Redirect fifo to stdout
   redirect_fd_to_fd(ppid, fd_src, fd_dst);
   // Close fifo

@@ -74,13 +74,47 @@ namespace ns_message = ns_db::ns_portal::ns_message;
   // Split cmd / args
   std::string command = Pop(ns_env::search_path(Try(vec_argv.front())));
   std::vector<std::string> args(vec_argv.begin()+1, vec_argv.end());
-  // Spawn child and wait in the parent callback which is executed in this thread
+  // Spawn child with a callback to open and redirect FIFOs
   auto child = ns_subprocess::Subprocess(command)
     .with_args(args)
     .with_env(message.get_environment())
-    .with_stdio(ns_subprocess::Stream::Pipe)
+    .with_stdio(ns_subprocess::Stream::Inherit)  // Changed from Pipe to Inherit
     .with_log_file(logs.get_path_file_grand())
     .with_die_on_pid(getpid())
+    .with_callback_child([&message]([[maybe_unused]] ns_subprocess::ArgsCallbackChild args) {
+      // Open stdin FIFO for reading and redirect to stdin (FD 0)
+      int fd_stdin = ns_linux::open_with_timeout(message.get_stdin()
+        , std::chrono::seconds(SECONDS_TIMEOUT)
+        , O_RDONLY
+      );
+      if (fd_stdin < 0 or dup2(fd_stdin, STDIN_FILENO) < 0) {
+        logger("E::Failed to open/redirect stdin FIFO: {}", strerror(errno));
+        _exit(1);
+      }
+      if (fd_stdin != STDIN_FILENO) close(fd_stdin);
+
+      // Open stdout FIFO for writing and redirect to stdout (FD 1)
+      int fd_stdout = ns_linux::open_with_timeout(message.get_stdout()
+        , std::chrono::seconds(SECONDS_TIMEOUT)
+        , O_WRONLY
+      );
+      if (fd_stdout < 0 or dup2(fd_stdout, STDOUT_FILENO) < 0) {
+        logger("E::Failed to open/redirect stdout FIFO: {}", strerror(errno));
+        _exit(1);
+      }
+      if (fd_stdout != STDOUT_FILENO) close(fd_stdout);
+
+      // Open stderr FIFO for writing and redirect to stderr (FD 2)
+      int fd_stderr = ns_linux::open_with_timeout(message.get_stderr()
+        , std::chrono::seconds(SECONDS_TIMEOUT)
+        , O_WRONLY
+      );
+      if (fd_stderr < 0 or dup2(fd_stderr, STDERR_FILENO) < 0) {
+        logger("E::Failed to open/redirect stderr FIFO: {}", strerror(errno));
+        _exit(1);
+      }
+      if (fd_stderr != STDERR_FILENO) close(fd_stderr);
+    })
     .spawn();
 
   // Write pid to fifo
