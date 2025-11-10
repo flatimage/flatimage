@@ -100,8 +100,8 @@ int main()
     }
     else if (pid == 0)
     {
-      ns_portal::ns_child::spawn(args_log, message.value()).discard("C::Could not spawn child");
-      _exit(1);
+      ns_portal::ns_child::spawn(args_log, message.value()).discard("C::Could not spawn grandchild");
+      _exit(0);
     }
   } // for
 

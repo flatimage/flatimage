@@ -84,7 +84,6 @@ inline Value<void> Dwarfs::mount()
     .with_args(m_path_file_image, m_path_dir_mount)
     .with_args("-f", "-o", std::format("auto_unmount,offset={},imagesize={}", m_offset, m_size_image))
     .with_die_on_pid(m_pid_to_die_for)
-    .with_log_stdio()
     .spawn();
   // Wait for mount
   ns_fuse::wait_fuse(m_path_dir_mount);

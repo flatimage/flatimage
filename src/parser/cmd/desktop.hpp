@@ -199,8 +199,7 @@ namespace fs = std::filesystem;
   logger("I::Updating mime database...");
   Try(ns_subprocess::Subprocess(path_bin_mime)
     .with_args(xdg_data_home / "mime", "update-mime-database")
-    .with_log_stdio()
-    .wait());
+    .spawn()->wait());
   return {};
 }
 
@@ -490,9 +489,7 @@ namespace fs = std::filesystem;
     ns_subprocess::Subprocess(path_file_binary_bash)
       .with_args("-c", R"(notify-send "$@")", "--")
       .with_args("-i", path_file_icon, std::format("Started '{}' FlatImage", desktop.get_name()))
-      .with_log_stdio()
-      .wait()
-      .discard("E::Failed to send notification");
+      .spawn()->wait().discard("E::Failed to send notification");
   }
   else
   {

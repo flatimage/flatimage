@@ -82,22 +82,23 @@ class Subprocess
     std::filesystem::path m_program;
     std::vector<std::string> m_args;
     std::vector<std::string> m_env;
-    std::optional<std::function<void(std::string)>> m_fstdout;
-    std::optional<std::function<void(std::string)>> m_fstderr;
+    std::reference_wrapper<std::istream> m_stdin;
+    std::reference_wrapper<std::ostream> m_stdout;
+    std::reference_wrapper<std::ostream> m_stderr;
     Stream m_stream_mode;
     std::optional<pid_t> m_die_on_pid;
-    std::optional<std::filesystem::path> m_log_file;
+    std::filesystem::path m_path_file_log;
     ns_log::Level m_log_level;
     std::optional<std::function<void(ArgsCallbackChild)>> m_callback_child;
     std::optional<std::function<void(ArgsCallbackParent)>> m_callback_parent;
 
     void die_on_pid(pid_t pid);
     void to_dev_null();
-    std::pair<pid_t, pid_t> setup_pipes(pid_t child_pid
-        , int pipestdout[2]
-        , int pipestderr[2]
-        , ns_log::Level const& level
-        , std::optional<std::filesystem::path> const& path_file_log = std::nullopt);
+    void setup_pipes(pid_t child_pid
+      , int pipestdin[2]
+      , int pipestdout[2]
+      , int pipestderr[2]
+      , std::filesystem::path const& path_file_log);
     [[noreturn]] void exec_child();
 
   public:
@@ -130,18 +131,11 @@ class Subprocess
 
     [[maybe_unused]] [[nodiscard]] Subprocess& with_stdio(Stream mode);
 
-    template<ns_string::static_string S = "D">
-    [[maybe_unused]] [[nodiscard]] Subprocess& with_log_stdio();
-
     [[maybe_unused]] [[nodiscard]] Subprocess& with_log_file(std::filesystem::path const& path);
 
     [[maybe_unused]] [[nodiscard]] Subprocess& with_log_level(ns_log::Level const& level);
 
-    template<typename F>
-    [[maybe_unused]] [[nodiscard]] Subprocess& with_pipe_handle_stdout(F&& f);
-
-    template<typename F>
-    [[maybe_unused]] [[nodiscard]] Subprocess& with_pipe_handle_stderr(F&& f);
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_streams(std::istream& stdin_stream, std::ostream& stdout_stream, std::ostream& stderr_stream);
 
     template<typename F>
     [[maybe_unused]] [[nodiscard]] Subprocess& with_callback_child(F&& f);
@@ -150,8 +144,6 @@ class Subprocess
     [[maybe_unused]] [[nodiscard]] Subprocess& with_callback_parent(F&& f);
 
     [[maybe_unused]] [[nodiscard]] std::unique_ptr<Child> spawn();
-
-    [[maybe_unused]] [[nodiscard]] Value<int> wait();
 };
 
 /**
@@ -181,11 +173,12 @@ Subprocess::Subprocess(T&& t)
   : m_program(ns_string::to_string(t))
   , m_args()
   , m_env()
-  , m_fstdout(std::nullopt)
-  , m_fstderr(std::nullopt)
+  , m_stdin(std::cin)
+  , m_stdout(std::cout)
+  , m_stderr(std::cerr)
   , m_stream_mode(Stream::Inherit)
   , m_die_on_pid(std::nullopt)
-  , m_log_file(std::nullopt)
+  , m_path_file_log("/dev/null")
   , m_log_level(ns_log::get_level())
   , m_callback_child(std::nullopt)
   , m_callback_parent(std::nullopt)
@@ -494,7 +487,7 @@ inline Subprocess& Subprocess::with_die_on_pid(pid_t pid)
  *
  * Controls how the child's stdin, stdout, and stderr are handled:
  * - Stream::Inherit: Child inherits parent's stdio (default)
- * - Stream::Pipe: Redirect to pipes with callbacks (use with_pipe_handle_stdout/with_pipe_handle_stderr)
+ * - Stream::Pipe: Redirect to pipes with stream handlers (use with_streams())
  * - Stream::Null: Redirect to /dev/null (silent execution)
  *
  * @param mode Stream redirection mode
@@ -507,12 +500,10 @@ inline Subprocess& Subprocess::with_die_on_pid(pid_t pid)
  *      .spawn();
  *
  * // Capture output with pipes
- * std::string output;
+ * std::ostringstream output;
  * Subprocess capture("/bin/ls");
  * capture.with_stdio(Stream::Pipe)
- *        .with_pipe_handle_stdout([&](std::string line) {
- *            output += line;
- *        })
+ *        .with_streams(std::cin, output, std::cerr)
  *        .with_args("-la")
  *        .spawn()
  *        .wait();
@@ -530,59 +521,28 @@ inline Subprocess& Subprocess::with_stdio(Stream mode)
 }
 
 /**
- * @brief Sets up pipe handlers for logging stdout/stderr to the logger
+ * @brief Configures logging output for child process stdout/stderr
  *
- * This is a convenience method that configures Stream::Pipe mode and sets up
- * stdout/stderr handlers that log output with the format "D::{program}:{line}".
- *
- * @return Subprocess& A reference to *this for method chaining
- *
- * @code
- * // Log all output from a subprocess
- * Subprocess("/usr/bin/make")
- *     .with_args("all")
- *     .with_log_stdio()
- *     .spawn()
- *     .wait();
- * @endcode
- */
-template<ns_string::static_string S>
-inline Subprocess& Subprocess::with_log_stdio()
-{
-  // Build fmt
-  static constexpr ns_string::static_string suffix{"::{}::{}"};
-  constexpr auto fmt = S.template join<suffix>();
-  // Get program name
-  std::string program_name = m_program.filename().string();
-  // Send to logger
-  return this->with_stdio(Stream::Pipe)
-      .with_pipe_handle_stdout([fmt,program_name](std::string const& s){ logger(fmt, program_name, s); })
-      .with_pipe_handle_stderr([fmt,program_name](std::string const& s){ logger(fmt, program_name, s); });
-}
-
-/**
- * @brief Captures child process stdout/stderr and writes to separate log files
- *
- * Automatically sets up pipe redirection so that all child process output
- * (stdout and stderr) is captured by the parent and written to separate files.
+ * Automatically sets up pipe redirection (Stream::Pipe mode) and configures
+ * the log sink for the pipe reader threads. All child process output
+ * (stdout and stderr) is captured and logged to the specified file.
  *
  * The child's stdout/stderr are redirected to pipes, and those pipes are
- * read by parent processes that write directly to log files. This works
+ * read by detached threads that write directly to log files. This works
  * even if the child process calls execve(), as the pipe readers remain in
  * the parent.
  *
- * **Generated files:**
- * - `path.parent.reader.stdout.log` - All stdout lines from child
- * - `path.parent.reader.stderr.log` - All stderr lines from child
+ * The log file path is used directly by ns_log::set_sink_file() in the
+ * pipe reader threads.
  *
- * If stdout/stderr handlers are registered via with_pipe_handle_stdout() or
- * with_pipe_handle_stderr(), they are called in addition to file writing.
+ * If stdout/stderr stream handlers are registered via with_streams(),
+ * they will receive the child's output in addition to the log file.
  *
- * @param path Base path for log files (e.g., "/tmp/app.log")
+ * @param path Path for log file (e.g., "/tmp/app.log")
  * @return Subprocess& A reference to *this for method chaining
  *
  * @code
- * // Capture child's stdout/stderr to separate files
+ * // Capture child's stdout/stderr to log file
  * Subprocess("/usr/bin/app")
  *     .with_log_file("/tmp/app.log")
  *     .spawn();
@@ -590,8 +550,8 @@ inline Subprocess& Subprocess::with_log_stdio()
  */
 inline Subprocess& Subprocess::with_log_file(std::filesystem::path const& path)
 {
-  m_log_file = path;
-  // Set up pipe mode - pipe readers will configure logger sink to path.parent.reader.stdout.log and path.parent.reader.stderr.log
+  m_path_file_log = path;
+  // Set up pipe mode - pipe readers will configure logger sink to the specified path
   return this->with_stdio(Stream::Pipe);
 }
 
@@ -629,7 +589,6 @@ inline Subprocess& Subprocess::with_log_file(std::filesystem::path const& path)
  * // Standard info level logging
  * Subprocess normal("/usr/bin/service");
  * normal.with_log_level(ns_log::Level::INFO)
- *       .with_log_stdio()
  *       .spawn();
  * @endcode
  */
@@ -674,33 +633,33 @@ inline void Subprocess::to_dev_null()
 }
 
 /**
- * @brief Sets up pipes for stdout/stderr redirection
+ * @brief Sets up pipes for stdin/stdout/stderr redirection
  *
- * @param child_pid The PID of the child process
- * @param pipestdout Stdout pipe (must be created before fork)
- * @param pipestderr Stderr pipe (must be created before fork)
- * @param level Log level for the pipe reader processes
- * @param path_file_log Optional log file path (pipe readers will create .parent.reader.stdout.log and .parent.reader.stderr.log)
- * @return std::pair<pid_t, pid_t> PIDs of stdout and stderr reader processes
+ * Delegates to ns_pipe::setup() to configure pipe redirection for the child process.
+ * Creates detached threads for reading/writing pipes.
+ *
+ * @param child_pid The PID of the child process (0 for child, >0 for parent)
+ * @param pipestdin Stdin pipe array [read_end, write_end] (must be created before fork)
+ * @param pipestdout Stdout pipe array [read_end, write_end] (must be created before fork)
+ * @param pipestderr Stderr pipe array [read_end, write_end] (must be created before fork)
+ * @param log Log file path for the pipe reader threads
  */
-inline std::pair<pid_t, pid_t> Subprocess::setup_pipes(pid_t child_pid
+inline void Subprocess::setup_pipes(pid_t child_pid
+  , int pipestdin[2]
   , int pipestdout[2]
   , int pipestderr[2]
-  , ns_log::Level const& level
-  , std::optional<std::filesystem::path> const& path_file_log)
+  , std::filesystem::path const& log)
 {
   // Setup pipes for parent or child
-  auto [pid_stdout, pid_stderr] = ns_pipe::setup(child_pid
+  ns_pipe::setup(child_pid
+    , pipestdin
     , pipestdout
     , pipestderr
-    , m_fstdout.value_or([](std::string const&){})
-    , m_fstderr.value_or([](std::string const&){})
-    , level
-    , path_file_log
+    , m_stdin.get()
+    , m_stdout.get()
+    , m_stderr.get()
+    , log
   );
-
-  // Return the pipe reader PIDs for the parent to manage
-  return {pid_stdout, pid_stderr};
 }
 
 /**
@@ -723,108 +682,53 @@ inline std::pair<pid_t, pid_t> Subprocess::setup_pipes(pid_t child_pid
 }
 
 /**
- * @brief Sets a callback function to handle the child process's stdout
+ * @brief Configures stream handlers for stdin, stdout, and stderr of the child process
  *
- * The callback is invoked for each line of output from the child's stdout.
- * Requires Stream::Pipe mode via with_stdio(Stream::Pipe).
- * The callback runs in a separate forked process to avoid blocking the parent.
+ * Sets up the stream redirection for all three standard I/O streams at once.
+ * The streams are used when Stream::Pipe mode is active via with_stdio(Stream::Pipe).
  *
- * @tparam F Function type compatible with std::function<void(std::string)>
- * @param f Callback function that receives each stdout line
+ * - stdin_stream: Input stream to read from and write to child's stdin
+ * - stdout_stream: Output stream to write child's stdout to
+ * - stderr_stream: Output stream to write child's stderr to
+ *
+ * @param stdin_stream Input stream for the child process's stdin
+ * @param stdout_stream Output stream for the child process's stdout
+ * @param stderr_stream Output stream for the child process's stderr
  * @return Subprocess& A reference to *this for method chaining
  *
  * @code
- * // Collect all stdout lines
- * std::vector<std::string> lines;
- * Subprocess proc("/bin/ls");
+ * // Redirect all streams to custom handlers
+ * std::istringstream input("echo hello");
+ * std::ostringstream output;
+ * std::ostringstream errors;
+ *
+ * Subprocess proc("/bin/bash");
  * proc.with_stdio(Stream::Pipe)
- *     .with_pipe_handle_stdout([&](std::string line) {
- *         lines.push_back(line);
- *     })
- *     .with_args("-la", "/usr")
+ *     .with_streams(input, output, errors)
  *     .spawn()
  *     .wait();
  *
- * // Log each line in real-time
+ * // Use with std::cout and std::cerr
  * Subprocess build("/usr/bin/make");
  * build.with_stdio(Stream::Pipe)
- *      .with_pipe_handle_stdout([](std::string line) {
- *          std::cout << "[BUILD] " << line << "\n";
- *      })
- *      .with_pipe_handle_stderr([](std::string line) {
- *          std::cerr << "[ERROR] " << line << "\n";
- *      })
+ *      .with_streams(std::cin, std::cout, std::cerr)
  *      .spawn();
  *
- * // Parse structured output
- * Subprocess json_proc("/bin/get_json");
- * json_proc.with_stdio(Stream::Pipe)
- *          .with_pipe_handle_stdout([](std::string json_line) {
- *              auto obj = nlohmann::json::parse(json_line);
- *              // Process JSON object
- *          })
- *          .spawn();
- * @endcode
- */
-template<typename F>
-Subprocess& Subprocess::with_pipe_handle_stdout(F&& f)
-{
-  this->m_fstdout = f;
-  return *this;
-}
-
-/**
- * @brief Sets a callback function to handle the child process's stderr
- *
- * The callback is invoked for each line of output from the child's stderr.
- * Requires Stream::Pipe mode via with_stdio(Stream::Pipe).
- * The callback runs in a separate forked process to avoid blocking the parent.
- *
- * @tparam F Function type compatible with std::function<void(std::string)>
- * @param f Callback function that receives each stderr line
- * @return Subprocess& A reference to *this for method chaining
- *
- * @code
- * // Capture errors separately from output
- * std::string errors;
- * Subprocess proc("/usr/bin/gcc");
- * proc.with_stdio(Stream::Pipe)
- *     .with_pipe_handle_stderr([&](std::string line) {
- *         errors += line + "\n";
- *     })
- *     .with_args("file.c", "-o", "file")
- *     .spawn()
- *     .wait();
- * if (!errors.empty()) {
- *     std::cerr << "Compilation errors:\n" << errors;
- * }
- *
- * // Real-time error monitoring
- * Subprocess server("/usr/bin/server");
- * server.with_stdio(Stream::Pipe)
- *       .with_pipe_handle_stderr([](std::string line) {
- *           if (line.find("FATAL") != std::string::npos) {
- *               alert_admin(line);
- *           }
- *       })
- *       .spawn();
- *
- * // Separate handling for stdout and stderr
- * Subprocess cmd("/bin/complex_app");
+ * // Capture output to files via fstream
+ * std::ifstream stdin_file("/dev/null");
+ * std::ofstream stdout_file("/tmp/output.log");
+ * std::ofstream stderr_file("/tmp/errors.log");
+ * Subprocess cmd("/bin/app");
  * cmd.with_stdio(Stream::Pipe)
- *    .with_pipe_handle_stdout([](std::string line) {
- *        process_output(line);
- *    })
- *    .with_pipe_handle_stderr([](std::string line) {
- *        log_error(line);
- *    })
+ *    .with_streams(stdin_file, stdout_file, stderr_file)
  *    .spawn();
  * @endcode
  */
-template<typename F>
-Subprocess& Subprocess::with_pipe_handle_stderr(F&& f)
+inline Subprocess& Subprocess::with_streams(std::istream& stdin_stream, std::ostream& stdout_stream, std::ostream& stderr_stream)
 {
-  this->m_fstderr = f;
+  this->m_stdin = stdin_stream;
+  this->m_stdout = stdout_stream;
+  this->m_stderr = stderr_stream;
   return *this;
 }
 
@@ -964,10 +868,10 @@ Subprocess& Subprocess::with_callback_parent(F&& f)
  * worker2->wait();
  *
  * // Spawn with output capture
- * std::vector<std::string> output;
+ * std::ostringstream output;
  * auto result = Subprocess("/bin/ps")
  *     .with_stdio(Stream::Pipe)
- *     .with_pipe_handle_stdout([&](std::string line) { output.push_back(line); })
+ *     .with_streams(std::cin, output, std::cerr)
  *     .with_args("aux")
  *     .spawn()
  *     ->wait();
@@ -976,47 +880,49 @@ Subprocess& Subprocess::with_callback_parent(F&& f)
 inline std::unique_ptr<Child> Subprocess::spawn()
 {
   // Ignore on empty vec_argv
-  ereturn_if(m_args.empty(), "No arguments to spawn subprocess", Child::create(-1, {-1, -1}, m_program));
+  ereturn_if(m_args.empty(), "No arguments to spawn subprocess", Child::create(-1, m_program));
   logger("D::Spawn command: {}", m_args);
 
   // Create pipes BEFORE fork (if needed for Stream::Pipe)
+  int pipestdin[2];
   int pipestdout[2];
   int pipestderr[2];
-  std::pair<pid_t, pid_t> stdio_pids = {-1, -1};
 
   if ( m_stream_mode == Stream::Pipe )
   {
-    ereturn_if(pipe(pipestdout), strerror(errno), Child::create(-1, {-1, -1}, m_program));
-    ereturn_if(pipe(pipestderr), strerror(errno), Child::create(-1, {-1, -1}, m_program));
+    ereturn_if(pipe(pipestdin), strerror(errno), Child::create(-1, m_program));
+    ereturn_if(pipe(pipestdout), strerror(errno), Child::create(-1, m_program));
+    ereturn_if(pipe(pipestderr), strerror(errno), Child::create(-1, m_program));
   }
 
   // Create child
-  pid_t child_pid = fork();
+  pid_t pid = fork();
 
   // Failed to fork
-  ereturn_if(child_pid < 0, "Failed to fork", Child::create(-1, {-1, -1}, m_program));
+  ereturn_if(pid < 0, "Failed to fork", Child::create(-1, m_program));
 
   // Setup pipes for parent or child (only if Stream::Pipe)
   if ( m_stream_mode == Stream::Pipe )
   {
-    stdio_pids = this->setup_pipes(child_pid, pipestdout, pipestderr, m_log_level, m_log_file);
+    this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
   }
 
   // Parent returns here, child continues to execve
-  if ( child_pid > 0 )
+  if ( pid > 0 )
   {
     // Execute parent callback if provided
     if (m_callback_parent)
     {
-      ArgsCallbackParent args{.child_pid = child_pid};
+      ArgsCallbackParent args{.child_pid = pid};
       m_callback_parent.value()(args);
     }
 
-    // Return Child handle with process and pipe PIDs
-    return Child::create(child_pid, stdio_pids, m_program);
+    // Return Child handle with process and pipe PIDs (stdin writer, stdout reader, stderr reader)
+    return Child::create(pid, m_program);
   }
 
   // Child process continues here
+  ns_log::set_level(m_log_level);
 
   // Handle stdio redirection based on mode
   if ( m_stream_mode == Stream::Null )
@@ -1047,44 +953,6 @@ inline std::unique_ptr<Child> Subprocess::spawn()
 
   // Execute child process (never returns)
   this->exec_child();
-}
-
-/**
- * @brief Spawns the process and waits for completion with concise error handling
- *
- * This is a convenience method that:
- * - Spawns the process
- * - Waits for the process to complete
- * - Returns the exit code directly with logging
- *
- * @return Value<int> The exit code on success, error message on failure
- *
- * @code
- * // Simple usage
- * int code = Try(Subprocess("/usr/bin/make")
- *     .with_args("all")
- *     .with_log_stdio()
- *     .wait());
- *
- * if (code == 0) {
- *     std::cout << "Build succeeded\n";
- * }
- *
- * // Capture stdout/stderr to files while also logging
- * auto code = Subprocess("/usr/bin/app")
- *     .with_log_file("/tmp/app.log")
- *     .wait();
- * // Output goes to /tmp/app.parent.reader.stdout.log and /tmp/app.parent.reader.stderr.log
- * @endcode
- */
-inline Value<int> Subprocess::wait()
-{
-  // Get code
-  int code = Pop(spawn()->wait(), "E::{} exited abnormally", m_program);
-  // Debug
-  logger("D::{} exited with code {}", m_program, code);
-  // Inform about error code
-  return code;
 }
 
 } // namespace ns_subprocess

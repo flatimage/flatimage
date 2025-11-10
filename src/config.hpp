@@ -26,8 +26,6 @@
 #include <vector>
 
 #include "bwrap/bwrap.hpp"
-#include "common.hpp"
-#include "db/db.hpp"
 #include "db/portal/daemon.hpp"
 #include "db/portal/dispatcher.hpp"
 #include "lib/env.hpp"

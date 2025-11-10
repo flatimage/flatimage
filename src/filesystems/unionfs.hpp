@@ -92,7 +92,6 @@ inline Value<void> UnionFs::mount()
     .with_args(arg_layers)
     .with_args(m_path_dir_mount)
     .with_die_on_pid(m_pid_to_die_for)
-    .with_log_stdio()
     .spawn();
   // Wait for mount
   ns_fuse::wait_fuse(m_path_dir_mount);

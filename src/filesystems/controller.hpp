@@ -148,7 +148,6 @@ inline Controller::~Controller()
   m_child_janitor = ns_subprocess::Subprocess(path_bin_janitor)
     .with_args(getpid(), path_file_log, this->m_vec_path_dir_mountpoints)
     .with_log_file(path_file_log)
-    .with_log_stdio()
     .spawn();
   // Check if janitor is running
   qreturn_if(not m_child_janitor, Error("E::Failed to start janitor"));

@@ -469,7 +469,7 @@ using namespace ns_parser::ns_interface;
       return Pop(ns_subprocess::Subprocess(config.path_dir_app_bin / "fim_portal")
         .with_var("FIM_DISPATCHER_CFG", Pop(ns_dispatcher::serialize(dispatcher)))
         .with_args(cmd_exec->args)
-        .wait());
+        .spawn()->wait());
     }
     else if(std::get_if<CmdInstance::List>(&(cmd->sub_cmd)))
     {

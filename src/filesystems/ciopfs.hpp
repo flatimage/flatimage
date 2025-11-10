@@ -65,7 +65,6 @@ inline Value<void> Ciopfs::mount()
   m_child = ns_subprocess::Subprocess(path_file_ciopfs)
     .with_args(m_path_dir_lower, m_path_dir_upper)
     .with_die_on_pid(m_pid_to_die_for)
-    .with_log_stdio()
     .spawn();
   // Wait for mount
   ns_fuse::wait_fuse(m_path_dir_upper);

@@ -9,6 +9,9 @@
 #pragma once
 
 #include <cstring>
+#include <istream>
+#include <thread>
+#include <chrono>
 #include <functional>
 #include <sys/wait.h>
 #include <sys/prctl.h>
@@ -19,7 +22,6 @@
 #include <ranges>
 #include <format>
 #include <filesystem>
-#include <optional>
 
 #include "../../macro.hpp"
 #include "../../lib/log.hpp"
@@ -31,156 +33,221 @@ namespace ns_pipe
 {
 
 /**
- * @brief Setup pipes for the parent process
+ * @brief Write from an input stream to a pipe file descriptor
  *
- * @param pipestdout Stdout pipe
- * @param pipestderr Stderr pipe
- * @param fstdout Stdout handler function
- * @param fstderr Stderr handler function
- * @param path_file_log Optional log file path (creates .parent.reader.stdout.log and .parent.reader.stderr.log)
- * @return std::pair<pid_t, pid_t> Pair of PIDs (stdout reader, stderr reader)
+ * Reads lines from the input stream and writes them to the pipe.
+ * Continues until the child process exits or stream errors occur.
+ *
+ * @param child_pid PID of the child process to monitor
+ * @param pipe_fd File descriptor of the pipe write end
+ * @param stream Input stream to read from
  */
-inline std::pair<pid_t, pid_t> pipes_parent(
-  pid_t child_pid,
-  int pipestdout[2],
-  int pipestderr[2],
-  std::function<void(std::string)> const& fstdout,
-  std::function<void(std::string)> const& fstderr,
-  ns_log::Level const& level,
-  std::optional<std::filesystem::path> const& path_file_log = std::nullopt
-)
+inline void write_pipe(pid_t child_pid, int pipe_fd, std::istream& stream)
 {
-  pid_t pid_stdout = -1;
-  pid_t pid_stderr = -1;
-
-  // Close write end
-  ereturn_if(close(pipestdout[1]) == -1, std::format("pipestdout[1]: {}", strerror(errno)), std::make_pair(pid_stdout, pid_stderr));
-  ereturn_if(close(pipestderr[1]) == -1, std::format("pipestderr[1]: {}", strerror(errno)), std::make_pair(pid_stdout, pid_stderr));
-
-  auto f_read_pipe = [level, child_pid, path_file_log](int id_pipe, auto const& handler, std::string_view stream_type) -> pid_t
+  for (std::string line; kill(child_pid, 0) == 0; )
   {
-    // Fork a reader process
-    pid_t pid = fork();
-    qreturn_if(pid < 0, -1);
-    // Parent ends here
-    if (pid > 0)
+    if (std::getline(stream, line))
     {
-      return pid;
-    } // if
-    // Reader process: Exits when child closes pipe (read() returns 0 at EOF)
-    // Backup cleanup: Dies if parent dies via PR_SET_PDEATHSIG(SIGKILL)
-    e_exitif(prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, strerror(errno), 1);
-    e_exitif(::kill(child_pid, 0) < 0, std::format("Child died, prctl will not have effect: {}", strerror(errno)), 1);
-
-    // Initialize logger sink if log file specified
-    if (path_file_log)
-    {
-      // Create log file path: path.parent.reader.{stream_type}
-      // Strip .log suffix from original path to avoid redundancy
-      // Example: mount.janitor.log > mount.janitor.parent.reader.stdout
-      std::string base_path = path_file_log->string();
-      if (base_path.ends_with(".log"))
-      {
-        base_path = base_path.substr(0, base_path.length() - 4);
-      }
-      std::string log_path = base_path + ".parent.reader." + std::string(stream_type) + ".log";
-      // Configure the logger to write to this file
-      ns_log::set_sink_file(log_path);
+      line += "\n";
+      ssize_t written = ::write(pipe_fd, line.c_str(), line.length());
+      logger("D::STDIN::{}", line);
+      ebreak_if(written < 0, std::format("E::Failed to write to child stdin: {}", strerror(errno)));
     }
-
-    // Set log level
-    ns_log::set_level(level);
-
-    // Apply handler to incoming data from pipe
-    char buffer[1024];
-    ssize_t count;
-    while ((count = read(id_pipe, buffer, sizeof(buffer))) != 0)
+    else if (stream.eof())
     {
-      // Failed to read
-      ebreak_if(count == -1, std::format("broke parent read loop: {}", strerror(errno)));
-      // Split on both newlines and carriage returns, filter empty/whitespace-only lines
-      std::string chunk(buffer, count);
-      // Replace all \r with \n to handle Windows-style line endings and progress updates
-      std::ranges::replace(chunk, '\r', '\n');
-      // Split by newline and process each line
-      std::ranges::for_each(chunk
-          | std::views::split('\n')
-          | std::views::transform([](auto&& e){ return std::string{e.begin(), e.end()}; })
-          | std::views::filter([](auto const& s){ return not s.empty(); })
-          | std::views::filter([](auto const& s){ return not std::ranges::all_of(s, ::isspace); })
-        , [&](auto const& line) { logger("D::{}", line); handler(line); }
-      );
-    } // while
-    close(id_pipe);
-    // Exit normally
-    exit(0);
-  };
-  // Create pipes from fifo to ostream
-  pid_stdout = f_read_pipe(pipestdout[0], fstdout, "stdout");
-  pid_stderr = f_read_pipe(pipestderr[0], fstderr, "stderr");
-
-  return std::make_pair(pid_stdout, pid_stderr);
+      stream.clear();
+      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+    else
+    {
+      break;
+    }
+  }
+  close(pipe_fd);
 }
 
 /**
- * @brief Setup pipes for the child process
+ * @brief Read from a pipe file descriptor and write to an output stream
  *
- * @param pipestdout Stdout pipe
- * @param pipestderr Stderr pipe
+ * Reads data from the pipe and writes it to the output stream.
+ * Handles line splitting and filtering of empty/whitespace-only lines.
+ * Replaces carriage returns with newlines to handle Windows-style line endings
+ * and progress updates.
+ *
+ * @param pipe_fd File descriptor of the pipe read end
+ * @param stream Output stream to write to
+ * @param path_file_log Log file path for logging output
  */
-inline void pipes_child(int pipestdout[2], int pipestderr[2])
+inline void read_pipe(int pipe_fd, std::ostream& stream, std::filesystem::path const& path_file_log)
 {
-  // Close read end
-  ereturn_if(close(pipestdout[0]) == -1, std::format("pipestdout[0]: {}", strerror(errno)));
-  ereturn_if(close(pipestderr[0]) == -1, std::format("pipestderr[0]: {}", strerror(errno)));
+  ns_log::set_sink_file(path_file_log);
 
-  // Redirect stdout and stderr to the opened pipes
-  ereturn_if(dup2(pipestdout[1], STDOUT_FILENO) == -1, std::format("dup2(pipestdout[1]): {}", strerror(errno)));
-  ereturn_if(dup2(pipestderr[1], STDERR_FILENO) == -1, std::format("dup2(pipestderr[1]): {}", strerror(errno)));
+  // Apply handler to incoming data from pipe
+  char buffer[1024];
+  ssize_t count;
+  while ((count = ::read(pipe_fd, buffer, sizeof(buffer))) != 0)
+  {
+    // Failed to read
+    ebreak_if(count == -1, std::format("broke parent read loop: {}", strerror(errno)));
+    // Split on both newlines and carriage returns, filter empty/whitespace-only lines
+    std::string chunk(buffer, count);
+    // Replace all \r with \n to handle Windows-style line endings and progress updates
+    std::ranges::replace(chunk, '\r', '\n');
+    // Split by newline and process each line
+    std::ranges::for_each(chunk
+        | std::views::split('\n')
+        | std::views::transform([](auto&& e){ return std::string{e.begin(), e.end()}; })
+        | std::views::filter([](auto const& s){ return not s.empty(); })
+        | std::views::filter([](auto const& s){ return not std::ranges::all_of(s, ::isspace); })
+      , [&](auto line) { logger("D::STD(OUT|ERR)::{}", line); stream << line << std::endl; }
+    );
+  }
+  close(pipe_fd);
+}
 
-  // Close original write end after duplication
-  ereturn_if(close(pipestdout[1]) == -1, std::format("pipestdout[1]: {}", strerror(errno)));
-  ereturn_if(close(pipestderr[1]) == -1, std::format("pipestderr[1]: {}", strerror(errno)));
+/**
+ * @brief Check if a stream is a standard stream (std::cin, std::cout, or std::cerr)
+ *
+ * @tparam Stream The stream type (std::istream or std::ostream)
+ * @param stream The stream reference to check
+ * @return true if the stream is std::cin, std::cout, or std::cerr
+ */
+template<typename Stream>
+bool is_standard_stream(Stream& stream)
+{
+  if constexpr (std::is_same_v<Stream, std::istream>)
+  {
+    return (&stream == &std::cin);
+  }
+  else if constexpr (std::is_same_v<Stream, std::ostream>)
+  {
+    return (&stream == &std::cout) or (&stream == &std::cerr);
+  }
+  return false;
+}
+
+/**
+ * @brief Setup pipe for child process (unified for stdin/stdout/stderr)
+ *
+ * @tparam Stream The stream type (std::istream or std::ostream)
+ * @param is_istream True for input streams (stdin), false for output streams (stdout/stderr)
+ * @param pipe Pipe array [read_end, write_end]
+ * @param stream The stream reference to check
+ * @param fileno The file descriptor to redirect to (STDIN_FILENO, STDOUT_FILENO, or STDERR_FILENO)
+ */
+template<typename Stream>
+void pipes_child(bool is_istream, int pipe[2], Stream& stream, int fileno)
+{
+  // For input streams (stdin):  child uses read end [0], parent uses write end [1]
+  // For output streams (stdout/stderr): child uses write end [1], parent uses read end [0]
+  int idx_child  = is_istream ? 0 : 1;
+  int idx_parent = is_istream ? 1 : 0;
+
+  // Close the parent's end
+  ereturn_if(close(pipe[idx_parent]) == -1, std::format("pipe[{}]: {}", idx_parent, strerror(errno)));
+
+  // If using standard stream, don't redirect (allow terminal access)
+  if (is_standard_stream(stream))
+  {
+    close(pipe[idx_child]);
+    return;
+  }
+
+  // Redirect to the specified file descriptor
+  ereturn_if(dup2(pipe[idx_child], fileno) == -1, std::format("dup2(pipe[{}], {}): {}", idx_child, fileno, strerror(errno)));
+  ereturn_if(close(pipe[idx_child]) == -1, std::format("pipe[{}]: {}", idx_child, strerror(errno)));
+}
+
+/**
+ * @brief Setup pipe for parent process (unified for stdin/stdout/stderr)
+ *
+ * @tparam Stream The stream type (std::istream or std::ostream)
+ * @param child_pid PID of child process (needed for stdin writer)
+ * @param is_istream True for input streams (stdin), false for output streams (stdout/stderr)
+ * @param pipe Pipe array [read_end, write_end]
+ * @param stream The stream reference to use
+ * @param path_file_log Optional log file path (unused for stdin)
+ */
+template<typename Stream>
+void pipes_parent(
+  pid_t child_pid,
+  bool is_istream,
+  int pipe[2],
+  Stream& stream,
+  std::filesystem::path const& path_file_log)
+{
+  // For input streams (stdin):  parent uses write end [1], child uses read end [0]
+  // For output streams (stdout/stderr): parent uses read end [0], child uses write end [1]
+  int idx_parent = is_istream ? 1 : 0;
+  int idx_child  = is_istream ? 0 : 1;
+
+  // Close the child's end
+  ereturn_if(close(pipe[idx_child]) == -1, std::format("pipe[{}]: {}", idx_child, strerror(errno)));
+
+  // If using standard stream, close parent end and return (no thread needed)
+  if (is_standard_stream(stream))
+  {
+    close(pipe[idx_parent]);
+    return;
+  }
+
+  // Create appropriate thread (use if constexpr to avoid compiling invalid branch)
+  if constexpr (std::is_same_v<Stream, std::istream>)
+  {
+    // Input stream: read from Stream and write to child's stdin pipe
+    std::thread(write_pipe, child_pid, pipe[idx_parent], std::ref(stream)).detach();
+  }
+  else // std::ostream
+  {
+    // Output stream: read from child's stdout/stderr pipe and write to Stream
+    std::thread(read_pipe, pipe[idx_parent], std::ref(stream), path_file_log).detach();
+  }
 }
 
 /**
  * @brief Handle pipe setup for both parent and child processes
  *
  * This function manages the pipe setup after fork():
- * - For parent (pid > 0): Sets up pipe readers and returns their PIDs
- * - For child (pid == 0): Redirects stdout/stderr to pipes
+ * - For parent (pid > 0): Creates detached threads for reading/writing pipes
+ * - For child (pid == 0): Redirects stdin/stdout/stderr to pipes via dup2()
  *
- * @param pid Process ID from fork()
- * @param pipestdout Stdout pipe
- * @param pipestderr Stderr pipe
- * @param fstdout Stdout handler function
- * @param fstderr Stderr handler function
- * @param path_file_log Optional log file path (creates .parent.reader.stdout.log and .parent.reader.stderr.log)
- * @return std::pair<pid_t, pid_t> Pair of PIDs for pipe readers (stdout, stderr), or (-1, -1) if child
+ * Standard streams (std::cin, std::cout, std::cerr) are not redirected,
+ * allowing terminal access.
+ *
+ * @param pid Process ID from fork() (0 for child, >0 for parent)
+ * @param pipestdin Stdin pipe array [read_end, write_end]
+ * @param pipestdout Stdout pipe array [read_end, write_end]
+ * @param pipestderr Stderr pipe array [read_end, write_end]
+ * @param stdin Input stream to read from (for child's stdin)
+ * @param stdout Output stream to write to (for child's stdout)
+ * @param stderr Error stream to write to (for child's stderr)
+ * @param path_file_log Log file path for pipe reader threads
  */
-inline std::pair<pid_t, pid_t> setup(
+inline void setup(
   pid_t pid,
+  int pipestdin[2],
   int pipestdout[2],
   int pipestderr[2],
-  std::function<void(std::string)> const& fstdout,
-  std::function<void(std::string)> const& fstderr,
-  ns_log::Level const& level,
-  std::optional<std::filesystem::path> const& path_file_log = std::nullopt
-)
+  std::istream& stdin,
+  std::ostream& stdout,
+  std::ostream& stderr,
+  std::filesystem::path const& path_file_log)
 {
-  // On parent, setup pipe readers
-  if ( pid > 0 )
+  // Parent: setup writer/reader threads (or skip if std::cin/cout/cerr)
+  if (pid > 0)
   {
-    return pipes_parent(pid, pipestdout, pipestderr, fstdout, fstderr, level, path_file_log);
+    pipes_parent(pid, true, pipestdin, stdin, path_file_log);
+    pipes_parent(pid, false, pipestdout, stdout, path_file_log);
+    pipes_parent(pid, false, pipestderr, stderr, path_file_log);
   }
 
-  // On child, redirect stdout/stderr to pipes
-  if ( pid == 0 )
+  // Child: redirect stdin/stdout/stderr (or skip if std::cin/cout/cerr)
+  if (pid == 0)
   {
-    pipes_child(pipestdout, pipestderr);
+    pipes_child(true, pipestdin, stdin, STDIN_FILENO);
+    pipes_child(false, pipestdout, stdout, STDOUT_FILENO);
+    pipes_child(false, pipestderr, stderr, STDERR_FILENO);
   }
-
-  return std::make_pair(-1, -1);
 }
 
 } // namespace ns_pipe

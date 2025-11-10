@@ -44,8 +44,8 @@ int main(int argc, char const* argv[])
   // Try copy bwrap to /opt/bwrap
   Try(fs::copy_file(path_file_bwrap_src, path_file_bwrap_dst, fs::copy_options::overwrite_existing));
   // Try to set permissions for bwrap binary ( chmod 755 )
-  using fs::perms;
-  auto perms = perms::owner_all | perms::group_read | perms::group_exec | perms::others_read | perms::others_exec;
+  using enum fs::perms;
+  auto perms = owner_all | group_read | group_exec | others_read | others_exec;
   Catch(fs::permissions(path_file_bwrap_dst, perms, fs::perm_options::replace))
     .discard("C::Failed to set permissions to '{}'", path_file_bwrap_dst);
   // Try to create profile
@@ -56,7 +56,6 @@ int main(int argc, char const* argv[])
   // Reload profile
   return Pop(ns_subprocess::Subprocess(path_file_apparmor_parser)
     .with_args("-r", path_file_profile)
-    .with_log_stdio()
-    .wait()
+    .spawn()->wait()
   );
 } // main

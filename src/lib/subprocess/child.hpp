@@ -51,7 +51,6 @@ class Child
 {
   private:
     pid_t m_pid;
-    std::pair<pid_t, pid_t> m_stdio; // PIDs of pipe reader processes
     std::string m_description;
 
     friend class Subprocess;
@@ -60,12 +59,10 @@ class Child
      * @brief Private constructor - only Subprocess can create Child instances
      *
      * @param pid The process ID of the child
-     * @param stdio Pair of PIDs for stdout and stderr pipe reader processes
      * @param description Description of the process (typically the program name)
      */
-    Child(pid_t pid, std::pair<pid_t, pid_t> stdio, std::string description)
+    Child(pid_t pid, std::string description)
       : m_pid(pid)
-      , m_stdio(stdio)
       , m_description(std::move(description))
     {}
 
@@ -73,13 +70,12 @@ class Child
      * @brief Factory method for creating Child instances
      *
      * @param pid The process ID of the child
-     * @param stdio Pair of PIDs for stdout and stderr pipe reader processes
      * @param description Description of the process (typically the program name)
      * @return std::unique_ptr<Child> Unique pointer to the created Child instance
      */
-    static std::unique_ptr<Child> create(pid_t pid, std::pair<pid_t, pid_t> stdio, std::string description)
+    static std::unique_ptr<Child> create(pid_t pid, std::string const& description)
     {
-      return std::unique_ptr<Child>(new Child(pid, stdio, std::move(description)));
+      return std::unique_ptr<Child>(new Child(pid, description));
     }
 
   public:
@@ -156,29 +152,6 @@ class Child
 
       // Mark pid as invalid to prevent double-wait
       m_pid = -1;
-
-      // Send SIGTERM for stdout and stderr reader forks
-      if (m_stdio.first > 0)
-      {
-        ::kill(m_stdio.first, SIGTERM);
-      }
-      if (m_stdio.second > 0)
-      {
-        ::kill(m_stdio.second, SIGTERM);
-      }
-
-      // Wait for stdout and stderr forks
-      if (m_stdio.first > 0)
-      {
-        waitpid(m_stdio.first, nullptr, 0);
-      }
-      if (m_stdio.second > 0)
-      {
-        waitpid(m_stdio.second, nullptr, 0);
-      }
-
-      // Clear stdio PIDs after cleanup
-      m_stdio = {-1, -1};
 
       return (WIFEXITED(status))?
           Value<int>(WEXITSTATUS(status))

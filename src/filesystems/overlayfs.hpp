@@ -101,7 +101,6 @@ inline Value<void> Overlayfs::mount()
     .with_args("-o", std::format("upperdir={}", m_path_dir_upper.string()))
     .with_args("-o", std::format("workdir={}", m_path_dir_work.string()))
     .with_args(m_path_dir_mount)
-    .with_log_stdio()
     .with_die_on_pid(m_pid_to_die_for)
     .spawn();
   // Wait for mount

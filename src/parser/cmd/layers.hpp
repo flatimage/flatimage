@@ -100,8 +100,7 @@ namespace ns_layers
     .with_args("-i", path_dir_src, "-o", path_file_dst)
     .with_args("-l", compression_level)
     .with_args("--input-list", path_file_list)
-    .with_log_stdio<"I">()
-    .wait());
+    .spawn()->wait());
   return{};
 }
 

@@ -159,7 +159,7 @@ namespace ns_recipe
   // Execute wget to download the file
   Try(ns_subprocess::Subprocess(path_file_downloader)
     .with_args("-O", path_file_output.string(), recipe_url)
-    .wait());
+    .spawn()->wait());
   logger("I::Successfully downloaded recipe '{}' to '{}'", recipe, path_file_output.string());
   // Read the downloaded JSON file
   std::ifstream file(path_file_output);

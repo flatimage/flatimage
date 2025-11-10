@@ -89,8 +89,8 @@ inline Value<void> unmount(fs::path const& path_dir_mount)
   using enum ns_subprocess::Stream;
   int code = ns_subprocess::Subprocess(path_file_fusermount)
     .with_args("-zu", path_dir_mount)
-    .with_log_stdio()
-    .wait()
+    .spawn()
+    ->wait()
     .forward("E::")
     .value_or(-1);
 

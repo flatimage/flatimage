@@ -262,23 +262,20 @@ inline Value<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src
   using enum ns_subprocess::Stream;
   auto ret = ns_subprocess::Subprocess(path_file_bwrap_src)
     .with_args("--bind", "/", "/", "bash", "-c", "echo")
-    .with_log_stdio()
-    .wait();
+    .spawn()->wait();
   qreturn_if (ret and *ret == 0, path_file_bwrap_src);
   // Try to use bwrap installed by flatimage
   fs::path path_file_bwrap_opt = "/opt/flatimage/bwrap";
   ret = ns_subprocess::Subprocess(path_file_bwrap_opt)
     .with_args("--bind", "/", "/", "bash", "-c", "echo")
-    .with_log_stdio()
-    .wait();
+    .spawn()->wait();
   qreturn_if (ret and *ret == 0, path_file_bwrap_opt);
   // Error might be EACCES, try to integrate with apparmor
   fs::path path_file_pkexec = Pop(ns_env::search_path("pkexec"));
   fs::path path_file_bwrap_apparmor = Pop(ns_env::search_path("fim_bwrap_apparmor"));
   Try(ns_subprocess::Subprocess(path_file_pkexec)
     .with_args(path_file_bwrap_apparmor, m_logs.path_file_apparmor, path_file_bwrap_src)
-    .with_log_stdio()
-    .wait());
+    .spawn()->wait());
   return path_file_bwrap_opt;
 }
 
@@ -785,8 +782,7 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
     .with_args(path_file_bash, "-c", std::format(R"(&>/dev/null nohup "{}" & disown; "{}" "$@")", path_file_daemon.string(), m_path_file_program.string()), "--")
     .with_args(m_program_args)
     .with_env(m_program_env)
-    .wait()
-    .value_or(125);
+    .spawn()->wait().value_or(125);
 
   // Failed syscall and errno
   int syscall_nr = -1;

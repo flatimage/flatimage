@@ -70,8 +70,7 @@ inline Value<void> resize_impl(fs::path const& path_file_src
     .with_args(path_file_src)
     .with_args("-resize", (img.width() > img.height())? std::format("{}x", width) : std::format("x{}", height))
     .with_args(path_file_dst)
-    .with_log_stdio()
-    .wait());
+    .spawn()->wait());
   return {};
 }
 

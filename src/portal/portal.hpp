@@ -68,7 +68,6 @@ inline Portal::~Portal()
   portal->m_child = ns_subprocess::Subprocess(path_bin_daemon)
     .with_var("FIM_DAEMON_CFG", Pop(ns_daemon::serialize(daemon)))
     .with_var("FIM_DAEMON_LOG", Pop(ns_daemon::ns_log::serialize(logs)))
-    .with_log_stdio()
     .spawn();
   return portal;
 }
