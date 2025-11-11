@@ -137,9 +137,7 @@ using namespace ns_parser::ns_interface;
     // Run bwrap
     ns_bwrap::bwrap_run_ret_t bwrap_run_ret = Pop(f_bwrap_impl(program, args), "E::Failed to execute bwrap");
     // Log bwrap errors
-    elog_if(bwrap_run_ret.errno_nr > 0
-      , std::format("Bwrap failed syscall '{}' with errno '{}'", bwrap_run_ret.syscall_nr, bwrap_run_ret.errno_nr)
-    );
+    log_if(bwrap_run_ret.errno_nr > 0, "E::Bwrap failed syscall '{}' with errno '{}'", bwrap_run_ret.syscall_nr, bwrap_run_ret.errno_nr);
     // Retry with fallback if bwrap overlayfs failed
     if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP and bwrap_run_ret.syscall_nr == SYS_mount )
     {
@@ -453,8 +451,8 @@ using namespace ns_parser::ns_interface;
     // Process the exec command
     if(auto cmd_exec = std::get_if<CmdInstance::Exec>(&(cmd->sub_cmd)))
     {
-      qreturn_if(instances.size() == 0, Error("C::No instances are running"));
-      qreturn_if(cmd_exec->id < 0 or static_cast<size_t>(cmd_exec->id) >= instances.size()
+      return_if(instances.size() == 0, Error("C::No instances are running"));
+      return_if(cmd_exec->id < 0 or static_cast<size_t>(cmd_exec->id) >= instances.size()
         , Error("C::Instance index out of bounds")
       );
       // Get instance

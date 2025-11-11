@@ -53,7 +53,7 @@ inline Recipe::Recipe()
 [[maybe_unused]] [[nodiscard]] inline Value<Recipe> deserialize(std::string_view str_raw_json) noexcept
 {
   Recipe recipe;
-  qreturn_if(str_raw_json.empty(), Error("D::Empty json data"));
+  return_if(str_raw_json.empty(), Error("D::Empty json data"));
   // Open DB
   auto db = Pop(ns_db::from_string(str_raw_json));
   // Parse description (required)

@@ -60,8 +60,8 @@ inline Portal::~Portal()
   auto portal = std::make_unique<Portal>();
   // Path to daemon
   fs::path path_bin_daemon = daemon.get_path_bin_daemon();
-  qreturn_if(portal == nullptr, Error("E::Could not create portal object"));
-  qreturn_if(not Try(fs::exists(path_bin_daemon)), Error("E::Daemon not found in {}", path_bin_daemon));
+  return_if(portal == nullptr, Error("E::Could not create portal object"));
+  return_if(not Try(fs::exists(path_bin_daemon)), Error("E::Daemon not found in {}", path_bin_daemon));
   // Create a portal that uses the reference file to create an unique communication key
   // Spawn process to background
   using enum ns_subprocess::Stream;

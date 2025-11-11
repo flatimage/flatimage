@@ -49,7 +49,7 @@ namespace ns_message = ns_db::ns_portal::ns_message;
     , std::span<pid_t const>(&value, 1)
   );
   // Check success with number of written bytes
-  qreturn_if(bytes_written != sizeof(value), Error("E::Failed to write pid: {}", strerror(errno)));
+  return_if(bytes_written != sizeof(value), Error("E::Failed to write pid: {}", strerror(errno)));
   return {};
 }
 

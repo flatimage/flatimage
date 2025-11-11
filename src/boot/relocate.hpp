@@ -80,7 +80,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   // This is done because the current executable cannot mount itself.
 
   // Get path to called executable
-  qreturn_if(!fs::exists("/proc/self/exe", ec), Error("E::Error retrieving executable path for self"));
+  return_if(!fs::exists("/proc/self/exe", ec), Error("E::Error retrieving executable path for self"));
   auto path_absolute = Try(fs::read_symlink("/proc/self/exe"));
   // Create base dir
   fs::path path_dir_base = "/tmp/fim";
@@ -145,9 +145,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
     file_binary.seekg(offset_beg);
     // Read size bytes (FATAL if fails)
     uint64_t size;
-    qreturn_if(not file_binary.read(reinterpret_cast<char*>(&size), sizeof(size))
-      , Error("E::Could not read binary size")
-    );
+    return_if(not file_binary.read(reinterpret_cast<char*>(&size), sizeof(size)), Error("E::Could not read binary size"));
     // Open output file and write 
     if (fs::exists(path_file, ec))
     {
@@ -157,15 +155,15 @@ constexpr std::array<const char*,403> const arr_busybox_applet
     {
       // Read binary
       std::vector<char> buffer(size);
-      qreturn_if(not file_binary.read(buffer.data(), size), Error("E::Could not read binary"));
+      return_if(not file_binary.read(buffer.data(), size), Error("E::Could not read binary"));
       // Open output binary file
       std::ofstream of{path_file, std::ios::out | std::ios::binary};
-      qreturn_if(not of.is_open(), Error("E::Could not open output file '{}'", path_file));
+      return_if(not of.is_open(), Error("E::Could not open output file '{}'", path_file));
       // Write binary
-      qreturn_if(not of.write(buffer.data(), size), Error("E::Could not write binary file '{}'", path_file));
+      return_if(not of.write(buffer.data(), size), Error("E::Could not write binary file '{}'", path_file));
       // Set permissions (with error_code - doesn't throw)
       fs::permissions(path_file, fs::perms::owner_all | fs::perms::group_all, ec);
-      elog_if(ec, std::format("Error on setting permissions of file '{}': {}", path_file.string(), ec.message()));
+      log_if(ec, "E::Error on setting permissions of file '{}': {}", path_file.string(), ec.message());
     } // if
     // Return new values for offsets
     return std::make_pair(offset_beg, file_binary.tellg());
@@ -174,7 +172,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   // Write binaries
   auto start = std::chrono::high_resolution_clock::now();
   std::ifstream file_binary{path_absolute, std::ios::in | std::ios::binary};
-  qreturn_if(not file_binary.is_open(), Error("E::Could not open flatimage binary file"));
+  return_if(not file_binary.is_open(), Error("E::Could not open flatimage binary file"));
   constexpr static char const str_raw_json[] =
   {
     #embed FIM_FILE_TOOLS
@@ -200,9 +198,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
 
   // Filesystem starts here
   ns_env::set("FIM_OFFSET", std::to_string(offset_end).c_str(), ns_env::Replace::Y);
-  qreturn_if(offset_end != offset
-    , Error("E::Broken image actual offset({}) != offset({})", offset_end, offset)
-  );
+  return_if(offset_end != offset, Error("E::Broken image actual offset({}) != offset({})", offset_end, offset));
   logger("D::FIM_OFFSET: {}", offset_end);
 
   // Option to show offset and exit (to manually mount the fs with fuse2fs)

@@ -92,7 +92,7 @@ inline Dispatcher::Dispatcher(pid_t pid, Mode mode, fs::path const& path_dir_app
 [[maybe_unused]] [[nodiscard]] inline Value<Dispatcher> deserialize(std::string_view str_raw_json) noexcept
 {
   Dispatcher dispatcher;
-  qreturn_if(str_raw_json.empty(), Error("D::Empty json data"));
+  return_if(str_raw_json.empty(), Error("D::Empty json data"));
   // Open DB
   auto db = Pop(ns_db::from_string(str_raw_json));
   // Parse path_dir_fifo

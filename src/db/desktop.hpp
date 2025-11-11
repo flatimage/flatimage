@@ -60,7 +60,7 @@ inline Desktop::Desktop()
 [[maybe_unused]] [[nodiscard]] inline Value<Desktop> deserialize(std::string_view str_raw_json) noexcept
 {
   Desktop desktop;
-  qreturn_if(str_raw_json.empty(), Error("W::Empty json data"));
+  return_if(str_raw_json.empty(), Error("W::Empty json data"));
   // Open DB
   auto db = Pop(ns_db::from_string(str_raw_json));
   // Parse name (required)

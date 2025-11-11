@@ -49,7 +49,7 @@ inline Value<void> write(fs::path const& path_file_binary, OverlayType const& ov
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_OVERLAY_BEGIN;
   uint64_t offset_end = ns_reserved::FIM_RESERVED_OFFSET_OVERLAY_END;
   uint64_t size = offset_end - offset_begin;
-  qreturn_if(size != sizeof(uint8_t), Error("E::Incorrect number of bytes to write overlay mask: {} vs {}", size, sizeof(uint8_t)));
+  return_if(size != sizeof(uint8_t), Error("E::Incorrect number of bytes to write overlay mask: {} vs {}", size, sizeof(uint8_t)));
   return ns_reserved::write(path_file_binary, offset_begin, offset_end, reinterpret_cast<char*>(&mask), sizeof(uint8_t));
 }
 
@@ -64,7 +64,7 @@ inline Value<OverlayType> read(fs::path const& path_file_binary)
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_OVERLAY_BEGIN;
   uint8_t mask;
   ssize_t bytes = Pop(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&mask), sizeof(uint8_t)));
-  elog_if(bytes != 1, std::format("Possible error to read overlay byte, count is {}", bytes));
+  log_if(bytes != 1, "E::Possible error to read overlay byte, count is {}", bytes);
   switch(mask)
   {
     case 1 << 1: return OverlayType::BWRAP;

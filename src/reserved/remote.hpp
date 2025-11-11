@@ -36,7 +36,7 @@ inline Value<void> write(fs::path const& path_file_binary, std::string_view cons
 {
   uint64_t space_available = ns_reserved::FIM_RESERVED_OFFSET_REMOTE_END - ns_reserved::FIM_RESERVED_OFFSET_REMOTE_BEGIN;
   uint64_t space_required = url.size();
-  qreturn_if(space_available <= space_required, Error("E::Not enough space to fit remote URL"));
+  return_if(space_available <= space_required, Error("E::Not enough space to fit remote URL"));
   Pop(ns_reserved::write(path_file_binary
     , FIM_RESERVED_OFFSET_REMOTE_BEGIN
     , FIM_RESERVED_OFFSET_REMOTE_END

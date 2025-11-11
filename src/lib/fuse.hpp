@@ -63,11 +63,11 @@ inline void wait_fuse(fs::path const& path_dir_filesystem)
   while ( true )
   {
     auto expected_is_fuse = ns_fuse::is_fuse(path_dir_filesystem);
-    ebreak_if(not expected_is_fuse, "Could not check if filesystem is fuse");
-    dbreak_if( *expected_is_fuse, std::format("Filesystem '{}' is fuse", path_dir_filesystem.string()));
+    break_if(not expected_is_fuse, "E::Could not check if filesystem is fuse");
+    break_if(*expected_is_fuse, "D::Filesystem '{}' is fuse", path_dir_filesystem.string());
     auto time_cur = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(time_cur - time_beg);
-    ebreak_if(elapsed.count() > 60, "Reached timeout to wait for fuse filesystems");
+    break_if(elapsed.count() > 60, "E::Reached timeout to wait for fuse filesystems");
   } // while
 } // function: wait_fuse
 

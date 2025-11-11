@@ -64,16 +64,16 @@ namespace ns_recipe
   // Construct path to local recipe file
   fs::path recipe_file = get_path_recipe(path_dir_download, distribution, recipe);
   // Check if recipe file exists locally
-  qreturn_if(not fs::exists(recipe_file),
+  return_if(not fs::exists(recipe_file),
     Error("E::Recipe '{}' not found locally. Use 'fim-recipe fetch {}' first.", recipe, recipe));
   // Read the local JSON file
   std::ifstream file(recipe_file);
-  qreturn_if(!file.is_open(),
+  return_if(!file.is_open(),
     Error("E::Could not open recipe file '{}'", recipe_file.string()));
   // Read json contents
   std::string json_contents((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
   // Check if contents are empty
-  qreturn_if(json_contents.empty(), Error("E::Empty json file"));
+  return_if(json_contents.empty(), Error("E::Empty json file"));
   // Parse JSON and return
   return Pop(ns_db::ns_recipe::deserialize(json_contents), "E::Could not parse json file");
 }

@@ -246,7 +246,7 @@ template<typename Data>
   , std::span<Data> buf)
 {
   int fd = open_with_timeout(path_file_src, timeout, O_RDONLY);
-  qreturn_if(fd < 0, fd);
+  return_if(fd < 0, fd);
   ssize_t bytes_read = read_with_timeout(fd, timeout, buf);
   close(fd);
   return bytes_read;
@@ -267,7 +267,7 @@ template<typename Data>
   , std::span<Data> buf)
 {
   int fd = open_with_timeout(path_file_src, timeout, O_WRONLY);
-  qreturn_if(fd < 0, fd);
+  return_if(fd < 0, fd);
   ssize_t bytes_written = write_with_timeout(fd, timeout, buf);
   close(fd);
   return bytes_written;
@@ -282,12 +282,12 @@ template<typename Data>
 [[nodiscard]] inline Value<bool> module_check(std::string_view str_name)
 {
   std::ifstream file_modules("/proc/modules");
-  qreturn_if(not file_modules.is_open(), Error("E::Could not open modules file"));
+  return_if(not file_modules.is_open(), Error("E::Could not open modules file"));
 
   std::string line;
   while ( std::getline(file_modules, line) )
   {
-    qreturn_if(line.contains(str_name), true);
+    return_if(line.contains(str_name), true);
   }
 
   return false;

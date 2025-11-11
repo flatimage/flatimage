@@ -1,8 +1,17 @@
 /**
  * @file ciopfs.hpp
  * @author Ruan Formigoni
- * @brief Manage ciopfs filesystems
+ * @brief Case-insensitive filesystem management using CIOPFS
  * 
+ * This module provides a C++ wrapper around CIOPFS (Case Insensitive On Purpose File System),
+ * a FUSE filesystem that provides case-insensitive access to an underlying case-sensitive
+ * filesystem. This is particularly useful for running Windows applications under Wine or
+ * for compatibility with case-insensitive filesystems.
+ * 
+ * CIOPFS works by maintaining a mapping between the requested filename and the actual
+ * filename on disk, allowing applications to access files regardless of case differences.
+ * 
+ * @see https://www.brain-dump.org/projects/ciopfs/
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -16,6 +25,13 @@
 #include "../std/filesystem.hpp"
 #include "filesystem.hpp"
 
+/**
+ * @namespace ns_filesystems::ns_ciopfs
+ * @brief Case-insensitive filesystem implementation
+ * 
+ * This namespace contains the CIOPFS filesystem wrapper that allows mounting
+ * a directory with case-insensitive semantics over a case-sensitive filesystem.
+ */
 namespace ns_filesystems::ns_ciopfs
 {
 
@@ -27,10 +43,38 @@ namespace fs = std::filesystem;
 
 } // namespace
 
+/**
+ * @class Ciopfs
+ * @brief FUSE-based case-insensitive filesystem wrapper
+ * 
+ * The Ciopfs class provides a managed interface to the CIOPFS filesystem.
+ * It handles the lifecycle of the CIOPFS process, including mounting,
+ * monitoring, and cleanup.
+ * 
+ * The filesystem creates a case-insensitive view of a source directory,
+ * allowing files to be accessed regardless of case. For example, "File.txt",
+ * "file.txt", and "FILE.TXT" would all refer to the same file.
+ * 
+ * @warning CIOPFS requires FUSE support in the kernel
+ * @note This is a final class and cannot be inherited
+ */
 class Ciopfs final : public ns_filesystem::Filesystem
 {
   private:
+    /**
+     * @brief Path to the upper (mount) directory
+     * 
+     * This is where the case-insensitive filesystem will be mounted.
+     * Applications access files through this directory.
+     */
     fs::path m_path_dir_upper;
+    
+    /**
+     * @brief Path to the lower (source) directory
+     * 
+     * This is the underlying case-sensitive directory that contains
+     * the actual files. CIOPFS reads from and writes to this directory.
+     */
     fs::path m_path_dir_lower;
 
   public:
@@ -38,6 +82,19 @@ class Ciopfs final : public ns_filesystem::Filesystem
     Value<void> mount() override;
 };
 
+    /**
+     * @brief Constructs and mounts a CIOPFS filesystem
+     * 
+     * Creates a new CIOPFS instance and immediately attempts to mount it.
+     * The constructor will log an error if mounting fails but will not throw.
+     * 
+     * @param pid_to_die_for Process ID that this filesystem should monitor.
+     *                       When this process dies, the filesystem will unmount.
+     * @param path_dir_lower Source directory containing the actual files (case-sensitive)
+     * @param path_dir_upper Mount point where files will be accessible (case-insensitive)
+     * 
+     * @note The directories will be created if they don't exist
+     */
 inline Ciopfs::Ciopfs(pid_t pid_to_die_for, fs::path const& path_dir_lower, fs::path const& path_dir_upper)
   : ns_filesystem::Filesystem(pid_to_die_for, path_dir_upper)
   , m_path_dir_upper(path_dir_upper)
@@ -45,14 +102,25 @@ inline Ciopfs::Ciopfs(pid_t pid_to_die_for, fs::path const& path_dir_lower, fs::
 {
   if(auto ret = this->mount(); not ret)
   {
-    logger("E::Could u mount ciopfs filesystem from '{}' to '{}': {}", path_dir_lower, path_dir_upper, ret.error());
+    logger("E::Could not mount ciopfs filesystem from '{}' to '{}': {}", path_dir_lower, path_dir_upper, ret.error());
   }
 }
 
 /**
- * @brief Mounts the filesystem
+ * @brief Mounts the CIOPFS filesystem
  * 
- * @return Value<void> Nothing on success or the respective error
+ * Performs the following steps:
+ * 1. Creates source and mount directories if they don't exist
+ * 2. Locates the CIOPFS binary in the system PATH
+ * 3. Spawns the CIOPFS process with appropriate arguments
+ * 4. Waits for FUSE to confirm the mount is ready
+ * 
+ * The spawned CIOPFS process will automatically terminate when the
+ * process specified by m_pid_to_die_for exits.
+ * 
+ * @return Value<void> Success or error with description
+ *
+ * @note This is a synchronous operation that blocks until mount is ready
  */
 inline Value<void> Ciopfs::mount()
 {

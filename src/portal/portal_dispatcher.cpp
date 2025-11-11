@@ -117,7 +117,7 @@ void register_signals()
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , std::span<pid_t>(&pid_child, 1)
   );
-  qreturn_if(bytes_read != sizeof(pid_child), Error("E::{}", strerror(errno)));
+  return_if(bytes_read != sizeof(pid_child), Error("E::{}", strerror(errno)));
   // Forward signal to pid
   opt_child = pid_child;
   logger("D::Child pid: {}", pid_child);
@@ -136,7 +136,7 @@ void register_signals()
     , std::chrono::seconds{SECONDS_TIMEOUT}
     , std::span<int>(&code_exit, 1)
   );
-  qreturn_if(bytes_exit != sizeof(code_exit), Error("E::Incorrect number of bytes '{}' read", bytes_exit));
+  return_if(bytes_exit != sizeof(code_exit), Error("E::Incorrect number of bytes '{}' read", bytes_exit));
   return code_exit;
 }
 
@@ -181,7 +181,7 @@ int main(int argc, char** argv)
   // Collect arguments
   std::vector<std::string> args(argv+1, argv+argc);
   // No arguments for portal
-  ereturn_if(args.empty(), "E::No arguments for dispatcher", EXIT_FAILURE);
+  return_if(args.empty(), EXIT_FAILURE, "E::No arguments for dispatcher");
   // De-serialize FIM_DISPATCHER_CFG
   ns_dispatcher::Dispatcher arg_cfg = Pop(
     ns_dispatcher::deserialize(Pop(ns_env::get_expected("FIM_DISPATCHER_CFG")))

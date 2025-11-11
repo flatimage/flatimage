@@ -192,9 +192,7 @@ inline Bwrap::Bwrap(Logs logs
   }
   else
   {
-    elog_if(not fs::is_directory(path_dir_root)
-      , std::format("'{}' does not exist or is not a directory", path_dir_root.string())
-    );
+    log_if(not fs::is_directory(path_dir_root), "E::'{}' does not exist or is not a directory", path_dir_root.string());
     ns_vector::push_back(m_args, "--bind", path_dir_root, "/");
   }
   // System bindings
@@ -263,13 +261,13 @@ inline Value<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src
   auto ret = ns_subprocess::Subprocess(path_file_bwrap_src)
     .with_args("--bind", "/", "/", "bash", "-c", "echo")
     .spawn()->wait();
-  qreturn_if (ret and *ret == 0, path_file_bwrap_src);
+  return_if(ret and *ret == 0, path_file_bwrap_src);
   // Try to use bwrap installed by flatimage
   fs::path path_file_bwrap_opt = "/opt/flatimage/bwrap";
   ret = ns_subprocess::Subprocess(path_file_bwrap_opt)
     .with_args("--bind", "/", "/", "bash", "-c", "echo")
     .spawn()->wait();
-  qreturn_if (ret and *ret == 0, path_file_bwrap_opt);
+  return_if(ret and *ret == 0, path_file_bwrap_opt);
   // Error might be EACCES, try to integrate with apparmor
   fs::path path_file_pkexec = Pop(ns_env::search_path("pkexec"));
   fs::path path_file_bwrap_apparmor = Pop(ns_env::search_path("fim_bwrap_apparmor"));
@@ -293,15 +291,15 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
   auto f_find_and_bind = [&]<typename... Args>(fs::path const& path_dir_search, Args&&... args)
   {
     std::vector<std::string_view> keywords{std::forward<Args>(args)...};
-    ireturn_if(not fs::exists(path_dir_search), std::format("Search path does not exist: '{}'", path_dir_search.string()));
+    return_if(not fs::exists(path_dir_search), std::format("Search path does not exist: '{}'", path_dir_search.string()));
     auto f_process_entry = [&](fs::path const& path_file_entry) -> void
     {
       // Skip ignored matches
-      qreturn_if(std::regex_search(path_file_entry.c_str(), regex_exclude));
+      return_if(std::regex_search(path_file_entry.c_str(), regex_exclude),);
       // Skip directories
-      qreturn_if(fs::is_directory(path_file_entry));
+      return_if(fs::is_directory(path_file_entry),);
       // Skip files that do not match keywords
-      qreturn_if(not std::ranges::any_of(keywords, [&](auto&& f){ return path_file_entry.filename().string().contains(f); }));
+      return_if(not std::ranges::any_of(keywords, [&](auto&& f){ return path_file_entry.filename().string().contains(f); }),);
       // Symlink target is the file and the end of the symlink chain
       // fs::canonical throws if path_file_entry does not exist
       auto path_file_entry_realpath = fs::canonical(path_file_entry);
@@ -309,7 +307,7 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
       fs::path path_link_target = path_dir_root_host / path_file_entry_realpath.relative_path();
       fs::path path_link_name = path_dir_root_guest / path_file_entry.relative_path();
       // File already exists in the container as a regular file or directory, skip
-      qreturn_if(fs::exists(path_link_name) and not fs::is_symlink(path_link_name));
+      return_if(fs::exists(path_link_name) and not fs::is_symlink(path_link_name),);
       // Create parent directories
       fs::create_directories(path_link_name.parent_path());
       // Remove existing link
@@ -407,7 +405,7 @@ inline Bwrap& Bwrap::bind_home()
   logger("D::PERM(HOME)");
   std::string str_dir_home = ({
     auto ret = ns_env::get_expected("HOME");
-    ereturn_if(not ret, "HOME environment variable is unset", *this);
+    return_if(not ret, *this, "E::HOME environment variable is unset");
     ret.value();
   });
   ns_vector::push_back(m_args, "--bind-try", str_dir_home, str_dir_home);
@@ -472,7 +470,7 @@ inline Bwrap& Bwrap::bind_wayland()
   // Get WAYLAND_DISPLAY
   std::string env_wayland_display = ({
     auto ret = ns_env::get_expected("WAYLAND_DISPLAY");
-    ereturn_if(not ret, "WAYLAND_DISPLAY is undefined", *this);
+    return_if(not ret, *this, "E::WAYLAND_DISPLAY is undefined");
     ret.value();
   });
 
@@ -500,13 +498,13 @@ inline Bwrap& Bwrap::bind_xorg()
   // Get DISPLAY
   std::string env_display = ({
     auto ret = ns_env::get_expected("DISPLAY");
-    ereturn_if(not ret, "DISPLAY is undefined", *this);
+    return_if(not ret, *this, "E::DISPLAY is undefined");
     ret.value();
   });
   // Get XAUTHORITY
   std::string env_xauthority = ({
     auto ret = ns_env::get_expected("XAUTHORITY");
-    ereturn_if(not ret, "XAUTHORITY is undefined", *this);
+    return_if(not ret, *this, "E::XAUTHORITY is undefined");
     ret.value();
   });
   // Bind
@@ -529,7 +527,7 @@ inline Bwrap& Bwrap::bind_dbus_user()
   // Get DBUS_SESSION_BUS_ADDRESS
   std::string env_dbus_session_bus_address = ({
     auto ret = ns_env::get_expected("DBUS_SESSION_BUS_ADDRESS");
-    ereturn_if(not ret, "DBUS_SESSION_BUS_ADDRESS is undefined", *this);
+    return_if(not ret, *this, "E::DBUS_SESSION_BUS_ADDRESS is undefined");
     ret.value();
   });
 
@@ -753,7 +751,7 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
 
   // Pipe to receive errors from bwrap
   int pipe_error[2];
-  qreturn_if(pipe(pipe_error) == -1, strerror(errno), Error("E::Could not open bwrap error pipe"));
+  return_if(pipe(pipe_error) == -1, Error("E::Could not open bwrap error pipe: {}", strerror(errno)));
 
   // Configure pipe read end as non-blocking
   if(fcntl(pipe_error[0], F_SETFL, fcntl(pipe_error[0], F_GETFL, 0) | O_NONBLOCK) < 0)
@@ -772,7 +770,7 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   ns_vector::push_back(m_args, "--setenv", "FIM_DAEMON_CFG", str_arg1_daemon);
   ns_vector::push_back(m_args, "--setenv", "FIM_DAEMON_LOG", str_arg2_daemon);
 
-  qreturn_if(not Try(fs::exists(path_file_daemon)), Error("E::Missing portal daemon to run binary file path"));
+  return_if(not Try(fs::exists(path_file_daemon)), Error("E::Missing portal daemon to run binary file path"));
 
   // Run Bwrap
   auto code = ns_subprocess::Subprocess(path_file_bash)
@@ -789,8 +787,8 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   int errno_nr = -1;
 
   // Read possible errors if any
-  dlog_if(read(pipe_error[0], &syscall_nr, sizeof(syscall_nr)) < 0, "Could not read syscall error, success?");
-  dlog_if(read(pipe_error[0], &errno_nr, sizeof(errno_nr)) < 0, "Could not read errno number, success?");
+  log_if(read(pipe_error[0], &syscall_nr, sizeof(syscall_nr)) < 0, "D::Could not read syscall error, success?");
+  log_if(read(pipe_error[0], &errno_nr, sizeof(errno_nr)) < 0, "D::Could not read errno number, success?");
 
   // Close pipe
   close(pipe_error[0]);

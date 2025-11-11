@@ -143,7 +143,7 @@ inline json_t const& Db::data() const
 inline std::vector<std::string> Db::keys() const noexcept
 {
   json_t const& json = data();
-  ereturn_if(not json.is_structured(), "Invalid non-structured json access", {});
+  return_if(not json.is_structured(), {}, "E::Invalid non-structured json access");
   return json.items()
     | std::views::transform([&](auto&& e) { return e.key(); })
     | std::ranges::to<std::vector<std::string>>();
@@ -157,7 +157,7 @@ inline std::vector<std::string> Db::keys() const noexcept
 inline std::vector<std::pair<std::string,Db>> Db::items() const noexcept
 {
   json_t const& json = data();
-  ereturn_if(not json.is_structured(), "Invalid non-structured json access", {});
+  return_if(not json.is_structured(), {}, "E::Invalid non-structured json access");
   return json.items()
     | std::views::transform([](auto&& e){ return std::make_pair(e.key(), Db{e.value()}); })
     | std::ranges::to<std::vector<std::pair<std::string,Db>>>();
@@ -179,9 +179,9 @@ Value<V> Db::value() noexcept
   }
   else if constexpr ( ns_concept::IsVector<V> and ns_concept::SameAs<typename V::value_type, std::string>)
   {
-    qreturn_if(not json.is_array(), std::unexpected("Tried to create array with non-array entry"));
-    qreturn_if(std::any_of(json.begin(), json.end(), [](auto&& e){ return not e.is_string(); })
-      , std::unexpected("Invalid key type for string array")
+    return_if(not json.is_array(), Error("D::Tried to create array with non-array entry"));
+    return_if(std::any_of(json.begin(), json.end(), [](auto&& e){ return not e.is_string(); })
+      , Error("D::Invalid key type for string array")
     );
     return std::ranges::subrange(json.begin(), json.end())
       | std::views::transform([](auto&& e){ return typename std::remove_cvref_t<V>::value_type(e); })
@@ -191,12 +191,12 @@ Value<V> Db::value() noexcept
   {
     return ( json.is_string() )?
         Value<V>(std::string{json})
-      : std::unexpected("Json element is not a string");
+      : Error("D::Json element is not a string");
   }
   else
   {
     static_assert(std::is_same_v<V, V> == false, "Unsupported type V for value()");
-    return std::unexpected("No viable type conversion");
+    return Error("D::No viable type conversion");
   }
 }
 
@@ -336,7 +336,7 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
  */
 [[nodiscard]] inline Value<Db> read_file(fs::path const& path_file_db)
 {
-  qreturn_if(not Try(fs::exists(path_file_db)), std::unexpected(std::format("Invalid db file '{}'", path_file_db.string())));
+  return_if(not Try(fs::exists(path_file_db)), Error("D::Invalid db file '{}'", path_file_db.string()));
   // Parse a file
   auto f_parse_file = [](std::ifstream const& f) -> Value<json_t>
   {
@@ -347,7 +347,7 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
   };
   // Open target file as read
   std::ifstream file(path_file_db, std::ios::in);
-  qreturn_if(not file.is_open(), std::unexpected(std::format("Failed to open '{}'", path_file_db.string())));
+  return_if(not file.is_open(), Error("D::Failed to open '{}'", path_file_db.string()));
   // Try to parse
   return Db(Pop(f_parse_file(file)));
 }
@@ -362,7 +362,7 @@ inline std::ostream& operator<<(std::ostream& os, Db const& db)
 [[nodiscard]] inline Value<void> write_file(fs::path const& path_file_db, Db& db)
 {
   std::ofstream file(path_file_db, std::ios::trunc);
-  qreturn_if(not file.is_open(), std::unexpected(std::format("Failed to open '{}' for writing", path_file_db.string())));
+  return_if(not file.is_open(), Error("D::Failed to open '{}' for writing", path_file_db.string()));
   file << std::setw(2) << Pop(db.dump());
   file.close();
   return Value<void>{};
@@ -379,7 +379,7 @@ template<ns_concept::StringRepresentable S>
 Value<Db> from_string(S&& s)
 {
   std::string data = ns_string::to_string(s);
-  qreturn_if(data.empty(), Error("D::Empty json data"));
+  return_if(data.empty(), Error("D::Empty json data"));
   return Try(Db{json_t::parse(data)}, "D::Could not parse json file");
 }
 

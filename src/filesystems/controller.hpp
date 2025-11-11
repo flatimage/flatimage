@@ -124,16 +124,16 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
 inline Controller::~Controller()
 {
   // Check if janitor is running
-  dreturn_if(not m_child_janitor, "Janitor is not running");
+  return_if(not m_child_janitor,,"D::Janitor is not running");
   // Get janitor pid
   pid_t pid = m_child_janitor->get_pid().value_or(0);
-  dreturn_if(pid <= 0, "Failed to get janitor PID");
+  return_if(pid <= 0,,"D::Failed to get janitor PID");
   // Stop janitor loop
   kill(pid, SIGTERM);
   // Wait for janitor to finish execution
   int status;
   waitpid(pid, &status, 0);
-  dreturn_if(not WIFEXITED(status), "Janitor exited abnormally");
+  return_if(not WIFEXITED(status),,"D::Janitor exited abnormally");
   logger("D::Janitor exited with code '{}'", WEXITSTATUS(status));
 }
 
@@ -150,7 +150,7 @@ inline Controller::~Controller()
     .with_log_file(path_file_log)
     .spawn();
   // Check if janitor is running
-  qreturn_if(not m_child_janitor, Error("E::Failed to start janitor"));
+  return_if(not m_child_janitor, Error("E::Failed to start janitor"));
   // Check if child is running
   if(auto pid = m_child_janitor->get_pid().value_or(-1); pid > 0)
   {
@@ -201,17 +201,21 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
   {
     // Read filesystem size
     int64_t size_fs;
-    dbreak_if(not file_binary.read(reinterpret_cast<char*>(&size_fs), sizeof(size_fs)), std::format("Stopped reading at index {}", index_fs));
+    break_if(not file_binary.read(reinterpret_cast<char*>(&size_fs), sizeof(size_fs))
+      , "D::Stopped reading at index {}", index_fs
+    );
     logger("D::Filesystem size is '{}'", size_fs);
     // Validate filesystem size
-    ebreak_if(size_fs <= 0, std::format("Invalid filesystem size '{}' at index {}", size_fs, index_fs));
+    break_if(size_fs <= 0, "E::Invalid filesystem size '{}' at index {}", size_fs, index_fs);
     // Skip size bytes
     offset += 8;
     // Check if filesystem is of type 'DWARFS'
-    ebreak_if(not ns_dwarfs::is_dwarfs(path_file_binary, offset), "Invalid dwarfs filesystem appended on the image");
+    break_if(not ns_dwarfs::is_dwarfs(path_file_binary, offset)
+      , "E::Invalid dwarfs filesystem appended on the image"
+    );
     // Mount filesystem
-    ebreak_if(not f_mount(path_file_binary, path_dir_mount, index_fs, offset, size_fs)
-      , std::format("Failed to mount filesystem at index {}", index_fs)
+    break_if(not f_mount(path_file_binary, path_dir_mount, index_fs, offset, size_fs)
+      , "E::Failed to mount filesystem at index {}", index_fs
     );
     // Go to next filesystem if exists
     index_fs += 1;
@@ -252,7 +256,9 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
   for (fs::path const& path_file_layer : vec_path_file_layer)
   {
     // Check if filesystem is of type 'DWARFS'
-    econtinue_if(not ns_dwarfs::is_dwarfs(path_file_layer, 0), "Invalid dwarfs filesystem appended on the image");
+    continue_if(not ns_dwarfs::is_dwarfs(path_file_layer, 0)
+      , "E::Invalid dwarfs filesystem appended on the image"
+    );
     // Mount file as a filesystem
     auto size_result = Catch(fs::file_size(path_file_layer));
     if (!size_result)

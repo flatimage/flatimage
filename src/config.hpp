@@ -119,10 +119,10 @@ namespace fs = std::filesystem;
 {
   // Get user info
   struct passwd *pw = getpwuid(getuid());
-  qreturn_if(not pw, Error("E::Failed to get current user info"));
+  return_if(not pw, Error("E::Failed to get current user info"));
   // Open passwd file
   std::ofstream file_passwd{path_file_passwd};
-  qreturn_if(not file_passwd.is_open(), Error("E::Failed to open passwd file at {}", path_file_passwd));
+  return_if(not file_passwd.is_open(), Error("E::Failed to open passwd file at {}", path_file_passwd));
   // Define passwd entries
   User user
   {
@@ -153,7 +153,7 @@ namespace fs = std::filesystem;
 {
   // Open new bashrc file
   std::ofstream file_bashrc{path_file_bashrc};
-  qreturn_if(not file_bashrc.is_open(), Error("E::Failed to open bashrc file at {}", path_file_bashrc));
+  return_if(not file_bashrc.is_open(), Error("E::Failed to open bashrc file at {}", path_file_bashrc));
   // Write custom PS1 or default value
   if(variables.contains("PS1"))
   {
@@ -183,7 +183,7 @@ namespace fs = std::filesystem;
   }
   // Get user info for defaults
   struct passwd *pw = getpwuid(getuid());
-  qreturn_if(not pw, Error("E::Failed to get current user info"));
+  return_if(not pw, Error("E::Failed to get current user info"));
   return Id
   {
     .uid = static_cast<mode_t>(Catch(std::stoul(Catch(hash_env.at("UID")).or_default())).value_or(pw->pw_uid)),
@@ -404,14 +404,14 @@ struct FlatimageConfig
     // Clean up bwrap work directory
     if (fs::exists(path_dir_work_bwrap, ec) && !ec)
     {
-      elog_if(::chmod(path_dir_work_bwrap.c_str(), 0755) < 0
-        , std::format("Error to modify permissions '{}': '{}'", path_dir_work_bwrap.string(), strerror(errno))
+      log_if(::chmod(path_dir_work_bwrap.c_str(), 0755) < 0
+        , "E::Error to modify permissions '{}': '{}'", path_dir_work_bwrap.string(), strerror(errno)
       );
     }
     // Clean up work directory
     ec.clear();
     fs::remove_all(cfg->path_dir_work_overlayfs, ec);
-    elog_if(ec, std::format("Error to erase '{}': '{}'", cfg->path_dir_work_overlayfs.string(), ec.message()));
+    log_if(ec, "E::Error to erase '{}': '{}'", cfg->path_dir_work_overlayfs.string(), ec.message());
     delete cfg;
   };
 

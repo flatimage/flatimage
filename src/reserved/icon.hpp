@@ -59,7 +59,7 @@ inline Value<void> write(fs::path const& path_file_binary, Icon const& icon)
 {
   uint64_t space_available = ns_reserved::FIM_RESERVED_OFFSET_ICON_END - ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN;
   uint64_t space_required = sizeof(Icon);
-  qreturn_if(space_available < space_required, Error("E::Not enough space to fit icon data: {} vs {}", space_available, space_required));
+  return_if(space_available < space_required, Error("E::Not enough space to fit icon data: {} vs {}", space_available, space_required));
   Pop(ns_reserved::write(path_file_binary
     , ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN
     , ns_reserved::FIM_RESERVED_OFFSET_ICON_END

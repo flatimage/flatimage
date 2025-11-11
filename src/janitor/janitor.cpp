@@ -41,14 +41,14 @@ void cleanup(int)
   // Ignore SIGPIPE - when parent dies and pipe readers close, we can still cleanup
   signal(SIGPIPE, SIG_IGN);
   // Check argc
-  qreturn_if(argc < 3, std::unexpected("Incorrect usage: fim_janitor <parent_pid> <log_path>"));
+  return_if(argc < 3, Error("E::Incorrect usage: fim_janitor <parent_pid> <log_path>"));
   // Get pid to wait for
   pid_t pid_parent = Try(std::stoi(argv[1]));
   // Get log path from parent
   std::string path_log_file = argv[2];
   // Create a novel session for the child process
   pid_t pid_session = setsid();
-  qreturn_if(pid_session < 0, std::unexpected("Failed to create a novel session for janitor"));
+  return_if(pid_session < 0, Error("E::Failed to create a novel session for janitor"));
   // Enable logger to write INFO messages to stdout (for pipe capture)
   ns_log::set_level(ns_log::Level::DEBUG);
   ns_log::set_as_fork();

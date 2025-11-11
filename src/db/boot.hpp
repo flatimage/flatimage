@@ -49,7 +49,7 @@ inline Boot::Boot()
 [[maybe_unused]] [[nodiscard]] inline Value<Boot> deserialize(std::string_view str_raw_json) noexcept
 {
   Boot boot;
-  qreturn_if(str_raw_json.empty(), Error("D::Empty json data"));
+  return_if(str_raw_json.empty(), Error("D::Empty json data"));
   // Open DB
   auto db = Pop(ns_db::from_string(str_raw_json));
   // Parse program (optional, defaults to empty string)

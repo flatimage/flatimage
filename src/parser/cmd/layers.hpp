@@ -46,12 +46,12 @@ namespace ns_layers
   // Search for all viable files to compress
   logger("I::Gathering files to compress...");
   std::ofstream file_list(path_file_list, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_list.is_open()
+  return_if(not file_list.is_open()
     , Error("E::Could not open list of files '{}' to compress", path_file_list)
   );
   // Check if source directory exists and is a directory
-  qreturn_if(not fs::exists(path_dir_src), Error("E::Source directory '{}' does not exist", path_dir_src));
-  qreturn_if(not fs::is_directory(path_dir_src), Error("E::Source '{}' is not a directory", path_dir_src));
+  return_if(not fs::exists(path_dir_src), Error("E::Source directory '{}' does not exist", path_dir_src));
+  return_if(not fs::is_directory(path_dir_src), Error("E::Source '{}' is not a directory", path_dir_src));
   // Gather files to compress
   for(auto&& entry = fs::recursive_directory_iterator(path_dir_src)
     ; entry != fs::recursive_directory_iterator()
@@ -115,9 +115,9 @@ namespace ns_layers
 {
   // Open binary file for writing
   std::ofstream file_binary(path_file_binary, std::ios::app | std::ios::binary);
-  qreturn_if(not file_binary.is_open(), Error("E::Failed to open output file '{}'", path_file_binary));
+  return_if(not file_binary.is_open(), Error("E::Failed to open output file '{}'", path_file_binary));
   std::ifstream file_layer(path_file_layer, std::ios::in | std::ios::binary);
-  qreturn_if(not file_layer.is_open(), Error("E::Failed to open input file '{}'", path_file_layer));
+  return_if(not file_layer.is_open(), Error("E::Failed to open input file '{}'", path_file_layer));
   // Get byte size
   uint64_t file_size = Try(fs::file_size(path_file_layer));
   // Write byte size
@@ -126,7 +126,7 @@ namespace ns_layers
   while( file_layer.read(buff, sizeof(buff)) or file_layer.gcount() > 0 )
   {
     file_binary.write(buff, file_layer.gcount());
-    qreturn_if(not file_binary, Error("E::Error writing data to file"));
+    return_if(not file_binary, Error("E::Error writing data to file"));
   }
   logger("I::Included novel layer from file '{}'", path_file_layer);
   return {};
@@ -164,7 +164,7 @@ namespace ns_layers
   }
   // Remove files from the compression list
   std::ifstream file_list(path_file_list_tmp);
-  qreturn_if(not file_list.is_open(), Error("E::Could not open file list for erasing files..."));
+  return_if(not file_list.is_open(), Error("E::Could not open file list for erasing files..."));
   std::string line;
   // getline doesn't throw by default, no need to wrap
   while(std::getline(file_list, line))

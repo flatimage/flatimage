@@ -84,7 +84,7 @@ inline Logs::Logs(fs::path const& path_dir_log)
  */
 [[maybe_unused]] [[nodiscard]] inline Value<Logs> deserialize(std::string_view str_raw_json) noexcept
 {
-  qreturn_if(str_raw_json.empty(), Error("D::Empty json data"));
+  return_if(str_raw_json.empty(), Error("D::Empty json data"));
   // Open DB
   auto db = Pop(ns_db::from_string(str_raw_json));
   // Parse log directory path (optional)
@@ -171,7 +171,7 @@ inline Daemon::Daemon(Mode mode, fs::path const& path_bin_daemon, fs::path const
 [[maybe_unused]] [[nodiscard]] inline Value<Daemon> deserialize(std::string_view str_raw_json) noexcept
 {
   Daemon daemon;
-  qreturn_if(str_raw_json.empty(), Error("D::Empty json data"));
+  return_if(str_raw_json.empty(), Error("D::Empty json data"));
   // Open DB
   auto db = Pop(ns_db::from_string(str_raw_json));
   // Parse pid_reference (optional, defaults to current PID)

@@ -57,7 +57,7 @@ int main()
   // Create a fifo to receive commands from
   fs::path path_fifo_in = Pop(ns_portal::ns_fifo::create(args_cfg.get_path_fifo_listen()));
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
-  ereturn_if(fd_fifo < 0, strerror(errno), EXIT_FAILURE);
+  return_if(fd_fifo < 0, EXIT_FAILURE, "E::{strerror(errno)}");
 
   // Create dummy writter to keep fifo open
   [[maybe_unused]] int fd_dummy = ::open(path_fifo_in.c_str(), O_WRONLY);
@@ -92,7 +92,7 @@ int main()
     logger("I::Recovered message: {}", msg);
     // Validate and deserialize message
     auto message = ns_message::deserialize(msg);
-    econtinue_if(not message, std::format("Could not parse message: {}", message.error()));
+    continue_if(not message, "E::Could not parse message: {}", message.error());
     // Spawn child
     if(pid_t pid = fork(); pid < 0)
     {

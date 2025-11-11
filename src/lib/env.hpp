@@ -61,7 +61,7 @@ inline Value<T> get_expected(std::string_view name)
   const char * var = std::getenv(name.data());
   return (var != nullptr)?
       Value<T>(std::string{var})
-    : std::unexpected(std::format("Could not read variable '{}'", name));
+    : Error("E::Could not read variable '{}'", name);
 }
 
 /**
@@ -74,7 +74,7 @@ inline Value<T> get_expected(std::string_view name)
 inline bool exists(std::string_view name, std::string_view value)
 {
   const char* value_real = getenv(name.data());
-  qreturn_if(not value_real, false);
+  return_if(not value_real, false);
   return std::string_view{value_real} == value;
 }
 
@@ -127,9 +127,9 @@ template<typename T = std::string>
 inline Value<T> xdg_data_home() noexcept
 {
   const char* var = std::getenv("XDG_DATA_HOME");
-  qreturn_if(var, var);
+  return_if(var, var);
   const char* home = std::getenv("HOME");
-  qreturn_if(not home, Error("E::HOME is undefined"));
+  return_if(not home, Error("E::HOME is undefined"));
   return std::string{home} + "/.local/share";
 }
 
@@ -155,10 +155,10 @@ inline Value<T> xdg_data_home() noexcept
     | std::views::split(':')
     | std::ranges::to<std::vector<std::string>>())
   {
-    qcontinue_if(env_dir_global_bin && directory == env_dir_global_bin.value());
-    qcontinue_if(env_dir_static && directory == env_dir_static.value());
+    continue_if(env_dir_global_bin && directory == env_dir_global_bin.value());
+    continue_if(env_dir_static && directory == env_dir_static.value());
     fs::path path_full = directory / query;
-    qreturn_if(fs::exists(path_full), path_full);
+    return_if(fs::exists(path_full), path_full);
   }
   return Error("E::File not found in PATH");
 }

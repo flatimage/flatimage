@@ -39,7 +39,9 @@ inline Value<void> resize_impl(fs::path const& path_file_src
 
   // Create icon directory and set file name
   logger("I::Reading image {}", path_file_src);
-  qreturn_if(not fs::is_regular_file(path_file_src), std::unexpected(std::format("File '{}' does not exist or is not a regular file", path_file_src.string())));
+  return_if(not fs::is_regular_file(path_file_src)
+    , Error("E::File '{}' does not exist or is not a regular file", path_file_src)
+  );
 
   // Determine image format
   std::string ext = path_file_src.extension().string();
@@ -48,7 +50,7 @@ inline Value<void> resize_impl(fs::path const& path_file_src
   ImageFormat format = Pop(
     (ext == ".jpg" || ext == ".jpeg") ? Value<ImageFormat>(ImageFormat::JPG) :
     (ext == ".png") ? Value<ImageFormat>(ImageFormat::PNG) :
-    std::unexpected(std::format("Input image of invalid format: '{}'", ext))
+    Error("E::Input image of invalid format: '{}'", ext)
   );
 
   // Read image into memory

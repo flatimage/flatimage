@@ -64,7 +64,7 @@ inline std::map<Permission,Bits> const permission_mask =
 [[nodiscard]] inline Value<void> bit_set(Bits& bits, Permission const& permission, bool value) noexcept
 {
   auto it = permission_mask.find(permission);
-  qreturn_if(it == permission_mask.end(), Error("E::Permission '{}' not found", permission));
+  return_if(it == permission_mask.end(), Error("E::Permission '{}' not found", permission));
   Bits mask = it->second;
   if (value) { bits |= mask;  }
   else       { bits &= ~mask; }
@@ -119,7 +119,7 @@ inline Value<Bits> read(fs::path const& path_file_binary) noexcept
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_BEGIN;
   uint64_t size = ns_reserved::FIM_RESERVED_OFFSET_PERMISSIONS_END - offset_begin;
   constexpr size_t const size_bits = sizeof(Bits);
-  qreturn_if(size_bits != size, Error("E::Trying to read an exceeding number of bytes: {} vs {}", size_bits, size));
+  return_if(size_bits != size, Error("E::Trying to read an exceeding number of bytes: {} vs {}", size_bits, size));
   Bits bits;
   Pop(ns_reserved::read(path_file_binary, offset_begin, reinterpret_cast<char*>(&bits), size_bits));
   return bits;
@@ -138,7 +138,7 @@ class Permissions
       }
       if(permissions.contains(Permission::ALL))
       {
-        qreturn_if(permissions.size() > 1, Error("E::Permission 'all' should not be used with others"));
+        return_if(permissions.size() > 1, Error("E::Permission 'all' should not be used with others"));
         return this->set_all(true);
       }
       for(Permission const& permission : permissions)
@@ -179,10 +179,10 @@ class Permissions
 
     [[nodiscard]] inline bool contains(Permission const& permission) const noexcept
     {
-      qreturn_if(permission == Permission::NONE or permission == Permission::ALL, false);
+      return_if(permission == Permission::NONE or permission == Permission::ALL, false);
       Bits bits = read(m_path_file_binary).value_or(0);
       auto it = permission_mask.find(permission);
-      qreturn_if(it == permission_mask.end(), false);
+      return_if(it == permission_mask.end(), false);
       return (bits & it->second) != 0;
     }
 

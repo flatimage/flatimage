@@ -56,7 +56,7 @@ inline Filesystem::~Filesystem()
   // Un-mount the fuse file system
   ns_fuse::unmount(m_path_dir_mount).discard("E::Could not un-mount filesystem '{}'", m_path_dir_mount);
   // Check for subprocess
-  ereturn_if(not m_child, std::format("No fuse sub-process for '{}'", m_path_dir_mount.string()));
+  return_if(not m_child,,"E::No fuse sub-process for '{}'", m_path_dir_mount.string());
   // Tell process to exit with SIGTERM
   if (pid_t pid = m_child->get_pid().value_or(-1); pid > 0)
   {

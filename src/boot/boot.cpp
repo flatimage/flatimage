@@ -7,11 +7,9 @@
  */
 
 #include <elf.h>
-#include <cstdlib>
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <filesystem>
 
 #include "../std/expected.hpp"
 #include "../lib/linux.hpp"
@@ -35,7 +33,7 @@ extern char** environ;
 
 /**
  * @brief Boots the main flatimage program and the portal process
- * 
+ *
  * @param argc Argument count
  * @param argv Argument vector
  * @return The return code of the process or an internal flatimage error '125'
@@ -45,7 +43,7 @@ extern char** environ;
   using ns_db::ns_portal::ns_dispatcher::deserialize;
   // Create configuration object
   std::shared_ptr<ns_config::FlatimageConfig> config = Pop(ns_config::config());
-  qreturn_if(config == nullptr, Error("E::Failed to initialize configuration"));
+  return_if(config == nullptr, Error("E::Failed to initialize configuration"));
   // Set log file, permissive
   ns_log::set_sink_file(config->logs.path_file_boot);
   // Start host portal, permissive
@@ -58,7 +56,7 @@ extern char** environ;
 
 /**
  * @brief Set the logger level
- * 
+ *
  * @param argc Argument count
  * @param argv Argument vector
  */

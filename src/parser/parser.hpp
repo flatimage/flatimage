@@ -213,7 +213,7 @@ class VecArgs
         }
       }
       // Check for trailing arguments
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-perms: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-perms: {}", args.data()));
       return CmdType{cmd_perms};
     }
 
@@ -227,7 +227,7 @@ class VecArgs
       // Gather arguments with key/values if any
       auto f_process_variables = [&] -> Value<std::vector<std::string>>
       {
-        qreturn_if(args.empty(), Error("C::Missing arguments for '{}'", op));
+        return_if(args.empty(), Error("C::Missing arguments for '{}'", op));
         std::vector<std::string> out = args.data();
         args.clear();
         return out;
@@ -267,7 +267,7 @@ class VecArgs
         }
       }
       // Check for trailing arguments
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-env: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-env: {}", args.data()));
       // Check if is other command with valid args
       return CmdType{cmd_env};
     }
@@ -353,7 +353,7 @@ class VecArgs
         break;
         case CmdDesktopOp::NONE: return Error("C::Invalid desktop operation");
       }
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-desktop: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-desktop: {}", args.data()));
       return CmdType(cmd);
     }
 
@@ -376,7 +376,7 @@ class VecArgs
           {
             .path_file_src = (Pop(args.pop_front<error_msg>()))
           };
-          qreturn_if(not args.empty(), Error("C::{}", error_msg));
+          return_if(not args.empty(), Error("C::{}", error_msg));
         }
         break;
         case CmdLayerOp::CREATE:
@@ -387,7 +387,7 @@ class VecArgs
             .path_dir_src = Pop(args.pop_front<error_msg>()),
             .path_file_target = Pop(args.pop_front<error_msg>())
           };
-          qreturn_if(not args.empty(), Error("C::{}", error_msg));
+          return_if(not args.empty(), Error("C::{}", error_msg));
         }
         break;
         case CmdLayerOp::COMMIT:
@@ -421,26 +421,26 @@ class VecArgs
             .path_src = Pop(args.pop_front<msg>()),
             .path_dst = Pop(args.pop_front<msg>())
           };
-          qreturn_if(not args.empty(), Error("C::{}", msg));
+          return_if(not args.empty(), Error("C::{}", msg));
         }
         break;
         case CmdBindOp::DEL:
         {
           std::string str_index = Pop(args.pop_front<"C::Incorrect number of arguments for 'del' (<index>)">());
-          qreturn_if(not std::ranges::all_of(str_index, ::isdigit)
+          return_if(not std::ranges::all_of(str_index, ::isdigit)
             , Error("C::Index argument for 'del' is not a number")
           );
           cmd.sub_cmd = CmdBind::Del
           {
             .index = Try(std::stoull(str_index), "C::Invalid index")
           };
-          qreturn_if(not args.empty(), Error("C::Incorrect number of arguments for 'del' (<index>)"));
+          return_if(not args.empty(), Error("C::Incorrect number of arguments for 'del' (<index>)"));
         }
         break;
         case CmdBindOp::LIST:
         {
           cmd.sub_cmd = CmdBind::List{};
-          qreturn_if(not args.empty(), Error("C::'list' command takes no arguments"));
+          return_if(not args.empty(), Error("C::'list' command takes no arguments"));
         }
         break;
         case CmdBindOp::NONE: return Error("C::Invalid operation for bind");
@@ -455,7 +455,7 @@ class VecArgs
       auto cmd_notify = CmdType(CmdNotify{
         Pop(CmdNotifySwitch::from_string(Pop(args.pop_front<msg>())), "C::Invalid notify switch")
       });
-      qreturn_if(not args.empty(), Error("C::{}", msg));
+      return_if(not args.empty(), Error("C::{}", msg));
       return cmd_notify;
     }
 
@@ -463,11 +463,11 @@ class VecArgs
     case FimCommand::CASEFOLD:
     {
       constexpr ns_string::static_string msg = "C::Incorrect number of arguments for 'fim-casefold' (<on|off>)";
-      qreturn_if(args.empty(), Error("C::{}", msg));
+      return_if(args.empty(), Error("C::{}", msg));
       auto cmd_casefold = CmdType(CmdCaseFold{
         Pop(CmdCaseFoldSwitch::from_string(Pop(args.pop_front<msg>())), "C::Invalid casefold switch")
       });
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-casefold: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-casefold: {}", args.data()));
       return cmd_casefold;
     }
 
@@ -504,7 +504,7 @@ class VecArgs
         case CmdBootOp::NONE: return Error("C::Invalid boot operation");
       }
       // Check for trailing arguments
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-boot: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-boot: {}", args.data()));
       return cmd_boot;
     }
 
@@ -539,7 +539,7 @@ class VecArgs
         case CmdRemoteOp::NONE: return Error("C::Invalid remote operation");
       }
       // Check for trailing arguments
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-remote: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-remote: {}", args.data()));
       return cmd_remote;
     }
 
@@ -557,7 +557,7 @@ class VecArgs
           std::vector<std::string> recipes = Pop(args.template pop_front<"C::Missing recipe for operation">())
             | std::views::split(',')
             | std::ranges::to<std::vector<std::string>>();
-          qreturn_if(recipes.empty(), Error("C::Recipe argument is empty"));
+          return_if(recipes.empty(), Error("C::Recipe argument is empty"));
           return recipes;
       };
       switch(op)
@@ -580,7 +580,7 @@ class VecArgs
         case CmdRecipeOp::NONE: return Error("C::Invalid recipe operation");
       }
       // Check for trailing arguments
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-recipe: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-recipe: {}", args.data()));
       return cmd_recipe;
     }
 
@@ -595,8 +595,8 @@ class VecArgs
         case CmdInstanceOp::EXEC:
         {
           std::string str_id = Pop(args.pop_front<"C::Missing 'id' argument for 'fim-instance'">());
-          qreturn_if(not std::ranges::all_of(str_id, ::isdigit), Error("C::Id argument must be a digit"));
-          qreturn_if(args.empty(), Error("C::Missing 'cmd' argument for 'fim-instance'"));
+          return_if(not std::ranges::all_of(str_id, ::isdigit), Error("C::Id argument must be a digit"));
+          return_if(args.empty(), Error("C::Missing 'cmd' argument for 'fim-instance'"));
           cmd.sub_cmd = CmdInstance::Exec
           {
             .id = Try(std::stoi(str_id), "C::Invalid instance ID"),
@@ -612,7 +612,7 @@ class VecArgs
         break;
         case CmdInstanceOp::NONE: return Error("C::Invalid instance operation");
       }
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-instance: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-instance: {}", args.data()));
       return CmdType(cmd);
     }
 
@@ -646,7 +646,7 @@ class VecArgs
           return Error("C::Invalid operation for fim-overlay");
         }
       }
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-overlay: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-overlay: {}", args.data()));
       return CmdType(cmd);
     }
 
@@ -665,7 +665,7 @@ class VecArgs
         case CmdVersionOp::DEPS: cmd.sub_cmd = CmdVersion::Deps{}; break;
         case CmdVersionOp::NONE: return Error("C::Invalid operation for fim-version");
       }
-      qreturn_if(not args.empty(), Error("C::Trailing arguments for fim-version: {}", args.data()));
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-version: {}", args.data()));
       return CmdType(cmd);
     }
 

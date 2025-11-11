@@ -28,7 +28,7 @@ int main(int argc, char const* argv[])
 {
   auto __expected_fn = [](auto&&){ return EXIT_FAILURE; };
   // Check arguments
-  ereturn_if(argc != 3, "Incorrect # of arguments for bwrap-apparmor", EXIT_FAILURE);
+  return_if(argc != 3, EXIT_FAILURE, "E::Incorrect # of arguments for bwrap-apparmor");
   // Set log file location
   fs::path path_file_log = std::string{argv[1]};
   ns_log::set_sink_file(path_file_log);
@@ -50,7 +50,7 @@ int main(int argc, char const* argv[])
     .discard("C::Failed to set permissions to '{}'", path_file_bwrap_dst);
   // Try to create profile
   std::ofstream file_profile(path_file_profile);
-  ereturn_if(not file_profile.is_open(), "Could not open profile file", EXIT_FAILURE);
+  return_if(not file_profile.is_open(), EXIT_FAILURE, "E::Could not open profile file");
   file_profile << profile_bwrap;
   file_profile.close();
   // Reload profile

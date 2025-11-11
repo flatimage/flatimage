@@ -312,7 +312,7 @@ Subprocess& Subprocess::rm_var(K&& k)
   auto it = std::ranges::find_if(m_env, [&](std::string const& e)
   {
     auto vec = ns_vector::from_string(e, '=');
-    qreturn_if(vec.empty(), false);
+    return_if(vec.empty(), false);
     return vec.front() == k;
   });
 
@@ -420,7 +420,7 @@ Subprocess& Subprocess::with_env(Args&&... args)
     for (auto&& entry : entries)
     {
       auto parts = ns_vector::from_string(entry, '=');
-      econtinue_if(parts.size() < 2, std::format("Entry '{}' is not valid", entry));
+      continue_if(parts.size() < 2, "E::Entry '{}' is not valid", entry);
       std::string key = parts.front();
       std::ignore = this->rm_var(key);
     }
@@ -609,7 +609,7 @@ inline Subprocess& Subprocess::with_log_level(ns_log::Level const& level)
 inline void Subprocess::die_on_pid(pid_t pid)
 {
   // Set death signal when pid dies
-  ereturn_if(prctl(PR_SET_PDEATHSIG, SIGKILL) < 0, strerror(errno));
+  return_if(prctl(PR_SET_PDEATHSIG, SIGKILL) < 0,,"E::Failed to set PR_SET_PDEATHSIG: {}", strerror(errno));
   // Abort if pid is not running
   if (::kill(pid, 0) < 0)
   {
@@ -626,9 +626,9 @@ inline void Subprocess::die_on_pid(pid_t pid)
 inline void Subprocess::to_dev_null()
 {
   int fd = open("/dev/null", O_WRONLY);
-  ereturn_if(fd < 0, std::format("Failed to open /dev/null: {}", strerror(errno)));
-  ereturn_if(dup2(fd, STDOUT_FILENO) < 0, std::format("Failed to redirect stdout: {}", strerror(errno)));
-  ereturn_if(dup2(fd, STDERR_FILENO) < 0, std::format("Failed to redirect stderr: {}", strerror(errno)));
+  return_if(fd < 0,,"E::Failed to open /dev/null: {}", strerror(errno));
+  return_if(dup2(fd, STDOUT_FILENO) < 0,,"E::Failed to redirect stdout: {}", strerror(errno));
+  return_if(dup2(fd, STDERR_FILENO) < 0,,"E::Failed to redirect stderr: {}", strerror(errno));
   close(fd);
 }
 
@@ -880,7 +880,7 @@ Subprocess& Subprocess::with_callback_parent(F&& f)
 inline std::unique_ptr<Child> Subprocess::spawn()
 {
   // Ignore on empty vec_argv
-  ereturn_if(m_args.empty(), "No arguments to spawn subprocess", Child::create(-1, m_program));
+  return_if(m_args.empty(), Child::create(-1, m_program), "E::No arguments to spawn subprocess");
   logger("D::Spawn command: {}", m_args);
 
   // Create pipes BEFORE fork (if needed for Stream::Pipe)
@@ -890,16 +890,16 @@ inline std::unique_ptr<Child> Subprocess::spawn()
 
   if ( m_stream_mode == Stream::Pipe )
   {
-    ereturn_if(pipe(pipestdin), strerror(errno), Child::create(-1, m_program));
-    ereturn_if(pipe(pipestdout), strerror(errno), Child::create(-1, m_program));
-    ereturn_if(pipe(pipestderr), strerror(errno), Child::create(-1, m_program));
+    return_if(pipe(pipestdin), Child::create(-1, m_program), "E::{}", strerror(errno));
+    return_if(pipe(pipestdout), Child::create(-1, m_program), "E::{}", strerror(errno));
+    return_if(pipe(pipestderr), Child::create(-1, m_program), "E::{}", strerror(errno));
   }
 
   // Create child
   pid_t pid = fork();
 
   // Failed to fork
-  ereturn_if(pid < 0, "Failed to fork", Child::create(-1, m_program));
+  return_if(pid < 0, Child::create(-1, m_program), "E::Failed to fork");
 
   // Setup pipes for parent or child (only if Stream::Pipe)
   if ( m_stream_mode == Stream::Pipe )

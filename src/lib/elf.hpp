@@ -47,9 +47,9 @@ namespace fs = std::filesystem;
 {
   // Open source and output files
   std::ifstream f_in{path_file_input, std::ios::binary};
-  qreturn_if(not f_in.is_open() , Error("E::Failed to open in file {}", path_file_input));
+  return_if(not f_in.is_open(), Error("E::Failed to open in file {}", path_file_input));
   std::ofstream f_out{path_file_output, std::ios::binary};
-  qreturn_if(not f_out.is_open(), Error("E::Failed to open out file {}", path_file_output));
+  return_if(not f_out.is_open(), Error("E::Failed to open out file {}", path_file_output));
   // Calculate the size of the data to read
   uint64_t size = section.second - section.first;
   // Seek to the start offset in the input file
@@ -87,19 +87,17 @@ namespace fs = std::filesystem;
   ElfW(Ehdr) header;
   // Try to open header file
   File file(fopen(path_file_elf.c_str(), "rb"));
-  qreturn_if(file.ptr == nullptr, Error("E::Could not open file '{}': {}", path_file_elf, strerror(errno)));
+  return_if(file.ptr == nullptr, Error("E::Could not open file '{}': {}", path_file_elf, strerror(errno)));
   // Seek the position to read the header
-  qreturn_if(fseek(file.ptr, offset, SEEK_SET) < 0
+  return_if(fseek(file.ptr, offset, SEEK_SET) < 0
     , Error("E::Could not seek in file '{}': {}", path_file_elf, strerror(errno))
   )
   // read the header
-  qreturn_if(fread(&header, sizeof(header), 1, file.ptr) != 1
+  return_if(fread(&header, sizeof(header), 1, file.ptr) != 1
     , Error("E::Could not read elf header")
   );
   // check so its really an elf file
-  qreturn_if (std::memcmp(header.e_ident, ELFMAG, SELFMAG) != 0
-    , Error("E::'{}' not an elf file", path_file_elf);
-  );
+  return_if(std::memcmp(header.e_ident, ELFMAG, SELFMAG) != 0, Error("E::'{}' not an elf file", path_file_elf));
   offset = header.e_shoff + (header.e_ehsize * header.e_shnum);
   return offset;
 }

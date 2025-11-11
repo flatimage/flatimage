@@ -159,7 +159,7 @@ namespace fs = std::filesystem;
   logger("I::Integrating desktop entry...");
   // Open desktop file
   std::ofstream file_desktop(path_file_desktop, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_desktop.is_open() , Error("E::Could not open desktop file {}", path_file_desktop));
+  return_if(not file_desktop.is_open() , Error("E::Could not open desktop file {}", path_file_desktop));
   // Generate entry
   Pop(generate_desktop_entry(desktop, path_file_binary, file_desktop));
   return {};
@@ -174,15 +174,15 @@ namespace fs = std::filesystem;
 [[nodiscard]] inline bool is_update_mime_database(fs::path const& path_file_binary, fs::path const& path_entry_mimetype)
 {
   // Update if file does not exist
-  dreturn_if(not fs::exists(path_entry_mimetype), "Update mime due to missing source file", true);
+  return_if(not fs::exists(path_entry_mimetype), true, "E::Update mime due to missing source file");
   // Update if can not open file
   std::ifstream file_mimetype(path_entry_mimetype);
-  dreturn_if(not file_mimetype.is_open(), "Update mime due to unaccessible source file for read", true);
+  return_if(not file_mimetype.is_open(), true, "E::Update mime due to unaccessible source file for read");
   // Update if file name has changed
   std::string pattern = std::format(R"(pattern="{}")", path_file_binary.filename().string());
   for (std::string line; std::getline(file_mimetype, line);)
   {
-    dreturn_if(line.contains(pattern), "Mime pattern file name checks...", false);
+    return_if(line.contains(pattern), false, "E::Mime pattern file name checks...");
   } // for
   return true;
 }
@@ -211,7 +211,7 @@ namespace fs = std::filesystem;
   std::error_code ec;
   fs::path path_file_xml_generic = Pop(get_path_file_mimetype_generic());
   std::ofstream file_xml_generic(path_file_xml_generic, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_xml_generic.is_open(), Error("E::Could not open '{}'", path_file_xml_generic));
+  return_if(not file_xml_generic.is_open(), Error("E::Could not open '{}'", path_file_xml_generic));
   file_xml_generic << R"(<?xml version="1.0" encoding="UTF-8"?>)" << '\n';
   file_xml_generic << R"(<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">)" << '\n';
   file_xml_generic << R"(  <mime-type type="application/flatimage">)" << '\n';
@@ -287,7 +287,7 @@ namespace fs = std::filesystem;
   }
   // Create application mimetype file
   std::ofstream file_xml(path_file_xml, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_xml.is_open(), Error("E::Could not open '{}'", path_file_xml));
+  return_if(not file_xml.is_open(), Error("E::Could not open '{}'", path_file_xml));
   Pop(generate_mime_database(desktop,  path_file_binary, file_xml));
   Pop(integrate_mime_database_generic());
   Pop(update_mime_database());
@@ -347,7 +347,7 @@ namespace fs = std::filesystem;
     Pop(f_create_parent(path_icon_mimetype));
     Pop(f_create_parent(path_icon_app));
     // Avoid overwrite
-    qcontinue_if (fs::exists(path_icon_mimetype, ec));
+    continue_if(fs::exists(path_icon_mimetype, ec));
     // Copy icon with target widthXheight
     Pop(ns_image::resize(path_file_icon, path_icon_mimetype, size, size));
     // Duplicate icon to app directory
@@ -370,7 +370,7 @@ namespace fs = std::filesystem;
   {
     Pop(ns_fs::create_directories(path_src.parent_path()));
     std::ofstream file_src(path_src, std::ios::out | std::ios::trunc);
-    qreturn_if(not file_src.is_open(), Error("E::Failed to open file '{}'", path_src));
+    return_if(not file_src.is_open(), Error("E::Failed to open file '{}'", path_src));
     file_src << ns_icon::FLATIMAGE;
     file_src.close();
     return {};
@@ -407,14 +407,14 @@ namespace fs = std::filesystem;
     logger("D::Icons are integrated, found {}", path_file_icon.string());
     return {};
   }
-  qreturn_if(ec, Error("E::Could not check if icon exists: {}", ec.message()));
+  return_if(ec, Error("E::Could not check if icon exists: {}", ec.message()));
   // Read picture from flatimage binary
   ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(config.path_file_binary));
   // Create temporary file to write icon to
   auto path_file_tmp_icon = config.path_dir_app / std::format("icon.{}", icon.m_ext);
   // Write icon to temporary file
   std::ofstream file_icon(path_file_tmp_icon, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_icon.is_open(), Error("E::Could not open temporary icon file for desktop integration"));
+  return_if(not file_icon.is_open(), Error("E::Could not open temporary icon file for desktop integration"));
   file_icon.write(icon.m_data, icon.m_size);
   file_icon.close();
   // Create icons
@@ -429,7 +429,7 @@ namespace fs = std::filesystem;
   Pop(integrate_icon_flatimage());
   // Remove temporary file
   fs::remove(path_file_tmp_icon, ec);
-  qreturn_if(ec, Error("E::Could not remove temporary icon file: {}", ec.message()));
+  return_if(ec, Error("E::Could not remove temporary icon file: {}", ec.message()));
   return {};
 }
 
@@ -511,28 +511,28 @@ namespace fs = std::filesystem;
   std::error_code ec;
   // Create desktop struct with input json
   std::ifstream file_json_src{path_file_json_src};
-  qreturn_if(not file_json_src.is_open()
+  return_if(not file_json_src.is_open()
       , Error("E::Failed to open file '{}' for desktop integration", path_file_json_src)
   );
   auto desktop = Pop(ns_db::ns_desktop::deserialize(file_json_src), "E::Failed to deserialize json");
-  qreturn_if(desktop.get_name().contains('/'), Error("E::Application name cannot contain the '/' character"));
+  return_if(desktop.get_name().contains('/'), Error("E::Application name cannot contain the '/' character"));
   // Validate icon
   fs::path path_file_icon = Pop(desktop.get_path_file_icon(), "E::Could not retrieve icon path field from json");
   std::string str_ext = (path_file_icon.extension() == ".svg")? "svg"
     : (path_file_icon.extension() == ".png")? "png"
     : (path_file_icon.extension() == ".jpg" or path_file_icon.extension() == ".jpeg")? "jpg"
     : "";
-  qreturn_if(str_ext.empty(), Error("E::Icon extension '{}' is not supported", path_file_icon.extension()));
+  return_if(str_ext.empty(), Error("E::Icon extension '{}' is not supported", path_file_icon.extension()));
   // Read icon into memory
   auto image_data = ({
     std::streamsize size_file_icon = fs::file_size(path_file_icon, ec);
-    qreturn_if(ec, Error("E::Could not get size of file '{}': {}", path_file_icon, ec.message()));
-    qreturn_if(static_cast<uint64_t>(size_file_icon) >= ns_reserved::FIM_RESERVED_OFFSET_ICON_END - ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN
+    return_if(ec, Error("E::Could not get size of file '{}': {}", path_file_icon, ec.message()));
+    return_if(static_cast<uint64_t>(size_file_icon) >= ns_reserved::FIM_RESERVED_OFFSET_ICON_END - ns_reserved::FIM_RESERVED_OFFSET_ICON_BEGIN
       , Error("E::File is too large, '{}' bytes", size_file_icon)
     );
     std::unique_ptr<char[]> ptr_data = std::make_unique<char[]>(size_file_icon);
     std::streamsize bytes = Pop(ns_reserved::read(path_file_icon, 0, ptr_data.get(), size_file_icon));
-    qreturn_if(bytes != size_file_icon
+    return_if(bytes != size_file_icon
       , Error("E::Icon read bytes '{}' do not match target size of '{}'", bytes, size_file_icon)
     );
     std::make_pair(std::move(ptr_data), bytes);
@@ -548,7 +548,7 @@ namespace fs = std::filesystem;
   // Write json to flatimage binary, excluding the input icon path
   auto str_raw_json = Pop(ns_db::ns_desktop::serialize(desktop), "E::Failed to serialize desktop integration" );
   auto db = Pop(ns_db::from_string(str_raw_json), "E::Could not parse serialized json source");
-  qreturn_if(not db.erase("icon"), Error("E::Could not erase icon field"));
+  return_if(not db.erase("icon"), Error("E::Could not erase icon field"));
   Pop(ns_reserved::ns_desktop::write(config.path_file_binary, Pop(db.dump())));
   // Print written json
   std::println("{}", Pop(db.dump()));
@@ -655,13 +655,13 @@ namespace fs = std::filesystem;
   // Read icon data
   ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(config.path_file_binary));
   // Make sure it has valid data
-  qreturn_if(std::all_of(icon.m_data, icon.m_data+sizeof(icon.m_data), [](char c){ return c == 0; })
+  return_if(std::all_of(icon.m_data, icon.m_data+sizeof(icon.m_data), [](char c){ return c == 0; })
     , Error("E::Empty icon data");
   );
   // Get extension
   std::string_view ext = icon.m_ext;
   // Check if extension is valid
-  qreturn_if(ext != "png" and ext != "svg", Error("E::Invalid file extension saved in desktop configuration"));
+  return_if(ext != "png" and ext != "svg", Error("E::Invalid file extension saved in desktop configuration"));
   // Append extension to output destination file
   if(not path_file_dst.extension().string().ends_with(ext))
   {
@@ -669,11 +669,11 @@ namespace fs = std::filesystem;
   }
   // Open output file
   std::fstream file_dst(path_file_dst, std::ios::out | std::ios::trunc);
-  qreturn_if(not file_dst.is_open(), Error("E::Could not open output file '{}'", path_file_dst));
+  return_if(not file_dst.is_open(), Error("E::Could not open output file '{}'", path_file_dst));
   // Write data to output file
   file_dst.write(icon.m_data, icon.m_size);
   // Check bytes written
-  qreturn_if(not file_dst
+  return_if(not file_dst
     , Error("E::Could not write all '{}' bytes to output file", icon.m_size)
   );
   return {};

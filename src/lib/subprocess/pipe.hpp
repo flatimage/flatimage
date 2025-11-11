@@ -51,7 +51,7 @@ inline void write_pipe(pid_t child_pid, int pipe_fd, std::istream& stream)
       line += "\n";
       ssize_t written = ::write(pipe_fd, line.c_str(), line.length());
       logger("D::STDIN::{}", line);
-      ebreak_if(written < 0, std::format("E::Failed to write to child stdin: {}", strerror(errno)));
+      break_if(written < 0, "E::Failed to write to child stdin: {}", strerror(errno));
     }
     else if (stream.eof())
     {
@@ -88,7 +88,7 @@ inline void read_pipe(int pipe_fd, std::ostream& stream, std::filesystem::path c
   while ((count = ::read(pipe_fd, buffer, sizeof(buffer))) != 0)
   {
     // Failed to read
-    ebreak_if(count == -1, std::format("broke parent read loop: {}", strerror(errno)));
+    break_if(count == -1, "E::broke parent read loop: {}", strerror(errno));
     // Split on both newlines and carriage returns, filter empty/whitespace-only lines
     std::string chunk(buffer, count);
     // Replace all \r with \n to handle Windows-style line endings and progress updates
@@ -144,7 +144,7 @@ void pipes_child(bool is_istream, int pipe[2], Stream& stream, int fileno)
   int idx_parent = is_istream ? 1 : 0;
 
   // Close the parent's end
-  ereturn_if(close(pipe[idx_parent]) == -1, std::format("pipe[{}]: {}", idx_parent, strerror(errno)));
+  return_if(close(pipe[idx_parent]) == -1,, "E::pipe[{}]: {}}", idx_parent, strerror(errno));
 
   // If using standard stream, don't redirect (allow terminal access)
   if (is_standard_stream(stream))
@@ -154,8 +154,8 @@ void pipes_child(bool is_istream, int pipe[2], Stream& stream, int fileno)
   }
 
   // Redirect to the specified file descriptor
-  ereturn_if(dup2(pipe[idx_child], fileno) == -1, std::format("dup2(pipe[{}], {}): {}", idx_child, fileno, strerror(errno)));
-  ereturn_if(close(pipe[idx_child]) == -1, std::format("pipe[{}]: {}", idx_child, strerror(errno)));
+  return_if(dup2(pipe[idx_child], fileno) == -1,, "E::dup2(pipe[{}], {}): {}", idx_child, fileno, strerror(errno));
+  return_if(close(pipe[idx_child]) == -1,, "E::pipe[{}]: {}", idx_child, strerror(errno));
 }
 
 /**
@@ -182,7 +182,7 @@ void pipes_parent(
   int idx_child  = is_istream ? 0 : 1;
 
   // Close the child's end
-  ereturn_if(close(pipe[idx_child]) == -1, std::format("pipe[{}]: {}", idx_child, strerror(errno)));
+  return_if(close(pipe[idx_child]) == -1,,"E::pipe[{}]: {}", idx_child, strerror(errno));
 
   // If using standard stream, close parent end and return (no thread needed)
   if (is_standard_stream(stream))

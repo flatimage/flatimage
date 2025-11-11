@@ -42,7 +42,7 @@ namespace fs = std::filesystem;
   std::error_code ec;
   fs::path path_dir_parent = path_file_fifo.parent_path();
   // Create parent directory(ies)
-  qreturn_if(not fs::exists(path_dir_parent, ec) and not fs::create_directories(path_dir_parent, ec)
+  return_if(not fs::exists(path_dir_parent, ec) and not fs::create_directories(path_dir_parent, ec)
     , Error("E::Failed to create upper directories '{}' for fifo '{}'", path_dir_parent.string(), path_file_fifo.string())
   );
   // Replace old fifo if exists
@@ -51,7 +51,7 @@ namespace fs = std::filesystem;
     fs::remove(path_file_fifo, ec);
   }
   // Create fifo
-  qreturn_if(mkfifo(path_file_fifo.c_str(), 0666) < 0
+  return_if(mkfifo(path_file_fifo.c_str(), 0666) < 0
     , Error("E::Failed to create fifo '{}' with error '{}'", path_file_fifo.string(), strerror(errno))
   );
   return path_file_fifo;
@@ -88,7 +88,7 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
       }
       return true;
     }
-    dlog_if(::write(fd_dst, buf, n) < 0, std::format("Could not write to file descriptor '{}' with error '{}'", fd_dst, strerror(errno)));
+    log_if(::write(fd_dst, buf, n) < 0, "D::Could not write to file descriptor '{}' with error '{}'", fd_dst, strerror(errno));
     return true;
   };
   // Try to read from the src fifo with 50ms delays
@@ -112,7 +112,7 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
 {
   // Fork
   pid_t pid = fork();
-  ereturn_if(pid < 0, std::format("Could not fork '{}'", strerror(errno)), -1);
+  return_if(pid < 0, -1, "E::Could not fork '{}'", strerror(errno));
   // Parent ends here
   if( pid > 0 ) { return pid; }
   // Try to open fifo within a timeout
@@ -120,7 +120,10 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , O_RDONLY
   );
-  e_exitif(fd_src == -1, std::format("Failed to open fifo '{}' with error '{}'", path_file_fifo.string(), strerror(errno)), 1);
+  if (fd_src == -1) {
+    logger("E::Failed to open fifo '{}' with error '{}'", path_file_fifo.string(), strerror(errno));
+    _exit(1);
+  }
   // Redirect fifo to stdout
   redirect_fd_to_fd(ppid, fd_src, fd_dst);
   // Close fifo
@@ -142,7 +145,7 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
 {
   // Fork
   pid_t pid = fork();
-  ereturn_if(pid < 0, std::format("Could not fork '{}'", strerror(errno)), -1);
+  return_if(pid < 0, -1, "E::Could not fork '{}'", strerror(errno));
   // Parent ends here
   if( pid > 0 ) { return pid; }
   // Try to open fifo within a timeout
@@ -150,7 +153,10 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
     , std::chrono::seconds(SECONDS_TIMEOUT)
     , O_WRONLY
   );
-  e_exitif(fd_dst == -1, std::format("Failed to open fifo '{}' with error '{}'", path_file_fifo.string(), strerror(errno)), 1);
+  if (fd_dst == -1) {
+    logger("E::Failed to open fifo '{}' with error '{}'", path_file_fifo.string(), strerror(errno));
+    _exit(1);
+  }
   // Redirect fifo to stdout
   redirect_fd_to_fd(ppid, fd_src, fd_dst);
   // Close fifo
