@@ -364,9 +364,6 @@ struct FlatimageConfig
   Try(fs::create_directories(path_dir_upper_overlayfs));
   Try(fs::create_directories(path_dir_work_overlayfs));
 
-  // Bwrap
-  ns_env::set("BWRAP_LOG", path_dir_mount.string() + ".bwrap.log", ns_env::Replace::Y);
-
   // Environment
   std::string env_path = path_dir_app_bin.string() + ":" + ns_env::get_expected("PATH").value_or("");
   env_path += ":/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin";
