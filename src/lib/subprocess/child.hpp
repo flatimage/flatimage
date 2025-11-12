@@ -143,19 +143,19 @@ class Child
     [[nodiscard]] Value<int> wait()
     {
       // Check if pid is valid
-      return_if(m_pid <= 0, Error("E::Invalid pid to wait for"));
+      return_if(m_pid <= 0, Error("E::Invalid pid to wait for in {}", m_description));
 
       // Wait for current process
       int status;
       pid_t result = waitpid(m_pid, &status, 0);
-      return_if(result < 0, Error("E::waitpid failed: {}", strerror(errno)));
+      return_if(result < 0, Error("E::waitpid failed on {}: {}", m_description, strerror(errno)));
 
       // Mark pid as invalid to prevent double-wait
       m_pid = -1;
 
       return (WIFEXITED(status))?
           Value<int>(WEXITSTATUS(status))
-        : Error("E::The process exited abnormally");
+        : Error("E::The process {} exited abnormally", m_description);
     }
 
     /**
