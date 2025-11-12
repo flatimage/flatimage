@@ -238,7 +238,7 @@ inline void Logger::set_sink_file(fs::path const& path_file_sink)
   // File to save logs into
   if ( const char* var = std::getenv("FIM_DEBUG"); var && std::string_view{var} == "1" )
   {
-    std::println("I::Logger file: {}", path_file_sink.string());
+    std::println("D::Logger file: {}", path_file_sink.string());
   }
   // File output stream
   m_sink = std::ofstream(path_file_sink, std::ios::out | std::ios::trunc);
