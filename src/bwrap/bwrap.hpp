@@ -260,12 +260,14 @@ inline Value<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src
   using enum ns_subprocess::Stream;
   auto ret = ns_subprocess::Subprocess(path_file_bwrap_src)
     .with_args("--bind", "/", "/", "bash", "-c", "echo")
+    .with_stdio(Pipe)
     .spawn()->wait();
   return_if(ret and *ret == 0, path_file_bwrap_src);
   // Try to use bwrap installed by flatimage
   fs::path path_file_bwrap_opt = "/opt/flatimage/bwrap";
   ret = ns_subprocess::Subprocess(path_file_bwrap_opt)
     .with_args("--bind", "/", "/", "bash", "-c", "echo")
+    .with_stdio(Pipe)
     .spawn()->wait();
   return_if(ret and *ret == 0, path_file_bwrap_opt);
   // Error might be EACCES, try to integrate with apparmor
