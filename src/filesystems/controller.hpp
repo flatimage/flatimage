@@ -162,17 +162,14 @@ inline Controller::Controller(Logs const& logs, Config const& config)
 inline Controller::~Controller()
 {
   // Check if janitor is running
-  return_if(not m_child_janitor,,"D::Janitor is not running");
+  return_if(not m_child_janitor,,"E::Janitor is not running");
   // Get janitor pid
   pid_t pid = m_child_janitor->get_pid().value_or(0);
-  return_if(pid <= 0,,"D::Failed to get janitor PID");
+  return_if(pid <= 0,,"E::Failed to get janitor PID");
   // Stop janitor loop
   kill(pid, SIGTERM);
   // Wait for janitor to finish execution
-  int status;
-  waitpid(pid, &status, 0);
-  return_if(not WIFEXITED(status),,"D::Janitor exited abnormally");
-  logger("D::Janitor exited with code '{}'", WEXITSTATUS(status));
+  m_child_janitor->wait().discard("E::Janitor exited abnormally");
 }
 
 /**
