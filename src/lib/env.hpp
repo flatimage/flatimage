@@ -142,9 +142,6 @@ inline Value<T> xdg_data_home() noexcept
 [[nodiscard]] inline Value<fs::path> search_path(std::string const& query)
 {
   std::string env_path = Pop(ns_env::get_expected("PATH"));
-  // Avoid searching in these directories in they exist in PATH
-  Value<fs::path> env_dir_global_bin = ns_env::get_expected("FIM_DIR_GLOBAL_BIN");
-  Value<fs::path> env_dir_static = ns_env::get_expected("FIM_DIR_STATIC");
   // Query should be a file name
   if ( fs::path{query}.is_absolute() )
   {
@@ -155,8 +152,6 @@ inline Value<T> xdg_data_home() noexcept
     | std::views::split(':')
     | std::ranges::to<std::vector<std::string>>())
   {
-    continue_if(env_dir_global_bin && directory == env_dir_global_bin.value());
-    continue_if(env_dir_static && directory == env_dir_static.value());
     fs::path path_full = directory / query;
     return_if(fs::exists(path_full), path_full);
   }
