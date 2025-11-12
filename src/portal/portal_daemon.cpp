@@ -29,15 +29,27 @@
 #include "child.hpp"
 #include "fifo.hpp"
 
-namespace fs = std::filesystem;
-namespace ns_message = ns_db::ns_portal::ns_message;
-
 extern char** environ;
 
+namespace fs = std::filesystem;
+namespace ns_message = ns_db::ns_portal::ns_message;
 namespace ns_daemon = ns_db::ns_portal::ns_daemon;
+
+// https://stackoverflow.com/questions/24931456/how-does-sig-atomic-t-actually-work
+// https://en.cppreference.com/w/cpp/utility/program/sig_atomic_t.html
+// https://man7.org/linux/man-pages/man7/signal-safety.7.html
+// https://www.cs.wm.edu/~smherwig/courses/csci415-common/signals/sig_atomic/index.html
+volatile std::sig_atomic_t G_CONTINUE = 1;
+
+void cleanup(int)
+{
+  G_CONTINUE = 0;
+}
 
 int main()
 {
+  signal(SIGTERM, cleanup);
+
   auto __expected_fn = [](auto&& e){ logger("E::{}", e.error()); return EXIT_FAILURE; };
   // Notify
   logger("D::Started host daemon");
@@ -64,7 +76,7 @@ int main()
 
   // Recover messages
   pid_t pid_reference = args_cfg.get_pid_reference();
-  for(char buffer[16384]; kill(pid_reference, 0) == 0;)
+  for(char buffer[16384]; kill(pid_reference, 0) == 0 and G_CONTINUE;)
   {
     ssize_t bytes_read = ::read(fd_fifo, &buffer, SIZE_BUFFER_READ);
     // Check if the read was success full, should try again, or stop
