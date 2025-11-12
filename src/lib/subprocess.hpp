@@ -110,6 +110,7 @@ class Subprocess
     ns_log::Level m_log_level;
     std::optional<std::function<void(ArgsCallbackChild)>> m_callback_child;
     std::optional<std::function<void(ArgsCallbackParent)>> m_callback_parent;
+    bool m_daemon_mode;
 
     void die_on_pid(pid_t pid);
     void to_dev_null();
@@ -162,6 +163,8 @@ class Subprocess
     template<typename F>
     [[maybe_unused]] [[nodiscard]] Subprocess& with_callback_parent(F&& f);
 
+    [[maybe_unused]] [[nodiscard]] Subprocess& with_daemon();
+
     [[maybe_unused]] [[nodiscard]] std::unique_ptr<Child> spawn();
 };
 
@@ -201,6 +204,7 @@ Subprocess::Subprocess(T&& t)
   , m_log_level(ns_log::get_level())
   , m_callback_child(std::nullopt)
   , m_callback_parent(std::nullopt)
+  , m_daemon_mode(false)
 {
   // argv0 is program name
   m_args.push_back(m_program);
@@ -841,9 +845,39 @@ Subprocess& Subprocess::with_callback_child(F&& f)
  * @endcode
  */
 template<typename F>
-Subprocess& Subprocess::with_callback_parent(F&& f)
+inline Subprocess& Subprocess::with_callback_parent(F&& f)
 {
-  this->m_callback_parent = std::forward<F>(f);
+  m_callback_parent = std::forward<F>(f);
+  return *this;
+}
+
+/**
+ * @brief Enable daemon mode using double fork pattern
+ * 
+ * When enabled, the spawn() method will perform a double fork:
+ * 1. First fork creates intermediate child
+ * 2. Intermediate child forks to create grandchild (daemon)
+ * 3. Intermediate child exits immediately
+ * 4. Parent waits for intermediate child
+ * 5. Grandchild becomes orphaned, adopted by init
+ * 6. Grandchild calls setsid() to become session leader
+ * 7. Grandchild continues with execve
+ * 
+ * This detaches the process from the terminal and parent process.
+ * 
+ * @return Reference to this Subprocess for method chaining
+ * 
+ * @code
+ * Subprocess proc("/usr/bin/my-daemon");
+ * auto child = proc.with_args("--config", "/etc/config")
+ *                  .with_daemon()
+ *                  .spawn();
+ * // Process is now daemonized and detached
+ * @endcode
+ */
+inline Subprocess& Subprocess::with_daemon()
+{
+  m_daemon_mode = true;
   return *this;
 }
 
@@ -851,6 +885,9 @@ Subprocess& Subprocess::with_callback_parent(F&& f)
  * @brief Spawns (forks) the child process and begins execution
  *
  * Creates a child process via fork() and executes the configured program.
+ * When daemon mode is enabled via with_daemon(), performs a double fork pattern
+ * to fully detach the process from the terminal and parent.
+ *
  * The parent process returns a Child handle immediately while the
  * child runs asynchronously. Call wait() on the returned handle
  * to synchronize and retrieve the exit code.
@@ -920,15 +957,26 @@ inline std::unique_ptr<Child> Subprocess::spawn()
   // Failed to fork
   return_if(pid < 0, Child::create(-1, m_program), "E::Failed to fork");
 
-  // Setup pipes for parent or child (only if Stream::Pipe)
-  if ( m_stream_mode == Stream::Pipe )
-  {
-    this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
-  }
-
   // Parent returns here, child continues to execve
   if ( pid > 0 )
   {
+    // Setup pipes for parent
+    if ( m_stream_mode == Stream::Pipe )
+    {
+      this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
+      logger("D::Parent pipes configured");
+    }
+
+    // If daemon mode, wait for intermediate child to exit
+    if ( m_daemon_mode )
+    {
+      int status;
+      log_if(waitpid(pid, &status, 0) < 0, "E::Waitpid failed: {}", strerror(errno));
+      logger("D::Daemon mode: intermediate process exited");
+      // Return a Child handle with -1 to indicate daemon (no process to track)
+      return Child::create(-1, m_program);
+    }
+
     // Execute parent callback if provided
     if (m_callback_parent)
     {
@@ -940,7 +988,59 @@ inline std::unique_ptr<Child> Subprocess::spawn()
     return Child::create(pid, m_program);
   }
 
-  // Child process continues here
+  // Child process continues here (intermediate child in daemon mode, final child otherwise)
+
+  // Daemon mode: perform second fork to create grandchild
+  if ( m_daemon_mode )
+  {
+    // Create session leader to detach from controlling terminal
+    if ( setsid() < 0 )
+    {
+      logger("E::setsid() failed: {}", strerror(errno));
+      _exit(1);
+    }
+
+    // Second fork - creates grandchild
+    pid = fork();
+
+    if ( pid < 0 )
+    {
+      logger("E::Second fork failed: {}", strerror(errno));
+      _exit(1);
+    }
+
+    if ( pid > 0 )
+    {
+      // Intermediate child exits immediately
+      // This causes grandchild to be orphaned and adopted by init
+      _exit(0);
+    }
+
+    // Grandchild continues here - now a daemon
+    // Change working directory to root to avoid keeping directories busy
+    if ( chdir("/") < 0 )
+    {
+      logger("W::chdir() to / failed: {}", strerror(errno));
+    }
+
+    // Reset file mode creation mask
+    umask(0);
+  }
+
+  // Setup pipes for child or grandchild
+  // PID == 0 if child
+  // PID == 0 if grandchild (pid > 0 child _exits)
+  if ( m_stream_mode == Stream::Pipe )
+  {
+    if(pid != 0)
+    {
+      logger("C::(Grand)child fork pid should be zero");
+      _exit(1);
+    }
+    this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
+    logger("D::{} pipes configured", m_daemon_mode? "grandchild" : "child");
+  }
+  
   ns_log::set_level(m_log_level);
 
   // Handle stdio redirection based on mode

@@ -99,7 +99,7 @@ inline void read_pipe(int pipe_fd, std::ostream& stream, std::filesystem::path c
         | std::views::transform([](auto&& e){ return std::string{e.begin(), e.end()}; })
         | std::views::filter([](auto const& s){ return not s.empty(); })
         | std::views::filter([](auto const& s){ return not std::ranges::all_of(s, ::isspace); })
-      , [&](auto line) { logger("D::STD(OUT|ERR)::{}", line); stream << line << std::endl; }
+      , [&](auto line) { logger("D::STD(OUT|ERR)::{}", line); stream << line << std::endl << std::flush; }
     );
   }
   close(pipe_fd);
@@ -240,13 +240,16 @@ inline void setup(
     pipes_parent(pid, false, pipestdout, stdout, path_file_log);
     pipes_parent(pid, false, pipestderr, stderr, path_file_log);
   }
-
   // Child: redirect stdin/stdout/stderr (or skip if std::cin/cout/cerr)
-  if (pid == 0)
+  else if (pid == 0)
   {
     pipes_child(true, pipestdin, stdin, STDIN_FILENO);
     pipes_child(false, pipestdout, stdout, STDOUT_FILENO);
     pipes_child(false, pipestderr, stderr, STDERR_FILENO);
+  }
+  else
+  {
+    logger("E::Invalid negative pid for pipe setup");
   }
 }
 
