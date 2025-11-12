@@ -63,6 +63,25 @@ struct ArgsCallbackParent
 };
 
 /**
+ * @brief Custom stream redirection for child process stdio
+ */
+namespace stream
+{
+
+/**
+* @brief Redirects to /dev/null (silent)
+*
+* @return std::fstream& Reference to the null stream
+*/
+inline std::fstream& null()
+{
+  static std::fstream null("/dev/null", std::ios::in | std::ios::out);
+  return null;
+}
+
+}
+
+/**
  * @brief Converts a vector of strings to a null-terminated C-style array for execve
  *
  * @param vec Vector of strings to convert
@@ -173,9 +192,9 @@ Subprocess::Subprocess(T&& t)
   : m_program(ns_string::to_string(t))
   , m_args()
   , m_env()
-  , m_stdin(std::cin)
-  , m_stdout(std::cout)
-  , m_stderr(std::cerr)
+  , m_stdin(stream::null())
+  , m_stdout(stream::null())
+  , m_stderr(stream::null())
   , m_stream_mode(Stream::Inherit)
   , m_die_on_pid(std::nullopt)
   , m_path_file_log("/dev/null")
