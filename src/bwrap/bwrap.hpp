@@ -288,10 +288,10 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
 {
   std::regex regex_exclude("gst|icudata|egl-wayland", std::regex_constants::extended);
 
-  auto f_find_and_bind = [&]<typename... Args>(fs::path const& path_dir_search, Args&&... args)
+  auto f_find_and_bind = [&]<typename... Args>(fs::path const& path_dir_search, Args&&... args) -> void
   {
     std::vector<std::string_view> keywords{std::forward<Args>(args)...};
-    return_if(not fs::exists(path_dir_search), std::format("Search path does not exist: '{}'", path_dir_search.string()));
+    return_if(not fs::exists(path_dir_search),, "E::Search path does not exist: '{}'", path_dir_search);
     auto f_process_entry = [&](fs::path const& path_file_entry) -> void
     {
       // Skip ignored matches
