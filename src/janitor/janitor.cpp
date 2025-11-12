@@ -19,11 +19,15 @@
 #include "../lib/fuse.hpp"
 #include "../macro.hpp"
 
-std::atomic_bool G_PARENT_OK(false);
+// https://stackoverflow.com/questions/24931456/how-does-sig-atomic-t-actually-work
+// https://en.cppreference.com/w/cpp/utility/program/sig_atomic_t.html
+// https://man7.org/linux/man-pages/man7/signal-safety.7.html
+// https://www.cs.wm.edu/~smherwig/courses/csci415-common/signals/sig_atomic/index.html
+volatile std::sig_atomic_t G_PARENT_OK = 0;
 
 void cleanup(int)
 {
-  G_PARENT_OK = true;
+  G_PARENT_OK = 1;
 }
 
 
