@@ -54,14 +54,15 @@ void set(T&& name, U&& value, Replace replace)
  * @param name The name of the variable
  * @return Value<std::string> The value of the variable or the respective error
  */
-template<typename T = std::string>
-requires std::convertible_to<std::string, T>
-inline Value<T> get_expected(std::string_view name)
+template<ns_string::static_string S = "E">
+inline Value<std::string> get_expected(std::string_view name)
 {
+  static constexpr ns_string::static_string suffix("::Could not read variable '{}'");
+  static constexpr ns_string::static_string fmt = S.template join<suffix>();
   const char * var = std::getenv(name.data());
   return (var != nullptr)?
-      Value<T>(std::string{var})
-    : Error("E::Could not read variable '{}'", name);
+      Value<std::string>(std::string{var})
+    : Error(fmt.data, name);
 }
 
 /**

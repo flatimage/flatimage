@@ -408,7 +408,7 @@ struct FlatimageConfig
   ns_env::set("FIM_DIR_RUNTIME_HOST", path_dir_runtime_host, ns_env::Replace::Y);
 
   // Home directory
-  fs::path const path_dir_host_home = Pop(ns_env::get_expected<fs::path>("HOME")).relative_path();
+  fs::path const path_dir_host_home = fs::path{Pop(ns_env::get_expected("HOME"))}.relative_path();
 
   // Create host config directory
   fs::path const path_dir_host_config = path_file_binary.parent_path() / std::format(".{}.config", path_file_binary.filename().string());
@@ -424,7 +424,7 @@ struct FlatimageConfig
 
   // Compression level configuration (goes from 0 to 10, default is 7)
   uint32_t const layer_compression_level = ({
-    std::string str_compression_level = ns_env::get_expected("FIM_COMPRESSION_LEVEL").value_or("7");
+    std::string str_compression_level = ns_env::get_expected<"D">("FIM_COMPRESSION_LEVEL").value_or("7");
     Catch(std::stoi(str_compression_level)).value_or(7);
   });
 
@@ -435,7 +435,7 @@ struct FlatimageConfig
   ns_db::ns_portal::ns_daemon::Daemon const daemon_guest(DaemonMode::GUEST, path_bin_portal_daemon, path_dir_fifo);
 
   // LD_LIBRARY_PATH
-  if ( auto ret = ns_env::get_expected("LD_LIBRARY_PATH") )
+  if ( auto ret = ns_env::get_expected<"D">("LD_LIBRARY_PATH") )
   {
     ns_env::set("LD_LIBRARY_PATH", std::format("/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu:{}", ret.value()), ns_env::Replace::Y);
   }

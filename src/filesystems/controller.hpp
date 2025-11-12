@@ -267,7 +267,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
   file_binary.close();
 
   // Get layers from layer directories
-  std::vector<fs::path> vec_path_file_layer = ns_env::get_expected("FIM_DIRS_LAYER")
+  std::vector<fs::path> vec_path_file_layer = ns_env::get_expected<"D">("FIM_DIRS_LAYER")
     // Expand variable, allow expansion to fail to be non-fatal
     .transform([](auto&& e){ return ns_env::expand(e).value_or(std::string{e}); })
     // Split directories by the char ':'
@@ -287,7 +287,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
         | std::ranges::to<std::vector<fs::path>>();
     }).value_or(std::vector<fs::path>{});
   // Get layers from file paths
-  ns_vector::append_range(vec_path_file_layer, ns_env::get_expected("FIM_FILES_LAYER")
+  ns_vector::append_range(vec_path_file_layer, ns_env::get_expected<"D">("FIM_FILES_LAYER")
     // Expand variable, allow expansion to fail to be non-fatal
     .transform([](auto&& e){ return ns_env::expand(e).value_or(std::string{e}); })
     // Split files by the char ':'
