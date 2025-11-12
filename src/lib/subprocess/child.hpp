@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <cstdlib>
 #include <cstring>
 #include <sys/wait.h>
 #include <csignal>
@@ -153,8 +154,9 @@ class Child
       // Mark pid as invalid to prevent double-wait
       m_pid = -1;
 
-      return (WIFEXITED(status))?
-          Value<int>(WEXITSTATUS(status))
+      return WIFEXITED(status)? Value<int>(WEXITSTATUS(status))
+        : WIFSIGNALED(status)? Error("E::The process {} was terminated by a signal", m_description)
+        : WIFSTOPPED(status)? Error("E::The process {} was stopped by a signal", m_description)
         : Error("E::The process {} exited abnormally", m_description);
     }
 
