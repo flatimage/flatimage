@@ -163,13 +163,8 @@ inline Controller::~Controller()
 {
   // Check if janitor is running
   return_if(not m_child_janitor,,"E::Janitor is not running");
-  // Get janitor pid
-  pid_t pid = m_child_janitor->get_pid().value_or(0);
-  return_if(pid <= 0,,"E::Failed to get janitor PID");
   // Stop janitor loop
-  kill(pid, SIGTERM);
-  // Wait for janitor to finish execution
-  m_child_janitor->wait().discard("E::Janitor exited abnormally");
+  m_child_janitor->kill(SIGTERM);
 }
 
 /**
