@@ -78,7 +78,7 @@ namespace ns_message = ns_db::ns_portal::ns_message;
   auto child = ns_subprocess::Subprocess(command)
     .with_args(args)
     .with_env(message.get_environment())
-    .with_stdio(ns_subprocess::Stream::Inherit)  // Changed from Pipe to Inherit
+    .with_stdio(ns_subprocess::Stream::Pipe)
     .with_log_file(logs.get_path_file_grand())
     .with_die_on_pid(getpid())
     .with_callback_child([&message]([[maybe_unused]] ns_subprocess::ArgsCallbackChild args) {
