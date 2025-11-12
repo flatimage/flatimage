@@ -48,7 +48,10 @@ void cleanup(int)
 
 int main()
 {
+  // Register cleanup signal handler
   signal(SIGTERM, cleanup);
+  // Ignore SIGPIPE - when parent dies and pipe readers close, we can still cleanup
+  signal(SIGPIPE, SIG_IGN);
 
   auto __expected_fn = [](auto&& e){ logger("E::{}", e.error()); return EXIT_FAILURE; };
   // Notify
@@ -74,9 +77,23 @@ int main()
   // Create dummy writter to keep fifo open
   [[maybe_unused]] int fd_dummy = ::open(path_fifo_in.c_str(), O_WRONLY);
 
-  // Recover messages
+  // Get reference pid to the main flatimage program
   pid_t pid_reference = args_cfg.get_pid_reference();
-  for(char buffer[16384]; kill(pid_reference, 0) == 0 and G_CONTINUE;)
+
+  // ::read is non-blocking due to O_NONBLOCK, but make sure that any other
+  // operation that might hang do not leave the daemon running after the parent
+  // dies
+  [[maybe_unused]] auto thread_sig = std::jthread([pid_reference,pid=getpid()]
+  {
+    while(kill(pid_reference, 0) == 0)
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds{100});
+    }
+    kill(pid, SIGTERM);
+  });
+
+  // Recover messages
+  for(char buffer[16384];  G_CONTINUE;)
   {
     ssize_t bytes_read = ::read(fd_fifo, &buffer, SIZE_BUFFER_READ);
     // Check if the read was success full, should try again, or stop
@@ -89,19 +106,19 @@ int main()
     }
     else if (bytes_read < 0)
     {
-      if (errno != EAGAIN and errno != EWOULDBLOCK)
-      {
-        break;
-      }
-      else
+      if (errno == EAGAIN or errno == EWOULDBLOCK)
       {
         std::this_thread::sleep_for(std::chrono::milliseconds{100});
         continue;
       }
+      else
+      {
+        break;
+      }
     }
     // Create a safe view over read data
     std::string_view msg{buffer, static_cast<size_t>(bytes_read)};
-    logger("I::Recovered message: {}", msg);
+    logger("D::Recovered message: {}", msg);
     // Validate and deserialize message
     auto message = ns_message::deserialize(msg);
     continue_if(not message, "E::Could not parse message: {}", message.error());
@@ -116,6 +133,8 @@ int main()
       _exit(0);
     }
   } // for
+
+  logger("D::Portal daemon shutdown, G_CONTINUE={}", G_CONTINUE);
 
   close(fd_dummy);
   close(fd_fifo);

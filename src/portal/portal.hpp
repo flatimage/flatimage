@@ -36,7 +36,6 @@ class Portal
     Portal();
 
   public:
-    ~Portal();
     friend Value<std::unique_ptr<Portal>> spawn(Daemon const& daemon, Logs const& logs);
     friend constexpr std::unique_ptr<Portal> std::make_unique<Portal>();
 };
@@ -44,15 +43,6 @@ class Portal
 inline Portal::Portal()
   : m_child(nullptr)
 {
-}
-
-inline Portal::~Portal()
-{
-  if (m_child)
-  {
-    m_child->kill(SIGTERM);
-    std::ignore = m_child->wait();
-  }
 }
 
 [[nodiscard]] inline Value<std::unique_ptr<Portal>> spawn(Daemon const& daemon, Logs const& logs)
@@ -64,10 +54,12 @@ inline Portal::~Portal()
   return_if(not Try(fs::exists(path_bin_daemon)), Error("E::Daemon not found in {}", path_bin_daemon));
   // Create a portal that uses the reference file to create an unique communication key
   // Spawn process to background
-  using enum ns_subprocess::Stream;
   portal->m_child = ns_subprocess::Subprocess(path_bin_daemon)
     .with_var("FIM_DAEMON_CFG", Pop(ns_daemon::serialize(daemon)))
     .with_var("FIM_DAEMON_LOG", Pop(ns_daemon::ns_log::serialize(logs)))
+    .with_stdio(ns_subprocess::Stream::Pipe)
+    .with_streams(ns_subprocess::stream::null(), std::cout, std::cerr)
+    .with_daemon()
     .spawn();
   return portal;
 }
