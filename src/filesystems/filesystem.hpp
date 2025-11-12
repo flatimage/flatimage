@@ -22,9 +22,13 @@ class Filesystem
   protected:
     pid_t m_pid_to_die_for;
     std::filesystem::path m_path_dir_mount;
+    std::filesystem::path m_path_file_log;
     std::unique_ptr<ns_subprocess::Child> m_child;
-    Filesystem(pid_t pid_to_die_for, std::filesystem::path const& path_dir_mount);
-    
+    Filesystem(pid_t pid_to_die_for
+      , std::filesystem::path const& path_dir_mount
+      , std::filesystem::path const& path_file_log
+    );
+
   public:
     virtual ~Filesystem();
     [[nodiscard]] virtual Value<void> mount() = 0;
@@ -36,13 +40,17 @@ class Filesystem
 
 /**
  * @brief Construct a new Filesystem:: Filesystem object
- * 
+ *
  * @param pid_to_die_for Pid the mount process should die with
  * @param path_dir_mount Path to the mount directory
  */
-inline Filesystem::Filesystem(pid_t pid_to_die_for, std::filesystem::path const& path_dir_mount)
+inline Filesystem::Filesystem(pid_t pid_to_die_for
+  , std::filesystem::path const& path_dir_mount
+  , std::filesystem::path const& path_file_log
+)
   : m_pid_to_die_for(pid_to_die_for)
   , m_path_dir_mount(path_dir_mount)
+  , m_path_file_log(path_file_log)
   , m_child(nullptr)
 {
 }

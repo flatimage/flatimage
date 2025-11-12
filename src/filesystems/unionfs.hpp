@@ -36,6 +36,7 @@ class UnionFs final : public ns_filesystem::Filesystem
     UnionFs(pid_t pid_to_die_for
       , fs::path const& path_dir_mount
       , fs::path const& path_dir_upper
+      , fs::path const& path_file_log
       , std::vector<fs::path> const& vec_path_dir_layer
     );
     Value<void> mount() override;
@@ -43,7 +44,7 @@ class UnionFs final : public ns_filesystem::Filesystem
 
 /**
  * @brief Construct a new Union Fs:: Union Fs object
- * 
+ *
  * @param pid_to_die_for Pid the mount process should die with
  * @param path_dir_mount Path to the mount directory
  * @param path_dir_upper Upper directory where the changes of overlayfs are stored
@@ -52,21 +53,19 @@ class UnionFs final : public ns_filesystem::Filesystem
 inline UnionFs::UnionFs(pid_t pid_to_die_for
     , fs::path const& path_dir_mount
     , fs::path const& path_dir_upper
+    , fs::path const& path_file_log
     , std::vector<fs::path> const& vec_path_dir_layer
   )
-  : ns_filesystem::Filesystem(pid_to_die_for, path_dir_mount)
+  : ns_filesystem::Filesystem(pid_to_die_for, path_dir_mount, path_file_log)
   , m_path_dir_upper(path_dir_upper)
   , m_vec_path_dir_layer(vec_path_dir_layer)
 {
-  if(auto ret = this->mount(); not ret)
-  {
-    logger("E::Could not mount unionfs filesystem to '{}': {}", path_dir_mount, ret.error());
-  }
+  this->mount().discard("E::Could not mount unionfs filesystem to '{}'", path_dir_mount);
 }
 
 /**
  * @brief Mounts the filesystem
- * 
+ *
  * @return Value<void> Nothing on success or the respective error
  */
 inline Value<void> UnionFs::mount()
@@ -92,6 +91,8 @@ inline Value<void> UnionFs::mount()
     .with_args(arg_layers)
     .with_args(m_path_dir_mount)
     .with_die_on_pid(m_pid_to_die_for)
+    .with_stdio(ns_subprocess::Stream::Pipe)
+    .with_log_file(m_path_file_log)
     .spawn();
   // Wait for mount
   ns_fuse::wait_fuse(m_path_dir_mount);

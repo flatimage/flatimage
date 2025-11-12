@@ -2,7 +2,7 @@
  * @file overlayfs.hpp
  * @author Ruan Formigoni
  * @brief Manages the fuse-overlayfs filesystem
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -37,8 +37,9 @@ class Overlayfs final : public ns_filesystem::Filesystem
   public:
     Overlayfs(pid_t pid_to_die_for
         , fs::path const& path_dir_mount
-        , fs::path const& path_dir_upperdir
-        , fs::path const& path_dir_workdir
+        , fs::path const& path_dir_upper
+        , fs::path const& path_dir_work
+        , fs::path const& path_file_log
         , std::vector<fs::path> const& vec_path_dir_layers
     );
     Value<void> mount() override;
@@ -47,7 +48,7 @@ class Overlayfs final : public ns_filesystem::Filesystem
 
 /**
  * @brief Construct a new Overlayfs:: Overlayfs object
- * 
+ *
  * @param pid_to_die_for Pid the mount process should die with
  * @param path_dir_mount Path to the mount directory
  * @param path_dir_upper Upper directory where the changes of overlayfs are stored
@@ -58,9 +59,10 @@ inline Overlayfs::Overlayfs(pid_t pid_to_die_for
     , fs::path const& path_dir_mount
     , fs::path const& path_dir_upper
     , fs::path const& path_dir_work
+    , fs::path const& path_file_log
     , std::vector<fs::path> const& vec_path_dir_layers
     )
-  : ns_filesystem::Filesystem(pid_to_die_for, path_dir_mount)
+  : ns_filesystem::Filesystem(pid_to_die_for, path_dir_mount, path_file_log)
   , m_path_dir_upper(path_dir_upper)
   , m_path_dir_work(path_dir_work)
   , m_vec_path_dir_layers(vec_path_dir_layers)
@@ -70,7 +72,7 @@ inline Overlayfs::Overlayfs(pid_t pid_to_die_for
 
 /**
  * @brief Mounts the filesystem
- * 
+ *
  * @return Value<void> Nothing on success or the respective error
  */
 inline Value<void> Overlayfs::mount()
@@ -102,6 +104,8 @@ inline Value<void> Overlayfs::mount()
     .with_args("-o", std::format("workdir={}", m_path_dir_work.string()))
     .with_args(m_path_dir_mount)
     .with_die_on_pid(m_pid_to_die_for)
+    .with_stdio(ns_subprocess::Stream::Pipe)
+    .with_log_file(m_path_file_log)
     .spawn();
   // Wait for mount
   ns_fuse::wait_fuse(m_path_dir_mount);

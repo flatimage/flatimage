@@ -13,7 +13,6 @@
 
 #include "../std/expected.hpp"
 #include "../std/filesystem.hpp"
-#include "../config.hpp"
 #include "../reserved/overlay.hpp"
 #include "filesystem.hpp"
 #include "overlayfs.hpp"
@@ -26,15 +25,53 @@ namespace ns_filesystems::ns_controller
 
 extern "C" uint32_t FIM_RESERVED_OFFSET;
 
+struct Logs
+{
+  fs::path const path_file_dwarfs;
+  fs::path const path_file_ciopfs;
+  fs::path const path_file_overlayfs;
+  fs::path const path_file_unionfs;
+  fs::path const path_file_janitor;
+
+  Logs(std::filesystem::path const& path_dir_log);
+};
+
+struct Config
+{
+  bool const is_casefold;
+  ns_reserved::ns_overlay::OverlayType const overlay_type;
+  fs::path const path_dir_mount;
+  // Overlayfs / Unionfs
+  fs::path const path_dir_work;
+  fs::path const path_dir_upper;
+  fs::path const path_dir_layers_mount;
+  // Ciopfs
+  fs::path const path_dir_ciopfs_mount;
+  fs::path const path_bin_janitor;
+  fs::path const path_file_binary;
+
+  Config(bool is_casefold
+    , ns_reserved::ns_overlay::OverlayType const& type
+    , std::filesystem::path const& path_dir_mount
+    , std::filesystem::path const& path_dir_config
+    , std::filesystem::path const& path_bin_janitor
+    , std::filesystem::path const& path_file_binary
+  );
+};
+
+[[nodiscard]] std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers);
+
 class Controller
 {
   private:
+    Logs const m_logs;
     fs::path m_path_dir_mount;
     fs::path m_path_dir_work;
     std::vector<fs::path> m_vec_path_dir_mountpoints;
     std::vector<std::unique_ptr<ns_dwarfs::Dwarfs>> m_layers;
     std::vector<std::unique_ptr<ns_filesystem::Filesystem>> m_filesystems;
     std::unique_ptr<ns_subprocess::Child> m_child_janitor;
+
     [[nodiscard]] uint64_t mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_file_binary, uint64_t offset);
     void mount_ciopfs(fs::path const& path_dir_lower, fs::path const& path_dir_upper);
     void mount_unionfs(std::vector<fs::path> const& vec_path_dir_layer
@@ -50,7 +87,7 @@ class Controller
     [[nodiscard]] Value<void> spawn_janitor(fs::path const& path_bin_janitor, fs::path const& path_file_log);
 
   public:
-    Controller(ns_config::FlatimageConfig const& config);
+    Controller(Logs const& logs, Config const& config);
     ~Controller();
     Controller(Controller const&) = delete;
     Controller(Controller&&) = delete;
@@ -63,33 +100,34 @@ class Controller
  * 
  * @param config FlatImage configuration object
  */
-inline Controller::Controller(ns_config::FlatimageConfig const& config)
-  : m_path_dir_mount(config.path_dir_mount)
-  , m_path_dir_work(config.path_dir_work_overlayfs)
+inline Controller::Controller(Logs const& logs, Config const& config)
+  : m_logs(logs)
+  , m_path_dir_mount(config.path_dir_mount)
+  , m_path_dir_work(config.path_dir_work)
   , m_vec_path_dir_mountpoints()
   , m_layers()
   , m_filesystems()
   , m_child_janitor(nullptr)
 {
   // Mount compressed layers
-  [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_mount_layers, config.path_file_binary, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
+  [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_layers_mount, config.path_file_binary, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
   // Use unionfs-fuse
   if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::UNIONFS )
   {
     logger("D::Overlay type: UNIONFS_FUSE");
-    mount_unionfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
-      , config.path_dir_upper_overlayfs
-      , config.path_dir_mount_overlayfs
+    mount_unionfs(get_mounted_layers(config.path_dir_layers_mount)
+      , config.path_dir_upper
+      , config.path_dir_mount
     );
   }
   // Use fuse-overlayfs
   else if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::OVERLAYFS )
   {
     logger("D::Overlay type: FUSE_OVERLAYFS");
-    mount_overlayfs(ns_config::get_mounted_layers(config.path_dir_mount_layers)
-      , config.path_dir_upper_overlayfs
-      , config.path_dir_mount_overlayfs
-      , config.path_dir_work_overlayfs
+    mount_overlayfs(get_mounted_layers(config.path_dir_layers_mount)
+      , config.path_dir_upper
+      , config.path_dir_mount
+      , config.path_dir_work
     );
   }
   else
@@ -105,7 +143,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
     }
     else
     {
-      mount_ciopfs(config.path_dir_mount_overlayfs, config.path_dir_mount_ciopfs);
+      mount_ciopfs(config.path_dir_mount, config.path_dir_ciopfs_mount);
       logger("D::casefold is enabled");
     }
   }
@@ -114,7 +152,7 @@ inline Controller::Controller(ns_config::FlatimageConfig const& config)
     logger("D::casefold is disabled");
   }
   // Spawn janitor, make it permissive since flatimage works without it
-  spawn_janitor(config.path_bin_janitor, config.logs.path_file_janitor).discard("E::Could not spawn janitor");
+  spawn_janitor(config.path_bin_janitor, logs.path_file_janitor).discard("E::Could not spawn janitor");
 }
 
 /**
@@ -179,7 +217,11 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
   // Filesystem index
   uint64_t index_fs{};
 
-  auto f_mount = [this](fs::path const& _path_file_binary, fs::path const& _path_dir_mount, uint64_t _index_fs, uint64_t _offset, uint64_t _size_fs) -> Value<void>
+  auto f_mount = [this](fs::path const& _path_file_binary
+    , fs::path const& _path_dir_mount
+    , uint64_t _index_fs
+    , uint64_t _offset
+    , uint64_t _size_fs) -> Value<void>
   {
     logger("D::Offset to filesystem is '{}'", _offset);
     // Create mountpoint
@@ -187,7 +229,15 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     Try(fs::create_directories(path_dir_mount_index));
     // Configure and mount the filesystem
     // Keep the object alive in the filesystems vector
-    this->m_layers.emplace_back(std::make_unique<ns_dwarfs::Dwarfs>(getpid(), path_dir_mount_index, _path_file_binary, _offset, _size_fs));
+    this->m_layers.emplace_back(
+      std::make_unique<ns_dwarfs::Dwarfs>(getpid()
+        , path_dir_mount_index
+        , _path_file_binary
+        , m_logs.path_file_dwarfs
+        , _offset
+        , _size_fs
+      )
+    );
     // Include current mountpoint in the mountpoints vector
     m_vec_path_dir_mountpoints.push_back(path_dir_mount_index);
     return {};
@@ -293,6 +343,7 @@ inline void Controller::mount_unionfs(std::vector<fs::path> const& vec_path_dir_
   m_filesystems.emplace_back(std::make_unique<ns_unionfs::UnionFs>(getpid()
     , path_dir_mount
     , path_dir_data
+    , m_logs.path_file_unionfs
     , vec_path_dir_layer
   ));
   m_vec_path_dir_mountpoints.push_back(path_dir_mount);
@@ -315,6 +366,7 @@ inline void Controller::mount_overlayfs(std::vector<fs::path> const& vec_path_di
     , path_dir_mount
     , path_dir_data
     , path_dir_workdir
+    , m_logs.path_file_overlayfs
     , vec_path_dir_layer
   ));
   m_vec_path_dir_mountpoints.push_back(path_dir_mount);
@@ -328,7 +380,11 @@ inline void Controller::mount_overlayfs(std::vector<fs::path> const& vec_path_di
  */
 inline void Controller::mount_ciopfs(fs::path const& path_dir_lower, fs::path const& path_dir_upper)
 {
-  m_filesystems.emplace_back(std::make_unique<ns_ciopfs::Ciopfs>(getpid(), path_dir_lower, path_dir_upper));
+  m_filesystems.emplace_back(std::make_unique<ns_ciopfs::Ciopfs>(getpid()
+    , path_dir_lower
+    , path_dir_upper
+    , m_logs.path_file_ciopfs
+  ));
   m_vec_path_dir_mountpoints.push_back(path_dir_upper);
 }
 

@@ -2,7 +2,7 @@
  * @file dwarfs.hpp
  * @author Ruan Formigoni
  * @brief Manage dwarfs filesystems
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -35,6 +35,7 @@ class Dwarfs final : public ns_filesystem::Filesystem
     Dwarfs(pid_t pid_to_die_for
       , fs::path const& path_dir_mount
       , fs::path const& path_file_image
+      , fs::path const& path_file_log
       , uint64_t offset
       , uint64_t size_image);
     Value<void> mount() override;
@@ -42,28 +43,31 @@ class Dwarfs final : public ns_filesystem::Filesystem
 
 /**
  * @brief Construct a new Dwarfs:: Dwarfs object
- * 
+ *
  * @param pid_to_die_for Pid the mount process should die with
  * @param path_dir_mount Path to the mount directory
  * @param path_file_image Path to the flatimage file
  * @param offset Offset to the filesystem start
  * @param size_image Image length
  */
-inline Dwarfs::Dwarfs(pid_t pid_to_die_for, fs::path const& path_dir_mount, fs::path const& path_file_image, uint64_t offset, uint64_t size_image)
-  : ns_filesystem::Filesystem(pid_to_die_for, path_dir_mount)
+inline Dwarfs::Dwarfs(pid_t pid_to_die_for
+  , fs::path const& path_dir_mount
+  , fs::path const& path_file_image
+  , fs::path const& path_file_log
+  , uint64_t offset
+  , uint64_t size_image
+)
+  : ns_filesystem::Filesystem(pid_to_die_for, path_dir_mount, path_file_log)
   , m_path_file_image(path_file_image)
   , m_offset(offset)
   , m_size_image(size_image)
 {
-  if(auto ret = this->mount(); not ret)
-  {
-    logger("E::Could not mount filesystem '{}' to '{}': {}", path_file_image, path_dir_mount, ret.error());
-  }
+  this->mount().discard("E::Could not mount dwarfs filesystem '{}' to '{}'", path_file_image, path_dir_mount);
 }
 
 /**
  * @brief Mounts the filesystem
- * 
+ *
  * @return Value<void> Nothing on success or the respective error
  */
 inline Value<void> Dwarfs::mount()
@@ -79,20 +83,21 @@ inline Value<void> Dwarfs::mount()
   // Find command in PATH
   auto path_file_dwarfs = Pop(ns_env::search_path("dwarfs"), "E::Could not find dwarfs in PATH");
   // Spawn command
-  using enum ns_subprocess::Stream;
   m_child = ns_subprocess::Subprocess(path_file_dwarfs)
     .with_args(m_path_file_image, m_path_dir_mount)
     .with_args("-f", "-o", std::format("auto_unmount,offset={},imagesize={}", m_offset, m_size_image))
     .with_die_on_pid(m_pid_to_die_for)
+    .with_stdio(ns_subprocess::Stream::Pipe)
+    .with_log_file(m_path_file_log)
     .spawn();
   // Wait for mount
   ns_fuse::wait_fuse(m_path_dir_mount);
-  return {};  
+  return {};
 }
 
 /**
  * @brief Checks if the filesystem is a `Dwarfs` filesystem with a given offset
- * 
+ *
  * @param path_file_dwarfs Path to the file that contains a dwarfs filesystem
  * @param offset Offset in the file at which the dwarfs filesystem starts
  * @return The boolean result

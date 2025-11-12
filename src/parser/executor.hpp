@@ -70,7 +70,7 @@ using namespace ns_parser::ns_interface;
     // Initialize permissions
     ns_reserved::ns_permissions::Permissions permissions(config.path_file_binary);
     // Mount filesystems
-    [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config);
+    [[maybe_unused]] auto filesystem_controller = ns_filesystems::ns_controller::Controller(config.logs.filesystems, config.filesystems);
     // Execute specified command
     auto environment = ns_db::ns_env::get(config.path_file_binary).or_default();
     auto hash_environment = ns_db::ns_env::map(environment);
@@ -78,15 +78,15 @@ using namespace ns_parser::ns_interface;
     std::optional<ns_bwrap::Overlay> bwrap_overlay = ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP )?
         std::make_optional(ns_bwrap::Overlay
         {
-            .vec_path_dir_layer = ns_config::get_mounted_layers(config.path_dir_mount_layers)
-          , .path_dir_upper = config.path_dir_upper_overlayfs
-          , .path_dir_work = config.path_dir_work_overlayfs
+            .vec_path_dir_layer = ns_filesystems::ns_controller::get_mounted_layers(config.path_dir_mount_layers)
+          , .path_dir_upper = config.filesystems.path_dir_upper
+          , .path_dir_work = config.filesystems.path_dir_work
         })
       : std::nullopt;
     // Get path to root directory
     fs::path path_dir_root = ( config.is_casefold and config.overlay_type != ns_reserved::ns_overlay::OverlayType::BWRAP )?
-        config.path_dir_mount_ciopfs
-      : config.path_dir_mount_overlayfs;
+        config.filesystems.path_dir_ciopfs_mount
+      : config.filesystems.path_dir_mount;
     // Get uid and gid from config (checks environment database or uses defaults)
     ns_config::User user = Pop(config.configure_user(), "E::Failed to configure user data");
     logger("D::User: {}", user);
@@ -111,7 +111,7 @@ using namespace ns_parser::ns_interface;
     // Check if should enable GPU
     if (permissions.contains(ns_reserved::ns_permissions::Permission::GPU))
     {
-      std::ignore = bwrap.with_bind_gpu(config.path_dir_upper_overlayfs, config.path_dir_runtime_host);
+      std::ignore = bwrap.with_bind_gpu(config.filesystems.path_dir_upper, config.path_dir_runtime_host);
     }
     // Build the dispatcher object pointing it to the fifo of the host daemon
     ns_dispatcher::Dispatcher dispatcher(config.pid
@@ -271,7 +271,7 @@ using namespace ns_parser::ns_interface;
     else if(std::get_if<CmdLayer::Commit>(&(cmd->sub_cmd)))
     {
       Pop(ns_layers::commit(config.path_file_binary
-        , config.path_dir_upper_overlayfs
+        , config.filesystems.path_dir_upper
         , config.path_dir_host_config_tmp / "layer.tmp"
         , config.path_dir_host_config_tmp / "compression.list"
         , config.layer_compression_level
