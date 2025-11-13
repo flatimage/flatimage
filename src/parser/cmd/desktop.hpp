@@ -2,7 +2,7 @@
  * @file desktop.hpp
  * @author Ruan Formigoni
  * @brief Manages the desktop integration
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -51,7 +51,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Constructs the path to the png icon file
- * 
+ *
  * @param name_app The flatimage application name
  * @param size The size of the icon, e.g., 32x32, 64x64
  * @return Value<std::pair<fs::path,fs::path>> Paths to the mime type and application icons,
@@ -70,7 +70,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Constructs the path to the svg icon file
- * 
+ *
  * @param name_app The flatimage application name
  * @return Value<std::pair<fs::path,fs::path>> Paths to the mime type and application icons,
  * or the respective error
@@ -88,7 +88,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Get the file path to the desktop entry
- * 
+ *
  * @return Value<fs::path> The path to the desktop entry file, or the respective error
  */
 [[nodiscard]] Value<fs::path> get_path_file_desktop(ns_db::ns_desktop::Desktop const& desktop)
@@ -99,7 +99,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Get the file path to the application specific mimetype file
- * 
+ *
  * @return Value<fs::path> The path to the mimetype file, or the respective error
  */
 [[nodiscard]] Value<fs::path> get_path_file_mimetype(ns_db::ns_desktop::Desktop const& desktop)
@@ -110,7 +110,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Get the file path to the generic mimetype file
- * 
+ *
  * @return Value<fs::path> The path to the generic mimetype file, or the respective error
  */
 [[nodiscard]] Value<fs::path> get_path_file_mimetype_generic()
@@ -121,7 +121,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Generates the desktop entry
- * 
+ *
  * @param desktop Desktop integration class
  * @param path_file_binary Path to the flatimage binary
  * @param os The output stream in which to write the desktop entry
@@ -145,7 +145,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Integrates the desktop entry '.desktop'
- * 
+ *
  * @param desktop Desktop integration class
  * @param path_file_binary Path to the flatimage binary
  * @return Value<void> Nothing on success, or the respective error
@@ -156,7 +156,6 @@ namespace fs = std::filesystem;
   fs::path path_file_desktop = Pop(get_path_file_desktop(desktop));
   // Create parent directories for entry
   Try(fs::create_directories(path_file_desktop.parent_path()));
-  logger("I::Integrating desktop entry...");
   // Open desktop file
   std::ofstream file_desktop(path_file_desktop, std::ios::out | std::ios::trunc);
   return_if(not file_desktop.is_open() , Error("E::Could not open desktop file {}", path_file_desktop));
@@ -167,38 +166,39 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Checks if the mime database should be updated based on `<glob pattern=`
- * 
+ *
  * @param path_entry_mimetype The path to the mimetype entry
  * @return bool If the mime should be updated or not
  */
 [[nodiscard]] inline bool is_update_mime_database(fs::path const& path_file_binary, fs::path const& path_entry_mimetype)
 {
   // Update if file does not exist
-  return_if(not fs::exists(path_entry_mimetype), true, "E::Update mime due to missing source file");
+  return_if(not fs::exists(path_entry_mimetype), true, "D::Update mime due to missing source file");
   // Update if can not open file
   std::ifstream file_mimetype(path_entry_mimetype);
-  return_if(not file_mimetype.is_open(), true, "E::Update mime due to unaccessible source file for read");
+  return_if(not file_mimetype.is_open(), true, "D::Update mime due to unaccessible source file for read");
   // Update if file name has changed
   std::string pattern = std::format(R"(pattern="{}")", path_file_binary.filename().string());
   for (std::string line; std::getline(file_mimetype, line);)
   {
-    return_if(line.contains(pattern), false, "E::Mime pattern file name checks...");
+    return_if(line.contains(pattern), false, "D::Mime pattern file name checks");
   } // for
   return true;
 }
 
 /**
  * @brief Runs update-mime-database on the current XDG_DATA_HOME diretory
- * 
+ *
  * @return Value<void> Nothing on success, or the respective error
  */
 [[nodiscard]] inline Value<void> update_mime_database()
 {
   fs::path xdg_data_home = Pop(ns_env::xdg_data_home());
   fs::path path_bin_mime = Pop(ns_env::search_path("update-mime-database"));
-  logger("I::Updating mime database...");
+  logger("I::Updating mime database '{}'", xdg_data_home);
   Try(ns_subprocess::Subprocess(path_bin_mime)
-    .with_args(xdg_data_home / "mime", "update-mime-database")
+    .with_args(xdg_data_home / "mime")
+    .with_streams(ns_subprocess::stream::null(), std::cout, std::cerr)
     .spawn()->wait());
   return {};
 }
@@ -236,7 +236,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Generates the flatimage app specific mime package
- * 
+ *
  * @param desktop The desktop object
  * @param path_file_binary The path to the flatimage binary
  * @param os The output stream in which to write the mime package
@@ -260,7 +260,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Generates the flatimage app specific mime package
- * 
+ *
  * @param desktop The desktop object
  * @param path_file_binary The path to the flatimage binary
  */
@@ -278,17 +278,18 @@ namespace fs = std::filesystem;
   // Check if should update mime database
   if(is_update_mime_database(path_file_binary, path_file_xml) )
   {
-    logger("I::Integrating mime database...");
+    logger("I::Integrating mime database");
   }
   else
   {
-    logger("D::Skipping mime database update...");
+    logger("D::Skipping mime database update");
     return {};
   }
   // Create application mimetype file
   std::ofstream file_xml(path_file_xml, std::ios::out | std::ios::trunc);
   return_if(not file_xml.is_open(), Error("E::Could not open '{}'", path_file_xml));
   Pop(generate_mime_database(desktop,  path_file_binary, file_xml));
+  file_xml.close();
   Pop(integrate_mime_database_generic());
   Pop(update_mime_database());
   return {};
@@ -296,7 +297,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Integrates an svg icon for the flatimage mimetype
- * 
+ *
  * @param desktop The desktop entry object
  * @param path_file_icon The path to the icon file to integrate
  */
@@ -328,7 +329,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Integrates PNG icons for the flatimage mimetype
- * 
+ *
  * @param desktop The desktop entry object
  * @param path_file_icon The path to the icon file to integrate
  */
@@ -361,7 +362,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Integrates the svg icon for the 'flatimage' mimetype
- * 
+ *
  * @return Value<void> Nothing on success or the respective error
  */
 [[nodiscard]] inline Value<void> integrate_icon_flatimage()
@@ -387,7 +388,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Integrate flatimage icons in the current $HOME directory
- * 
+ *
  * @param config FlatImage configuration file
  * @param desktop Desktop object
  * @return Value<void> Nothing on success, or the respective error
@@ -437,7 +438,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Integrates flatimage desktop data in current system
- * 
+ *
  * @param config Flatimage configuration object
  * @return Value<void> Nothing or success, or the respective error
  */
@@ -455,19 +456,19 @@ namespace fs = std::filesystem;
   // Create desktop entry
   if(desktop.get_integrations().contains(IntegrationItem::ENTRY))
   {
-    logger("I::Integrating desktop entry...");
+    logger("I::Integrating desktop entry");
     Pop(integrate_desktop_entry(desktop, config.path_file_binary));
   }
   // Create and update mime
   if(desktop.get_integrations().contains(IntegrationItem::MIMETYPE))
   {
-    logger("I::Integrating mime database...");
+    logger("I::Integrating mime database");
     Pop(integrate_mime_database(desktop,  config.path_file_binary));
   }
   // Create desktop icons
   if(desktop.get_integrations().contains(IntegrationItem::ICON))
   {
-    logger("I::Integrating desktop icons...");
+    logger("I::Integrating desktop icons");
     if(auto ret = integrate_icons(config, desktop); not ret)
     {
       logger("D::Could not integrate icons: '{}'", ret.error());
@@ -495,13 +496,13 @@ namespace fs = std::filesystem;
   {
     logger("D::Notify is disabled");
   }
-  
+
   return {};
 }
 
 /**
  * @brief Setup desktop integration in FlatImage
- * 
+ *
  * @param config FlatImage configuration object
  * @param path_file_json_src Path to the json which contains configuration data
  * @return Value<void> Nothing on success, or the respective error
@@ -556,8 +557,8 @@ namespace fs = std::filesystem;
 }
 
 /**
- * @brief Enables desktop integration for FlatImage 
- * 
+ * @brief Enables desktop integration for FlatImage
+ *
  * @param config The FlatImage configuration object
  * @param set_integrations The set with integrations to enable
  * @return Value<void> Nothing on success or the respective error
@@ -584,7 +585,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Cleans desktop integration files
- * 
+ *
  * @param config The FlatImage configuration object
  * @return Value<void> Nothing on success or the respective error
  */
@@ -645,7 +646,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Dumps the png or svg icon data to a file
- * 
+ *
  * @param config The FlatImage configuration object
  * @param path_file_dst The destination file to write the icon to
  * @return Value<void> Nothing on success or the respective error
@@ -681,7 +682,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Dumps the desktop entry if integration is configured
- * 
+ *
  * @param config The FlatImage configuration object
  * @return Value<std::string> The desktop entry or the respective error
  */
@@ -700,7 +701,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Dumps the application mime type file if integration is configured
- * 
+ *
  * @param config The FlatImage configuration object
  * @return Value<std::string> The mime type data or the respective error
  */
