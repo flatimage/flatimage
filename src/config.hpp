@@ -15,7 +15,6 @@
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
-#include <system_error>
 #include <unistd.h>
 #include <pwd.h>
 #include <filesystem>
@@ -91,6 +90,36 @@
   return vec_path_dir_layer;
 }
 
+/**
+ * @brief 
+ *
+ * Bwrap leaves behind a 'root' owned empty directory
+ * It is possible to remove without root since it is empty after bwrap is finished
+ * Might take some attempts
+ *
+ * @note Even if it fails, this won't affect the next program execution since
+ * 
+*/ 
+inline Value<void> bwrap_clean(fs::path const& path_dir_work)
+{
+  // Check if directory exists
+  if(not Try(fs::exists(path_dir_work), "E::Could not check bwrap work directory"))
+  {
+    return {};
+  }
+  // Try to change permissions
+  if(::chmod(path_dir_work.c_str(), 0755) < 0)
+  {
+    logger("D::Error to modify permissions '{}': '{}'", path_dir_work, strerror(errno));
+  }
+  // True if the file was deleted
+  // False if it did not exist
+  // Exception if it cannot be removed: cannot remove all: Read-only file system'
+  // Thus, the check is if it throws or not
+  Try(fs::remove_all(path_dir_work), "E::Failed to remove bwrap work directory");
+  // Success
+  return {};
+}
 
 
 inline ::ns_filesystems::ns_controller::Logs::Logs(fs::path const& path_dir_log)
@@ -120,11 +149,10 @@ inline ::ns_filesystems::ns_controller::Config::Config(bool is_casefold
   , path_bin_janitor(path_bin_janitor)
   , path_file_binary(path_file_binary)
 {
+  fs::create_directories(path_dir_mount);
   fs::create_directories(path_dir_work);
   fs::create_directories(path_dir_upper);
-  fs::create_directories(path_dir_mount);
   fs::create_directories(path_dir_layers_mount);
-  fs::create_directories(path_dir_ciopfs_mount);
   fs::create_directories(path_dir_ciopfs_mount);
 };
 
@@ -329,6 +357,12 @@ struct FlatimageConfig
     fs::path path_file_bashrc = Pop(write_bashrc(path_dir_instance / "bashrc", hash_env));
     return Pop(write_passwd(path_dir_instance / "passwd", path_file_bash, path_file_bashrc, id, hash_env));
   }
+
+  ~FlatimageConfig()
+  {
+    bwrap_clean(this->filesystems.path_dir_work / "work")
+      .discard("E::Could not clean bwrap directory");
+  }
 };
 
 /**
@@ -452,26 +486,6 @@ struct FlatimageConfig
     , path_bin_janitor
     , path_file_binary
   );
-
-  // // Custom deleter for cleanup logic
-  // auto deleter = [](FlatimageConfig* cfg)
-  // {
-  //   if (not cfg) { return; }
-  //   fs::path path_dir_work_bwrap = cfg->path_dir_work_overlayfs / "work";
-  //   std::error_code ec;
-  //   // Clean up bwrap work directory
-  //   if (fs::exists(path_dir_work_bwrap, ec) && !ec)
-  //   {
-  //     log_if(::chmod(path_dir_work_bwrap.c_str(), 0755) < 0
-  //       , "E::Error to modify permissions '{}': '{}'", path_dir_work_bwrap.string(), strerror(errno)
-  //     );
-  //   }
-  //   // Clean up work directory
-  //   ec.clear();
-  //   fs::remove_all(cfg->path_dir_work_overlayfs, ec);
-  //   log_if(ec, "E::Error to erase '{}': '{}'", cfg->path_dir_work_overlayfs.string(), ec.message());
-  //   delete cfg;
-  // };
 
   return std::shared_ptr<FlatimageConfig>(new FlatimageConfig{
     .distribution = distribution,
