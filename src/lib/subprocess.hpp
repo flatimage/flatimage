@@ -650,6 +650,7 @@ inline void Subprocess::to_dev_null()
 {
   int fd = open("/dev/null", O_WRONLY);
   return_if(fd < 0,,"E::Failed to open /dev/null: {}", strerror(errno));
+  return_if(dup2(fd, STDIN_FILENO) < 0,,"E::Failed to redirect stdin: {}", strerror(errno));
   return_if(dup2(fd, STDOUT_FILENO) < 0,,"E::Failed to redirect stdout: {}", strerror(errno));
   return_if(dup2(fd, STDERR_FILENO) < 0,,"E::Failed to redirect stderr: {}", strerror(errno));
   close(fd);
@@ -960,13 +961,6 @@ inline std::unique_ptr<Child> Subprocess::spawn()
   // Parent returns here, child continues to execve
   if ( pid > 0 )
   {
-    // Setup pipes for parent
-    if ( m_stream_mode == Stream::Pipe )
-    {
-      this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
-      logger("D::Parent pipes configured");
-    }
-
     // If daemon mode, wait for intermediate child to exit
     if ( m_daemon_mode )
     {
@@ -975,6 +969,12 @@ inline std::unique_ptr<Child> Subprocess::spawn()
       logger("D::Daemon mode: intermediate process exited");
       // Return a Child handle with -1 to indicate daemon (no process to track)
       return Child::create(-1, m_program);
+    }
+    // Setup pipes for parent
+    else if ( m_stream_mode == Stream::Pipe)
+    {
+      this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
+      logger("D::Parent pipes configured");
     }
 
     // Execute parent callback if provided
@@ -1026,25 +1026,18 @@ inline std::unique_ptr<Child> Subprocess::spawn()
     // Reset file mode creation mask
     umask(0);
   }
-
-  // Setup pipes for child or grandchild
-  // PID == 0 if child
-  // PID == 0 if grandchild (pid > 0 child _exits)
-  if ( m_stream_mode == Stream::Pipe )
+  // Setup pipes for child
+  else if ( m_stream_mode == Stream::Pipe )
   {
-    if(pid != 0)
-    {
-      logger("C::(Grand)child fork pid should be zero");
-      _exit(1);
-    }
     this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
-    logger("D::{} pipes configured", m_daemon_mode? "grandchild" : "child");
+    logger("D::child pipes configured", m_daemon_mode);
   }
   
   ns_log::set_level(m_log_level);
 
   // Handle stdio redirection based on mode
-  if ( m_stream_mode == Stream::Null )
+  // Daemon should not inherit the parent's IO
+  if (m_stream_mode == Stream::Null or m_daemon_mode)
   {
     this->to_dev_null();
   }
