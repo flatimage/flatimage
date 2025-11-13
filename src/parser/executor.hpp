@@ -276,6 +276,7 @@ using namespace ns_parser::ns_interface;
         , config.path_dir_host_config_tmp / "compression.list"
         , config.layer_compression_level
       ), "E::Failed to commit layer");
+      logger("I::Filesystem appended without errors");
     }
     else if(auto cmd_create = std::get_if<CmdLayer::Create>(&(cmd->sub_cmd)))
     {
@@ -284,6 +285,7 @@ using namespace ns_parser::ns_interface;
         , config.path_dir_host_config_tmp / "compression.list"
         , config.layer_compression_level
       ), "E::Failed to create layer");
+      logger("I::Filesystem created without errors");
     }
     else
     {
