@@ -9,6 +9,15 @@ from pathlib import Path
 import shutil
 
 class TestFimDesktop(unittest.TestCase):
+  """
+  Test suite for fim-desktop command and all its subcommands:
+  - setup: Configure desktop integration from JSON file
+  - enable: Enable specific desktop integration options
+  - clean: Remove desktop integration files
+  - dump: Export desktop integration data
+
+  Tests verify desktop entry creation, MIME type registration, and icon integration
+  """
 
   @classmethod
   def setUpClass(cls):
@@ -16,15 +25,14 @@ class TestFimDesktop(unittest.TestCase):
     cls.dir_image = Path(os.environ["DIR_IMAGE"])
     cls.dir_script = Path(__file__).resolve().parent
     cls.file_desktop = cls.dir_script / "desktop.json"
-    cls.home_host = os.environ["HOME"]
+    cls.path_dir_xdg = cls.dir_script /  "xdg_data_home"
 
   def setUp(self):
     shutil.copy(os.environ["FILE_IMAGE_SRC"], os.environ["FILE_IMAGE"])
 
   def tearDown(self):
     os.environ["FIM_DEBUG"] = "0"
-    os.environ["HOME"] = self.home_host
-    shutil.rmtree(self.dir_script / "home_tmp", ignore_errors=True)
+    shutil.rmtree(self.path_dir_xdg, ignore_errors=True)
     if self.file_desktop.exists():
       os.unlink(self.file_desktop)
     image_file = Path(self.file_image).parent / "temp.flatimage"
@@ -44,6 +52,7 @@ class TestFimDesktop(unittest.TestCase):
 
 
   def run_cmd(self, *args):
+    """Execute a command against the FlatImage binary"""
     result = subprocess.run(
       [self.file_image] + list(args),
       stdout=subprocess.PIPE,
@@ -53,6 +62,7 @@ class TestFimDesktop(unittest.TestCase):
     return (result.stdout.strip(), result.stderr.strip(), result.returncode)
 
   def run_cmd2(self, image, *args):
+    """Execute a command against a specific FlatImage binary"""
     result = subprocess.run(
       [image] + list(args),
       stdout=subprocess.PIPE,
@@ -63,6 +73,7 @@ class TestFimDesktop(unittest.TestCase):
 
   
   def make_json_setup(self, integrations, name, ext_icon='png'):
+    """Create a desktop integration JSON configuration file"""
     with open(self.file_desktop, "w") as file:
       file.write(
       """{""" "\n"
@@ -74,6 +85,7 @@ class TestFimDesktop(unittest.TestCase):
     )
 
   def check_mime_generic(self, name, path_dir_xdg, fun):
+    """Verify the generic FlatImage MIME type registration file"""
     path_file_mime_generic = path_dir_xdg / "mime" / "packages" / "flatimage.xml"
     fun(path_file_mime_generic.exists())
     if path_file_mime_generic.exists():
@@ -102,6 +114,7 @@ class TestFimDesktop(unittest.TestCase):
         self.assertEqual(expected, contents)
 
   def check_mime(self, name, path_dir_xdg, fun):
+    """Verify the application-specific MIME type registration file"""
     path_file_mime = path_dir_xdg / "mime" / "packages" / f"flatimage-{name}.xml"
     fun(path_file_mime.exists())
     if path_file_mime.exists():
@@ -121,6 +134,7 @@ class TestFimDesktop(unittest.TestCase):
         self.assertEqual(expected, contents)
 
   def check_icons(self, name, path_dir_xdg, ext, fun):
+    """Verify icon files are installed in appropriate directories"""
     if ext == 'png':
       for i in [16,22,24,32,48,64,96,128,256]:
         fun((path_dir_xdg / "icons" / "hicolor" / f"{i}x{i}" / "apps" / f"flatimage_{name}.png").exists())
@@ -128,6 +142,7 @@ class TestFimDesktop(unittest.TestCase):
       fun((path_dir_xdg / "icons" / "hicolor" / "scalable" / "apps" / f"flatimage_{name}.svg").exists())
 
   def check_entry(self, image, name, path_dir_xdg, fun):
+    """Verify the desktop entry file exists and has correct content"""
     path_dir_entry = path_dir_xdg / "applications" / f"flatimage-{name}.desktop"
     # Check if it exists or not
     fun(path_dir_entry.exists())
@@ -147,7 +162,12 @@ class TestFimDesktop(unittest.TestCase):
         contents = file.read()
         self.assertEqual(expected, contents)
 
+  # ===========================================================================
+  # fim-desktop setup Tests
+  # ===========================================================================
+
   def test_setup(self):
+    """Test setup command with valid and invalid configurations"""
     name = "MyApp"
     self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''', name)
     out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
@@ -171,6 +191,7 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(code, 125)
 
   def test_setup_cli(self):
+    """Test setup command CLI argument validation"""
     # Missing argument
     out,err,code = self.run_cmd("fim-desktop", "setup")
     self.assertEqual(out, "")
@@ -187,16 +208,17 @@ class TestFimDesktop(unittest.TestCase):
     self.assertIn("Failed to open file 'some-file.json' for desktop integration", err)
     self.assertEqual(code, 125)
 
-  def setup_alt_home(self):
-    path_dir_home = self.dir_script / "home_tmp"
-    path_dir_xdg = path_dir_home / ".local" / "share"
-    shutil.rmtree(path_dir_home, ignore_errors=True)
-    path_dir_home.mkdir(parents=True, exist_ok=False)
-    os.environ["HOME"] = str(path_dir_home)
-    return (path_dir_xdg, path_dir_home)
+  def setup_xdg_data_home(self):
+    """Set up temporary XDG_DATA_HOME directory for testing"""
+    path_dir_xdg = self.dir_script / "xdg_data_home"
+    shutil.rmtree(path_dir_xdg, ignore_errors=True)
+    path_dir_xdg.mkdir(parents=True, exist_ok=False)
+    os.environ["XDG_DATA_HOME"] = str(path_dir_xdg)
+    return path_dir_xdg
 
   def check_enabled_options(self, name, fchk1 ,fchk2, fchk3):
-    path_dir_xdg, path_dir_home = self.setup_alt_home()
+    """Verify which desktop integration options are enabled"""
+    path_dir_xdg = self.setup_xdg_data_home()
     out,err,code = self.run_cmd("fim-exec", "echo")
     self.assertEqual(out, "")
     self.assertEqual(err, "")
@@ -205,10 +227,15 @@ class TestFimDesktop(unittest.TestCase):
     self.check_mime_generic(name, path_dir_xdg, fchk1)
     self.check_icons(name, path_dir_xdg, "png", fchk2)
     self.check_entry(self.file_image, name, path_dir_xdg, fchk3)
-    shutil.rmtree(path_dir_home, ignore_errors=True)
-    path_dir_home.mkdir(parents=True, exist_ok=False)
+    shutil.rmtree(path_dir_xdg, ignore_errors=True)
+    path_dir_xdg.mkdir(parents=True, exist_ok=False)
  
+  # ===========================================================================
+  # fim-desktop enable Tests
+  # ===========================================================================
+
   def test_enable(self):
+    """Test enabling desktop integration options via command line"""
     # Setup integration
     name = "MyApp"
     self.make_json_setup("", name)
@@ -259,6 +286,7 @@ class TestFimDesktop(unittest.TestCase):
     self.check_enabled_options(name, self.assertFalse, self.assertFalse, self.assertFalse)
 
   def test_enable_json(self):
+    """Test enabling desktop integration options via JSON configuration"""
     name = "MyApp"
     # Mimetype
     self.make_json_setup('''"MIMETYPE"''', name)
@@ -342,6 +370,7 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(code, 125)
 
   def test_enable_cli(self):
+    """Test enable command CLI argument validation"""
     # Missing arguments
     out,err,code = self.run_cmd("fim-desktop", "enable")
     self.assertEqual(out, "")
@@ -363,9 +392,14 @@ class TestFimDesktop(unittest.TestCase):
     self.assertIn("Invalid integration item", err)
     self.assertEqual(code, 125)
 
+  # ===========================================================================
+  # Desktop Integration Path and State Tests
+  # ===========================================================================
+
   def test_path_change(self):
+    """Test that desktop integration updates when binary path changes"""
     name = "MyApp"
-    path_dir_xdg, _ = self.setup_alt_home()
+    path_dir_xdg = self.setup_xdg_data_home()
     # Setup integration
     self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
     os.environ["FIM_DEBUG"] = "1"
@@ -388,13 +422,13 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(code, 0)
     # First run integrates mime database
     out,err,code = self.run_cmd("fim-exec", "echo")
-    self.assertIn("Updating mime database...", out)
-    self.assertNotIn("Updating mime database...", err)
+    self.assertIn("Updating mime database", out)
+    self.assertNotIn("Updating mime database", err)
     self.assertEqual(code, 0)
     # Second run detects it is already integrated
     out,err,code = self.run_cmd("fim-exec", "echo")
-    self.assertIn("Skipping mime database update...", out)
-    self.assertNotIn("Skipping mime database update...", err)
+    self.assertIn("Skipping mime database update", out)
+    self.assertNotIn("Skipping mime database update", err)
     self.assertEqual(code, 0)
     # Check if entry has correct binary path
     self.check_entry(self.file_image, name, path_dir_xdg, self.assertTrue)
@@ -404,18 +438,23 @@ class TestFimDesktop(unittest.TestCase):
     os.chmod(file_image, 0o755)
     # Run again
     out,err,code = self.run_cmd2(file_image, "fim-exec", "echo")
-    self.assertIn("Updating mime database...", out)
-    self.assertNotIn("Updating mime database...", err)
+    self.assertIn("Updating mime database", out)
+    self.assertNotIn("Updating mime database", err)
     self.assertEqual(code, 0)
     self.check_entry(file_image, name, path_dir_xdg, self.assertTrue)
     out,err,code = self.run_cmd2(file_image, "fim-exec", "echo")
-    self.assertIn("Skipping mime database update...", out)
-    self.assertNotIn("Skipping mime database update...", err)
+    self.assertIn("Skipping mime database update", out)
+    self.assertNotIn("Skipping mime database update", err)
     self.assertEqual(code, 0)
 
+  # ===========================================================================
+  # Edge Cases and Error Handling
+  # ===========================================================================
+
   def test_name_with_spaces(self):
+    """Test desktop integration with application name containing spaces"""
     name = "My App"
-    _ = self.setup_alt_home()
+    _ = self.setup_xdg_data_home()
     # Setup integration
     self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
     out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
@@ -440,8 +479,9 @@ class TestFimDesktop(unittest.TestCase):
     self.check_enabled_options(name, self.assertTrue, self.assertTrue, self.assertTrue)
 
   def test_name_with_slash(self):
+    """Test desktop integration with invalid application name containing slash"""
     name = "My/App"
-    _ = self.setup_alt_home()
+    _ = self.setup_xdg_data_home()
     # Setup integration
     self.make_json_setup(r'''"ENTRY","MIMETYPE","ICON"''', name)
     out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
@@ -449,7 +489,12 @@ class TestFimDesktop(unittest.TestCase):
     self.assertIn("Application name cannot contain the '/' character", err)
     self.assertEqual(code, 125)
 
+  # ===========================================================================
+  # fim-desktop clean Tests
+  # ===========================================================================
+
   def test_clean(self):
+    """Test cleaning desktop integration files for PNG and SVG icons"""
     def clean(ext_icon):
       # Clean without setup
       out,err,code = self.run_cmd("fim-desktop", "clean")
@@ -458,7 +503,7 @@ class TestFimDesktop(unittest.TestCase):
       self.assertEqual(code, 125)
       # Setup integration
       name = "MyApp"
-      path_dir_xdg, _ = self.setup_alt_home()
+      path_dir_xdg = self.setup_xdg_data_home()
       self.make_json_setup(r'''"ICON","MIMETYPE","ENTRY"''', name, ext_icon)
       out,err,code = self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
       self.assertEqual(out,
@@ -487,30 +532,30 @@ class TestFimDesktop(unittest.TestCase):
       self.check_entry(self.file_image, name, path_dir_xdg, self.assertTrue)
       self.check_icons(name, path_dir_xdg, ext_icon, self.assertTrue)
       out,err,code = self.run_cmd("fim-desktop", "clean")
-      self.assertIn("""home_tmp/.local/share/applications/flatimage-MyApp.desktop'""", out)
-      self.assertIn("""home_tmp/.local/share/mime/packages/flatimage-MyApp.xml'""", out)
-      self.assertIn("""Updating mime database...""", out)
+      self.assertIn("""xdg_data_home/applications/flatimage-MyApp.desktop'""", out)
+      self.assertIn("""xdg_data_home/mime/packages/flatimage-MyApp.xml'""", out)
+      self.assertIn("""Updating mime database""", out)
       if ext_icon == 'png':
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/16x16/mimetypes/application-flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/16x16/apps/flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/22x22/mimetypes/application-flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/22x22/apps/flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/24x24/mimetypes/application-flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/24x24/apps/flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/32x32/mimetypes/application-flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/32x32/apps/flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/48x48/mimetypes/application-flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/48x48/apps/flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/64x64/mimetypes/application-flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/64x64/apps/flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/96x96/mimetypes/application-flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/96x96/apps/flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/128x128/mimetypes/application-flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/128x128/apps/flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/256x256/mimetypes/application-flatimage_MyApp.png'""", out)
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/256x256/apps/flatimage_MyApp.png""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/16x16/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/16x16/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/22x22/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/22x22/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/24x24/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/24x24/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/32x32/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/32x32/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/48x48/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/48x48/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/64x64/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/64x64/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/96x96/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/96x96/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/128x128/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/128x128/apps/flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/256x256/mimetypes/application-flatimage_MyApp.png'""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/256x256/apps/flatimage_MyApp.png""", out)
       else:
-        self.assertIn("""home_tmp/.local/share/icons/hicolor/scalable/apps/flatimage_MyApp.svg""", out)
+        self.assertIn("""xdg_data_home/icons/hicolor/scalable/apps/flatimage_MyApp.svg""", out)
       self.assertEqual(err, "")
       self.assertEqual(code, 0)
       # All removed
@@ -526,8 +571,13 @@ class TestFimDesktop(unittest.TestCase):
     clean('png')
     clean('svg')
 
+  # ===========================================================================
+  # fim-desktop dump Tests
+  # ===========================================================================
+
   def test_dump_nosetup(self):
-    self.setup_alt_home()
+    """Test dump command when desktop integration is not set up"""
+    self.setup_xdg_data_home()
     out,err,code = self.run_cmd("fim-desktop", "dump", "entry")
     self.assertEqual(out, "")
     self.assertIn("Empty json data", err)
@@ -542,13 +592,14 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(code, 125)
 
   def test_dump_icon(self):
+    """Test dumping icon data to PNG and SVG files"""
     def dump_icon(ext_icon):
       name = "MyApp"
       # Setup desktop integration
       self.make_json_setup(r'''"ICON"''', name, ext_icon)
       self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
       # Dump icon
-      self.setup_alt_home()
+      self.setup_xdg_data_home()
       file_icon = self.dir_script / f"out.{ext_icon}"
       out,err,code = self.run_cmd("fim-desktop", "dump", "icon", str(file_icon))
       self.assertEqual(out, "")
@@ -595,8 +646,9 @@ class TestFimDesktop(unittest.TestCase):
     dump_icon('svg')
 
   def test_dump_entry(self):
+    """Test dumping desktop entry data"""
     name = "MyApp"
-    self.setup_alt_home()
+    self.setup_xdg_data_home()
     # Setup desktop integration
     self.make_json_setup(r'''"ENTRY"''', name)
     self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
@@ -626,13 +678,14 @@ class TestFimDesktop(unittest.TestCase):
     self.assertEqual(code, 0)
 
   def test_dump_mimetype(self):
+    """Test dumping MIME type data"""
     self.maxDiff = None
     name = "MyApp"
     # Setup desktop integration
     self.make_json_setup(r'''"MIMETYPE"''', name)
     self.run_cmd("fim-desktop", "setup", str(self.file_desktop))
     # Dump mime type
-    self.setup_alt_home()
+    self.setup_xdg_data_home()
     out,err,code = self.run_cmd("fim-desktop", "dump", "mimetype")
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
