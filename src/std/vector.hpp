@@ -2,7 +2,7 @@
  * @file vector.hpp
  * @author Ruan Formigoni
  * @brief Vector helpers
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -34,21 +34,38 @@ inline void append_range(R1& to, R2 const& from) noexcept
 
 /**
  * @brief Helper to push back multiple elements into an input iterator
- * 
+ *
  * @tparam R An iterable type
  * @tparam Args Type of the arguments to push back
  * @param r The range to push elements into
  * @param args The arguments to push into the range
  */
 template<ns_concept::IterableConst R, typename... Args>
+requires ( std::convertible_to<Args, typename R::value_type> && ... )
 inline void push_back(R& r, Args&&... args) noexcept
 {
   ( r.push_back(std::forward<Args>(args)), ... );
 }
 
 /**
+ * @brief Helper to prepend multiple elements to the front of a container
+ *
+ * @tparam R An iterable type
+ * @tparam Args Type of the arguments to prepend
+ * @param r The container to prepend elements into
+ * @param args The arguments to prepend to the container
+ */
+template<ns_concept::IterableConst R, typename... Args>
+requires ( std::convertible_to<Args, typename R::value_type> && ... )
+inline void push_front(R& r, Args&&... args) noexcept
+{
+  auto it = r.begin();
+  ( (it = r.insert(it, std::forward<Args>(args)), ++it), ... );
+}
+
+/**
  * @brief Creates a range from a string
- * 
+ *
  * @tparam R A container type, defaults to std::vector<std::string>
  * @param t The string representable value to convert into a container
  * @param delimiter The delimiter to split elements in the string
