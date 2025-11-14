@@ -2,17 +2,17 @@
  * @file expected.hpp
  * @author Ruan Formigoni
  * @brief Enhanced error handling framework built on std::expected
- * 
+ *
  * This module provides a sophisticated error handling system that extends C++23's
  * std::expected with integrated logging capabilities, convenient macros for error
  * propagation, and utilities for exception handling.
- * 
+ *
  * Key Components:
  * - Value<T,E>: Enhanced std::expected with logging
  * - Pop macro: Unwrap-or-return with logging
  * - Try/Catch macros: Exception-to-expected conversion
  * - Error macro: Create unexpected values with logging
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -28,14 +28,14 @@
 
 /**
  * @brief Enhanced expected type with integrated logging capabilities
- * 
+ *
  * Value extends std::expected to provide automatic error logging and convenient
  * error handling methods. It maintains full compatibility with std::expected
  * while adding FlatImage-specific functionality.
- * 
+ *
  * @tparam T The expected value type (can be void)
  * @tparam E The error type (defaults to std::string)
- * 
+ *
  * @note Inherits all std::expected constructors and methods
  * @see std::expected
  */
@@ -43,18 +43,18 @@ template<typename T, typename E = std::string>
 struct Value : std::expected<T, E>
 {
   using std::expected<T, E>::expected;
-  
+
 private:
   /**
    * @brief Log level prefixes for error messages
-   * 
+   *
    * Maps to: Debug, Info, Warning, Error, Critical
    */
   constexpr static std::array<const char[6], 5> const m_prefix{"D::{}", "I::{}", "W::{}", "E::{}", "C::{}"};
 
   /**
    * @brief Select appropriate log prefix based on format string
-   * 
+   *
    * @tparam fmt Format string starting with log level indicator
    * @return Index into m_prefix array (0-4)
    */
@@ -68,19 +68,19 @@ private:
       : sv.starts_with("E")? 3
       : 4;
   }
-  
+
 public:
   /**
    * @brief Log error and discard it if present
-   * 
+   *
    * If this Value contains an error, logs it at the specified level
    * along with any additional context, then continues execution.
-   * 
+   *
    * @tparam fmt Format string with log level prefix (D::, I::, W::, E::, C::)
    * @tparam Args Types of additional format arguments
    * @param loc Source location for logging
    * @param args Additional arguments for the format string
-   * 
+   *
    * @note Used internally by the discard() macro
    */
   template<ns_string::static_string fmt = "Q::", typename... Args>
@@ -95,16 +95,16 @@ public:
 
   /**
    * @brief Forward error with logging or return value
-   * 
+   *
    * If this Value contains an error, logs it and returns a new Value
    * with the same error. Otherwise, returns a Value with the contained value.
-   * 
+   *
    * @tparam fmt Format string with log level prefix
    * @tparam Args Types of additional format arguments
    * @param loc Source location for logging
    * @param args Additional arguments for the format string
    * @return Value<T,E> Forwarded Value with same state
-   * 
+   *
    * @note Used internally by the forward() macro
    */
   template<ns_string::static_string fmt = "Q::", typename... Args>
@@ -118,13 +118,13 @@ public:
     }
     return Value<T,E>(std::move(this->value()));
   }
-  
+
   /**
    * @brief Get value or default-constructed T
-   * 
+   *
    * @return T The contained value if present, otherwise T{}
    * @requires T must be default constructible
-   * 
+   *
    * @example
    * @code
    * Value<int> result = get_value();
@@ -158,25 +158,25 @@ constexpr auto __expected_fn = [](auto&& e) { return e; };
 
 /**
  * @brief Unwrap Value or return with error logging
- * 
+ *
  * This macro evaluates an expression returning a Value/expected type.
  * If it contains a value, extracts and returns it. If it contains an
  * error, logs the error and returns from the current function with
  * an unexpected containing the error.
- * 
+ *
  * @param expr Expression returning Value<T> or std::expected<T,E>
  * @param ... Optional additional log message and arguments
- * 
+ *
  * @example
  * @code
  * Value<int> get_value();
- * 
+ *
  * Value<void> process() {
  *   int val = Pop(get_value());  // Returns on error
  *   // val is guaranteed valid here
  *   return {};
  * }
- * 
+ *
  * // With additional context:
  * int val2 = Pop(get_value(), "Failed to get value for processing");
  * @endcode
@@ -195,10 +195,10 @@ constexpr auto __expected_fn = [](auto&& e) { return e; };
 
 /**
  * @brief Discard error with logging
- * 
+ *
  * @param fmt Format string with log level prefix (e.g., "E::Error occurred")
  * @param ... Additional format arguments
- * 
+ *
  * @example
  * @code
  * get_value().discard("W::Value not available");
@@ -208,11 +208,11 @@ constexpr auto __expected_fn = [](auto&& e) { return e; };
 
 /**
  * @brief Forward error with additional context
- * 
+ *
  * @param fmt Format string with log level prefix
  * @param ... Additional format arguments
  * @return The same Value with logged context
- * 
+ *
  * @example
  * @code
  * return get_value().forward("E::Failed in processing step");
@@ -223,18 +223,18 @@ constexpr auto __expected_fn = [](auto&& e) { return e; };
 
 /**
  * @brief Convert exceptions to Value errors
- * 
+ *
  * Executes a callable and catches any exceptions, converting them
  * to Value errors with appropriate logging.
- * 
+ *
  * @tparam Fn Callable type
  * @param f Function to execute with exception handling
  * @return Value containing result or error message
- * 
+ *
  * @internal Used by Try and Catch macros
  */
 template<typename Fn>
-auto __except_impl(Fn&& f) -> Value<std::invoke_result_t<Fn>>
+auto __except_impl(ns_log::Location const& loc, Fn&& f) -> Value<std::invoke_result_t<Fn>>
 {
   try
   {
@@ -250,61 +250,61 @@ auto __except_impl(Fn&& f) -> Value<std::invoke_result_t<Fn>>
   }
   catch (std::exception const& e)
   {
-    logger("E::Exception was thrown", e.what());
+    logger_loc(loc, "E::{}::Exception was thrown", e.what());
     return std::unexpected(e.what());
   }
   catch (...)
   {
-    logger("E::Unknown exception was thrown");
+    logger_loc(loc, "E::{}::Unknown exception was thrown");
     return std::unexpected("Unknown exception was thrown");
   }
 }
 
 /**
  * @brief Execute expression with exception handling and unwrapping
- * 
+ *
  * Wraps expression in exception handler, converts exceptions to errors,
  * then unwraps the result (returning on error).
- * 
+ *
  * @param expr Expression that might throw
  * @param ... Optional additional error context
- * 
+ *
  * @example
  * @code
  * auto result = Try(risky_operation());
  * // Exceptions become errors, errors cause return
  * @endcode
  */
-#define Try(expr,...) Pop(__except_impl([&]{ return (expr); }), __VA_ARGS__)
+#define Try(expr,...) Pop(__except_impl(::ns_log::Location(), [&]{ return (expr); }), __VA_ARGS__)
 
 /**
  * @brief Execute expression with exception handling
- * 
+ *
  * Like Try but doesn't unwrap - returns Value<T> directly
- * 
+ *
  * @param expr Expression that might throw
  * @return Value<T> containing result or error
- * 
+ *
  * @example
  * @code
  * auto result = Catch(might_throw());
  * if (!result)  handle error
  * @endcode
  */
-#define Catch(expr) (__except_impl([&]{ return (expr); }))
+#define Catch(expr) (__except_impl(::ns_log::Location(), [&]{ return (expr); }))
 
 
 /**
  * @brief Create an unexpected error with logging
- * 
+ *
  * Creates a std::unexpected value while simultaneously logging the error.
  * The format string should start with a 3-character log level prefix
  * (e.g., "E::") which is stripped from the error message but used for logging.
- * 
+ *
  * @param fmt Format string starting with log level prefix
  * @param ... Format arguments
  * @return std::unexpected containing formatted error message
- * 
+ *
  * @example
  * @code
  * Value<int> divide(int a, int b) {
