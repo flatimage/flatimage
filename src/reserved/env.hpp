@@ -2,7 +2,7 @@
  * @file environment.hpp
  * @author Ruan Formigoni
  * @brief Manages the environment reserved space
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -42,13 +42,13 @@ inline Value<void> write(fs::path const& path_file_binary, std::string_view cons
     , FIM_RESERVED_OFFSET_ENVIRONMENT_END
     , json.data()
     , json.size()
-  ));
+  ), "E::Failed to write data to {}", path_file_binary);
   return {};
 }
 
 /**
  * @brief Reads the environment json string from the target binary
- * 
+ *
  * @param path_file_binary Target binary to write the json string
  * @return On success it returns the read data, or the respective error message
  */
@@ -57,7 +57,9 @@ inline Value<std::string> read(fs::path const& path_file_binary)
   uint64_t offset_begin = ns_reserved::FIM_RESERVED_OFFSET_ENVIRONMENT_BEGIN;
   uint64_t size = ns_reserved::FIM_RESERVED_OFFSET_ENVIRONMENT_END - offset_begin;
   auto buffer = std::make_unique<char[]>(size);
-  Pop(ns_reserved::read(path_file_binary, offset_begin, buffer.get(), size));
+  Pop(ns_reserved::read(path_file_binary, offset_begin, buffer.get(), size)
+    , "E::Failed to read binary data from {}", path_file_binary
+  );
   return buffer.get();
 }
 
