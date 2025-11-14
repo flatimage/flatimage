@@ -20,20 +20,70 @@ namespace ns_db::ns_bind
 {
 
 ENUM(Type, RO, RW, DEV);
+
 /**
- * @brief A binding from the host to the guest
+ * @struct Bind
+ * @brief Represents a single bind mount from host to guest
+ * 
+ * A Bind contains the configuration for mounting a host filesystem path into
+ * the sandbox. It specifies the source path on the host, the destination path
+ * inside the sandbox, the access type (read-only, read-write, or device), and
+ * an index for ordering within the bind mount collection.
  */
 struct Bind
 {
+  /**
+   * @brief Sequential index of this bind mount in the collection
+   * 
+   * Used for ordering and identification of bind mounts. Automatically
+   * maintained by the Binds container to ensure consistency.
+   */
   size_t index;
+  
+  /**
+   * @brief Source path on the host system
+   * 
+   * The filesystem path that will be mounted into the sandbox. Can be
+   * a directory, file, device, or any accessible path.
+   */
   fs::path path_src;
+  
+  /**
+   * @brief Destination path inside the sandbox
+   * 
+   * The mount point where the source will be accessible within the
+   * sandboxed environment.
+   */
   fs::path path_dst;
+  
+  /**
+   * @brief Access type for this bind mount
+   * 
+   * Determines whether the path is mounted read-only (RO), read-write (RW),
+   * or as a device (DEV). Controls the permissions available to the sandboxed
+   * application for this mount.
+   */
   Type type;
 };
 
+/**
+ * @struct Binds
+ * @brief Container for multiple bind mount configurations
+ * 
+ * Manages a collection of Bind entries representing all bind mounts configured
+ * for a sandboxed application. Provides methods for adding, removing, and
+ * querying bind mounts. Supports serialization to and deserialization from JSON.
+ * Maintains index consistency automatically when entries are added or removed.
+ */
 struct Binds
 {
   private:
+    /**
+     * @brief Internal vector storing all bind mount configurations
+     * 
+     * Holds the actual Bind entries in order. Access is provided through
+     * public methods to maintain invariants such as index consistency.
+     */
     std::vector<Bind> m_binds;
   public:
     Binds() = default;
@@ -45,9 +95,13 @@ struct Binds
 };
 
 /**
- * @brief Get current bindings
+ * @brief Retrieves the current list of bind mounts
+ *
+ * Returns a const reference to the internal vector containing all configured
+ * bind mount entries. Does not create a copy; callers receive direct read-only
+ * access to the underlying storage.
  * 
- * @return The vector of bindings
+ * @return std::vector<Bind> const& Const reference to the vector of bind mounts
  */
 [[nodiscard]] inline std::vector<Bind> const& Binds::get() const
 {
@@ -55,9 +109,14 @@ struct Binds
 }
 
 /**
- * @brief Pushes a novel binding into the binding vector
+ * @brief Appends a new bind mount to the collection
+ *
+ * Adds the provided bind mount configuration to the internal vector. The bind
+ * mount will be appended to the end of the list, maintaining insertion order.
+ * No validation is performed; the caller is responsible for ensuring the bind
+ * configuration is valid.
  * 
- * @param index The index of the binding to erase
+ * @param bind The bind mount configuration to add to the collection
  */
 inline void Binds::push_back(Bind const& bind)
 {
@@ -65,9 +124,14 @@ inline void Binds::push_back(Bind const& bind)
 }
 
 /**
- * @brief Erases a binding at the given index
+ * @brief Removes a bind mount by its index
+ *
+ * Searches for and removes the bind mount with the specified index from the internal
+ * vector. After removal, reindexes all remaining bind mounts sequentially starting
+ * from 0 to maintain consistent indexing. Logs whether the element was found and
+ * removed or if no element with the given index existed.
  * 
- * @param index The index of the binding to erase
+ * @param index The zero-based index of the bind mount to remove
  */
 inline void Binds::erase(size_t index)
 {
@@ -83,9 +147,12 @@ inline void Binds::erase(size_t index)
 }
 
 /**
- * @brief Checks if the bindings are empty
+ * @brief Checks whether the bind mount collection is empty
+ *
+ * Tests if the internal vector contains any bind mount entries. Returns true
+ * if no bindings are currently configured, false otherwise.
  * 
- * @return The boolean result
+ * @return bool True if no bind mounts are present, false otherwise
  */
 inline bool Binds::empty() const noexcept
 {
@@ -93,10 +160,17 @@ inline bool Binds::empty() const noexcept
 }
 
 /**
- * @brief Factory method that creates a `Binds` object from a json database
+ * @brief Deserializes JSON string into a Binds object
+ *
+ * Parses a JSON string containing bind mount configurations and constructs a Binds
+ * object. Each JSON entry should have "src", "dst", and "type" fields. The type field
+ * must be "ro" (read-only), "rw" (read-write), or "dev" (device). Entries with invalid
+ * indices are logged as warnings and skipped. Successfully parsed entries are added
+ * to the Binds collection with their respective indices, source paths, destination
+ * paths, and access types.
  * 
- * @param raw_json The json string
- * @return The `Binds` class or the respective error
+ * @param raw_json The JSON string containing bind mount configurations
+ * @return Value<Binds> The deserialized Binds object on success, or error on parse failure
  */
 [[nodiscard]] inline Value<Binds> deserialize(std::string_view raw_json)
 {
@@ -130,10 +204,15 @@ inline bool Binds::empty() const noexcept
 }
 
 /**
- * @brief Deserialize a json file into the `Binds` class
+ * @brief Deserializes JSON from an input stream into a Binds object
+ *
+ * Reads the entire contents of the input file stream into a string buffer and
+ * delegates to the string_view overload of deserialize() for parsing. This
+ * provides a convenient interface for reading bind configurations directly
+ * from file streams without manual buffer management.
  * 
- * @param stream_raw_json The stream which contains the json data 
- * @return The `Binds` class or the respective error
+ * @param stream_raw_json Input file stream containing JSON bind mount data
+ * @return Value<Binds> The deserialized Binds object on success, or error on read/parse failure
  */
 [[nodiscard]] inline Value<Binds> deserialize(std::ifstream& stream_raw_json) noexcept
 {
@@ -143,10 +222,15 @@ inline bool Binds::empty() const noexcept
 }
 
 /**
- * @brief Serialize a `Binds` object into a json database
+ * @brief Serializes a Binds object into a JSON database
+ *
+ * Converts the Binds collection into a structured Db (JSON) object. Each bind mount
+ * is stored as a numbered entry with its index as the key. Each entry contains three
+ * fields: "src" (source path), "dst" (destination path), and "type" (access mode as
+ * "ro", "rw", or "dev"). The resulting Db can be dumped to a string or written to a file.
  * 
- * @param binds The bindings which to serialize
- * @return The json database or the respective error
+ * @param binds The Binds object containing bind mount configurations to serialize
+ * @return Value<Db> The JSON database representation on success, or error on failure
  */
 [[nodiscard]] inline Value<Db> serialize(Binds const& binds) noexcept
 {
