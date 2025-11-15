@@ -213,7 +213,7 @@ void fork_handler_child()
 
 /**
  * @brief Construct a new Logger:: Logger object
- * 
+ *
  */
 inline Logger::Logger()
   : m_sink("/dev/null")
@@ -230,8 +230,8 @@ inline Logger::Logger()
 
 /**
  * @brief Sets the sink file of the logger
- * 
- * @param path_file_sink The path to the logger sink file 
+ *
+ * @param path_file_sink The path to the logger sink file
  */
 inline void Logger::set_sink_file(fs::path const& path_file_sink)
 {
@@ -242,7 +242,7 @@ inline void Logger::set_sink_file(fs::path const& path_file_sink)
   }
   // File output stream
   m_sink = std::ofstream(path_file_sink, std::ios::out | std::ios::trunc);
-  // Check if file was opened successfully  
+  // Check if file was opened successfully
   if(not m_sink.is_open())
   {
     std::println("E::Could not open file '{}'", path_file_sink.string());
@@ -251,7 +251,7 @@ inline void Logger::set_sink_file(fs::path const& path_file_sink)
 
 /**
  * @brief Gets the sink file of the logger
- * 
+ *
  * @return std::ofstream& The reference to the sink file
  */
 inline std::ofstream& Logger::get_sink_file()
@@ -272,7 +272,7 @@ inline void Logger::flush()
 
 /**
  * @brief Sets the logging verbosity (CRITICAL,ERROR,INFO,DEBUG)
- * 
+ *
  * @param level Enumeration of the verbosity level
  */
 inline void Logger::set_level(Level level)
@@ -321,7 +321,7 @@ inline void Logger::set_as_fork()
 
 /**
  * @brief Sets the logging verbosity (CRITICAL,ERROR,INFO,DEBUG)
- * 
+ *
  * @param level Enumeration of the verbosity level
  */
 inline void set_level(Level level)
@@ -331,8 +331,8 @@ inline void set_level(Level level)
 
 /**
  * @brief Get current verbosity level of the logger
- * 
- * @return Level 
+ *
+ * @return Level
  */
 inline Level get_level()
 {
@@ -468,7 +468,7 @@ class Writer
      * @param args The format arguments
      */
     template<ns_concept::StringRepresentable T, typename... Args>
-    requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::IterableConst<Args> ) and ... )
+    requires ( ( ns_concept::StringRepresentable<Args> or ns_concept::Iterable<Args> ) and ... )
     void operator()(T&& format, Args&&... args)
     {
       // Get current PID to detect if this is a forked child process
@@ -642,7 +642,7 @@ class critical : public Writer
  * // Quiet logging (discarded)
  * logger("Q::This message will never appear");
  *
- * // With containers (requires IterableConst concept)
+ * // With containers (requires Iterable concept)
  * std::vector<int> vec = {1, 2, 3};
  * logger("I::Vector contents: {}", vec);
  * @endcode

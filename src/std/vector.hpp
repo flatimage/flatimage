@@ -26,7 +26,7 @@ namespace ns_vector
  * @param to The target to push elements into
  * @param from The source to read elements from
  */
-template<ns_concept::IterableConst R1, ns_concept::IterableConst R2>
+template<ns_concept::Iterable R1, ns_concept::Iterable R2>
 inline void append_range(R1& to, R2 const& from) noexcept
 {
   std::ranges::for_each(from, [&](auto&& e){ to.push_back(e); });
@@ -40,7 +40,7 @@ inline void append_range(R1& to, R2 const& from) noexcept
  * @param r The range to push elements into
  * @param args The arguments to push into the range
  */
-template<ns_concept::IterableConst R, typename... Args>
+template<ns_concept::Iterable R, typename... Args>
 requires ( std::convertible_to<Args, typename R::value_type> && ... )
 inline void push_back(R& r, Args&&... args) noexcept
 {
@@ -55,7 +55,7 @@ inline void push_back(R& r, Args&&... args) noexcept
  * @param r The container to prepend elements into
  * @param args The arguments to prepend to the container
  */
-template<ns_concept::IterableConst R, typename... Args>
+template<ns_concept::Iterable R, typename... Args>
 requires ( std::convertible_to<Args, typename R::value_type> && ... )
 inline void push_front(R& r, Args&&... args) noexcept
 {

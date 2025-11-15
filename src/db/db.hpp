@@ -231,7 +231,7 @@ Value<V> Db::value() noexcept
   {
     return Db{json};
   }
-  else if constexpr ( ns_concept::IsVector<V> and ns_concept::SameAs<typename V::value_type, std::string>)
+  else if constexpr ( ns_concept::IsVector<V> and ns_concept::Uniform<typename V::value_type, std::string>)
   {
     return_if(not json.is_array(), Error("D::Tried to create array with non-array entry"));
     return_if(std::any_of(json.begin(), json.end(), [](auto&& e){ return not e.is_string(); })

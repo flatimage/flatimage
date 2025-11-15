@@ -2,7 +2,7 @@
  * @file string.hpp
  * @author Ruan Formigoni
  * @brief String helpers
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -57,7 +57,7 @@ struct static_string
 
 /**
  * @brief Converts a type to a string
- * 
+ *
  * @tparam T A string representable type
  * @param t The value to convert to a string
  * @return std::string The type string representation
@@ -76,21 +76,21 @@ template<typename T>
   else if constexpr ( ns_concept::Numeric<T> )
   {
     return std::to_string(t);
-  } // else if 
+  } // else if
   else if constexpr ( ns_concept::StreamInsertable<T> )
   {
     std::stringstream ss;
     ss << t;
     return ss.str();
-  } // else if 
-  else if constexpr ( ns_concept::IterableConst<T> )
+  } // else if
+  else if constexpr ( ns_concept::Iterable<T> )
   {
     std::stringstream ss;
     ss << '[';
     std::for_each(t.cbegin(), t.cend(), [&](auto&& e){ ss << std::format("'{}',", e); });
     ss << ']';
     return ss.str();
-  } // else if 
+  } // else if
   else
   {
     static_assert(false, "Cannot convert type to string");
@@ -99,7 +99,7 @@ template<typename T>
 
 /**
  * @brief Converts a container into a string if it has string convertible elements
- * 
+ *
  * @tparam T A container type
  * @param t The container to convert to a string
  * @param sep The separator to use between elements of the container

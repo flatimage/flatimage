@@ -381,11 +381,11 @@ Subprocess& Subprocess::with_args(Args&&... args)
   // Helper lambda to add a single argument
   auto add_arg = [this]<typename T>(T&& arg) -> void
   {
-    if constexpr ( ns_concept::SameAs<std::remove_cvref_t<T>, std::string> )
+    if constexpr ( ns_concept::Uniform<T, std::string> )
     {
       this->m_args.push_back(std::forward<T>(arg));
     }
-    else if constexpr ( ns_concept::IterableConst<T> )
+    else if constexpr ( ns_concept::Container<T> )
     {
       std::copy(arg.begin(), arg.end(), std::back_inserter(m_args));
     }
@@ -452,12 +452,12 @@ Subprocess& Subprocess::with_env(Args&&... args)
   // Helper lambda to add a single env entry or container
   auto add_env = [this, &f_erase_existing]<typename T>(T&& arg) -> void
   {
-    if constexpr ( ns_concept::SameAs<std::remove_cvref_t<T>, std::string> )
+    if constexpr ( ns_concept::Uniform<std::remove_cvref_t<T>, std::string> )
     {
       f_erase_existing(std::vector<std::string>{arg});
       this->m_env.push_back(std::forward<T>(arg));
     }
-    else if constexpr ( ns_concept::IterableConst<T> )
+    else if constexpr ( ns_concept::Iterable<T> )
     {
       f_erase_existing(arg);
       std::ranges::copy(arg, std::back_inserter(m_env));
@@ -854,7 +854,7 @@ inline Subprocess& Subprocess::with_callback_parent(F&& f)
 
 /**
  * @brief Enable daemon mode using double fork pattern
- * 
+ *
  * When enabled, the spawn() method will perform a double fork:
  * 1. First fork creates intermediate child
  * 2. Intermediate child forks to create grandchild (daemon)
@@ -863,11 +863,11 @@ inline Subprocess& Subprocess::with_callback_parent(F&& f)
  * 5. Grandchild becomes orphaned, adopted by init
  * 6. Grandchild calls setsid() to become session leader
  * 7. Grandchild continues with execve
- * 
+ *
  * This detaches the process from the terminal and parent process.
- * 
+ *
  * @return Reference to this Subprocess for method chaining
- * 
+ *
  * @code
  * Subprocess proc("/usr/bin/my-daemon");
  * auto child = proc.with_args("--config", "/etc/config")
@@ -1032,7 +1032,7 @@ inline std::unique_ptr<Child> Subprocess::spawn()
     this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
     logger("D::child pipes configured", m_daemon_mode);
   }
-  
+
   ns_log::set_level(m_log_level);
 
   // Handle stdio redirection based on mode
