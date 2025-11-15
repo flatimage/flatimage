@@ -393,7 +393,7 @@ namespace fs = std::filesystem;
  * @param desktop Desktop object
  * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] inline Value<void> integrate_icons(ns_config::FlatimageConfig const& config, ns_db::ns_desktop::Desktop const& desktop)
+[[nodiscard]] inline Value<void> integrate_icons(ns_config::FlatImage const& fim, ns_db::ns_desktop::Desktop const& desktop)
 {
   std::error_code ec;
   // Try to get a valid icon path to a png or svg file
@@ -410,9 +410,9 @@ namespace fs = std::filesystem;
   }
   return_if(ec, Error("E::Could not check if icon exists: {}", ec.message()));
   // Read picture from flatimage binary
-  ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(config.path_file_binary));
+  ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(fim.path.bin.self));
   // Create temporary file to write icon to
-  auto path_file_tmp_icon = config.path_dir_app / std::format("icon.{}", icon.m_ext);
+  auto path_file_tmp_icon = fim.path.dir.app / std::format("icon.{}", icon.m_ext);
   // Write icon to temporary file
   std::ofstream file_icon(path_file_tmp_icon, std::ios::out | std::ios::trunc);
   return_if(not file_icon.is_open(), Error("E::Could not open temporary icon file for desktop integration"));
@@ -442,10 +442,10 @@ namespace fs = std::filesystem;
  * @param config Flatimage configuration object
  * @return Value<void> Nothing or success, or the respective error
  */
-[[nodiscard]] inline Value<void> integrate(ns_config::FlatimageConfig const& config)
+[[nodiscard]] inline Value<void> integrate(ns_config::FlatImage const& fim)
 {
   // Deserialize json from binary
-  auto str_raw_json = Pop(ns_reserved::ns_desktop::read(config.path_file_binary)
+  auto str_raw_json = Pop(ns_reserved::ns_desktop::read(fim.path.bin.self)
     , "E::Could not read desktop json from binary"
   );
   auto desktop = Pop(ns_db::ns_desktop::deserialize(str_raw_json)
@@ -457,25 +457,25 @@ namespace fs = std::filesystem;
   if(desktop.get_integrations().contains(IntegrationItem::ENTRY))
   {
     logger("I::Integrating desktop entry");
-    Pop(integrate_desktop_entry(desktop, config.path_file_binary));
+    Pop(integrate_desktop_entry(desktop, fim.path.bin.self));
   }
   // Create and update mime
   if(desktop.get_integrations().contains(IntegrationItem::MIMETYPE))
   {
     logger("I::Integrating mime database");
-    Pop(integrate_mime_database(desktop,  config.path_file_binary));
+    Pop(integrate_mime_database(desktop,  fim.path.bin.self));
   }
   // Create desktop icons
   if(desktop.get_integrations().contains(IntegrationItem::ICON))
   {
     logger("I::Integrating desktop icons");
-    if(auto ret = integrate_icons(config, desktop); not ret)
+    if(auto ret = integrate_icons(fim, desktop); not ret)
     {
       logger("D::Could not integrate icons: '{}'", ret.error());
     }
   }
   // Check if should notify
-  if (config.is_notify)
+  if (fim.flags.is_notify)
   {
     // Get bash binary
     fs::path path_file_binary_bash = Pop(ns_env::search_path("bash"));
@@ -503,11 +503,11 @@ namespace fs = std::filesystem;
 /**
  * @brief Setup desktop integration in FlatImage
  *
- * @param config FlatImage configuration object
+ * @param fim FlatImage object
  * @param path_file_json_src Path to the json which contains configuration data
  * @return Value<void> Nothing on success, or the respective error
  */
-[[nodiscard]] inline Value<void> setup(ns_config::FlatimageConfig const& config, fs::path const& path_file_json_src)
+[[nodiscard]] inline Value<void> setup(ns_config::FlatImage const& fim, fs::path const& path_file_json_src)
 {
   std::error_code ec;
   // Create desktop struct with input json
@@ -545,12 +545,12 @@ namespace fs = std::filesystem;
   std::memcpy(icon.m_data, image_data.first.get(), image_data.second);
   icon.m_size = image_data.second;
   // Write icon struct to the flatimage binary
-  Pop(ns_reserved::ns_icon::write(config.path_file_binary, icon), "E::Could not write image data");
+  Pop(ns_reserved::ns_icon::write(fim.path.bin.self, icon), "E::Could not write image data");
   // Write json to flatimage binary, excluding the input icon path
   auto str_raw_json = Pop(ns_db::ns_desktop::serialize(desktop), "E::Failed to serialize desktop integration" );
   auto db = Pop(ns_db::from_string(str_raw_json), "E::Could not parse serialized json source");
   return_if(not db.erase("icon"), Error("E::Could not erase icon field"));
-  Pop(ns_reserved::ns_desktop::write(config.path_file_binary, Pop(db.dump())));
+  Pop(ns_reserved::ns_desktop::write(fim.path.bin.self, Pop(db.dump())));
   // Print written json
   std::println("{}", Pop(db.dump()));
   return {};
@@ -559,14 +559,14 @@ namespace fs = std::filesystem;
 /**
  * @brief Enables desktop integration for FlatImage
  *
- * @param config The FlatImage configuration object
+ * @param fim The FlatImage configuration object
  * @param set_integrations The set with integrations to enable
  * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Value<void> enable(ns_config::FlatimageConfig const& config, std::set<IntegrationItem> set_integrations)
+[[nodiscard]] inline Value<void> enable(ns_config::FlatImage const& fim, std::set<IntegrationItem> set_integrations)
 {
   // Read json
-  auto str_json = Pop(ns_reserved::ns_desktop::read(config.path_file_binary));
+  auto str_json = Pop(ns_reserved::ns_desktop::read(fim.path.bin.self));
   // Deserialize json
   auto desktop = Pop(ns_db::ns_desktop::deserialize(str_json));
   // Update integrations value
@@ -579,20 +579,20 @@ namespace fs = std::filesystem;
   // Serialize json
   auto str_raw_json = Pop(ns_db::ns_desktop::serialize(desktop));
   // Write json
-  Pop(ns_reserved::ns_desktop::write(config.path_file_binary, str_raw_json));
+  Pop(ns_reserved::ns_desktop::write(fim.path.bin.self, str_raw_json));
   return {};
 }
 
 /**
  * @brief Cleans desktop integration files
  *
- * @param config The FlatImage configuration object
+ * @param fim The FlatImage configuration object
  * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Value<void> clean(ns_config::FlatimageConfig const& config)
+[[nodiscard]] inline Value<void> clean(ns_config::FlatImage const& fim)
 {
   // Read json
-  auto str_json = Pop(ns_reserved::ns_desktop::read(config.path_file_binary), "E::Failed to read from reserved space");
+  auto str_json = Pop(ns_reserved::ns_desktop::read(fim.path.bin.self), "E::Failed to read from reserved space");
   // Deserialize json
   auto desktop = Pop(ns_db::ns_desktop::deserialize(str_json), "E::Failed to de-serialize desktop integration");
   // Get integrations
@@ -624,7 +624,7 @@ namespace fs = std::filesystem;
   // Remove icons
   if(integrations.contains(ns_db::ns_desktop::IntegrationItem::ICON))
   {
-    ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(config.path_file_binary));
+    ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(fim.path.bin.self));
     if(std::string_view(icon.m_ext) == "png")
     {
       for(auto size : arr_sizes)
@@ -647,14 +647,14 @@ namespace fs = std::filesystem;
 /**
  * @brief Dumps the png or svg icon data to a file
  *
- * @param config The FlatImage configuration object
+ * @param fim The FlatImage configuration object
  * @param path_file_dst The destination file to write the icon to
  * @return Value<void> Nothing on success or the respective error
  */
-[[nodiscard]] inline Value<void> dump_icon(ns_config::FlatimageConfig const& config, fs::path path_file_dst)
+[[nodiscard]] inline Value<void> dump_icon(ns_config::FlatImage const& fim, fs::path path_file_dst)
 {
   // Read icon data
-  ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(config.path_file_binary));
+  ns_reserved::ns_icon::Icon icon = Pop(ns_reserved::ns_icon::read(fim.path.bin.self));
   // Make sure it has valid data
   return_if(std::all_of(icon.m_data, icon.m_data+sizeof(icon.m_data), [](char c){ return c == 0; })
     , Error("E::Empty icon data");
@@ -683,18 +683,18 @@ namespace fs = std::filesystem;
 /**
  * @brief Dumps the desktop entry if integration is configured
  *
- * @param config The FlatImage configuration object
+ * @param fim The FlatImage configuration object
  * @return Value<std::string> The desktop entry or the respective error
  */
-[[nodiscard]] inline Value<std::string> dump_entry(ns_config::FlatimageConfig const& config)
+[[nodiscard]] inline Value<std::string> dump_entry(ns_config::FlatImage const& fim)
 {
   // Get desktop object
   auto desktop = Pop(ns_db::ns_desktop::deserialize(
-    Pop(ns_reserved::ns_desktop::read(config.path_file_binary))
+    Pop(ns_reserved::ns_desktop::read(fim.path.bin.self))
   ));
   // Generate desktop entry
   std::stringstream ss;
-  Pop(generate_desktop_entry(desktop, config.path_file_binary, ss));
+  Pop(generate_desktop_entry(desktop, fim.path.bin.self, ss));
   // Dump contents
   return ss.str();
 }
@@ -702,18 +702,18 @@ namespace fs = std::filesystem;
 /**
  * @brief Dumps the application mime type file if integration is configured
  *
- * @param config The FlatImage configuration object
+ * @param fim The FlatImage configuration object
  * @return Value<std::string> The mime type data or the respective error
  */
-[[nodiscard]] inline Value<std::string> dump_mimetype(ns_config::FlatimageConfig const& config)
+[[nodiscard]] inline Value<std::string> dump_mimetype(ns_config::FlatImage const& fim)
 {
   // Get desktop object
   auto desktop = Pop(ns_db::ns_desktop::deserialize(
-    Pop(ns_reserved::ns_desktop::read(config.path_file_binary))
+    Pop(ns_reserved::ns_desktop::read(fim.path.bin.self))
   ));
   // Generate mime database
   std::stringstream ss;
-  Pop(generate_mime_database(desktop, config.path_file_binary, ss));
+  Pop(generate_mime_database(desktop, fim.path.bin.self, ss));
   // Dump contents
   return ss.str();
 }

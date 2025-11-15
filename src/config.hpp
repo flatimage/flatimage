@@ -8,7 +8,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cctype>
 #include <cstdint>
 #include <memory>
@@ -18,11 +17,8 @@
 #include <unistd.h>
 #include <pwd.h>
 #include <filesystem>
-#include <fstream>
-#include <ranges>
 #include <format>
 #include <unordered_map>
-#include <vector>
 
 #include "bwrap/bwrap.hpp"
 #include "filesystems/controller.hpp"
@@ -74,88 +70,7 @@
   #error "FIM_RESERVED_SIZE is undefined"
 #endif
 
-/**
- * @brief Get the mounted layers object
- *
- * @param path_dir_layers Path to the layer directory
- * @return std::vector<fs::path> The list of layer directory paths
- */
-[[nodiscard]] inline std::vector<fs::path> ns_filesystems::ns_controller::get_mounted_layers(fs::path const& path_dir_layers)
-{
-  std::vector<fs::path> vec_path_dir_layer = fs::directory_iterator(path_dir_layers)
-    | std::views::filter([](auto&& e){ return fs::is_directory(e.path()); })
-    | std::views::transform([](auto&& e){ return e.path(); })
-    | std::ranges::to<std::vector<fs::path>>();
-  std::ranges::sort(vec_path_dir_layer);
-  return vec_path_dir_layer;
-}
-
-/**
- * @brief 
- *
- * Bwrap leaves behind a 'root' owned empty directory
- * It is possible to remove without root since it is empty after bwrap is finished
- * Might take some attempts
- *
- * @note Even if it fails, this won't affect the next program execution since
- * 
-*/ 
-inline Value<void> bwrap_clean(fs::path const& path_dir_work)
-{
-  // Check if directory exists
-  if(not Try(fs::exists(path_dir_work), "E::Could not check bwrap work directory"))
-  {
-    return {};
-  }
-  // Try to change permissions
-  if(::chmod(path_dir_work.c_str(), 0755) < 0)
-  {
-    logger("D::Error to modify permissions '{}': '{}'", path_dir_work, strerror(errno));
-  }
-  // True if the file was deleted
-  // False if it did not exist
-  // Exception if it cannot be removed: cannot remove all: Read-only file system'
-  // Thus, the check is if it throws or not
-  Try(fs::remove_all(path_dir_work), "E::Failed to remove bwrap work directory");
-  // Success
-  return {};
-}
-
-
-inline ::ns_filesystems::ns_controller::Logs::Logs(fs::path const& path_dir_log)
-  : path_file_dwarfs(path_dir_log / "dwarfs.log")
-  , path_file_ciopfs(path_dir_log / "ciopfs.log")
-  , path_file_overlayfs(path_dir_log / "overlayfs.log")
-  , path_file_unionfs(path_dir_log / "unionfs.log")
-  , path_file_janitor(path_dir_log / "janitor.log")
-{
-  fs::create_directories(path_dir_log);
-};
-
-inline ::ns_filesystems::ns_controller::Config::Config(bool is_casefold
-  , ns_reserved::ns_overlay::OverlayType const& type
-  , fs::path const& path_dir_mount
-  , fs::path const& path_dir_config
-  , fs::path const& path_bin_janitor
-  , fs::path const& path_file_binary
-)
-  : is_casefold(is_casefold)
-  , overlay_type(type)
-  , path_dir_mount(path_dir_mount / "fuse")
-  , path_dir_work(path_dir_config / "work" / std::to_string(getpid()))
-  , path_dir_upper(path_dir_config / "data")
-  , path_dir_layers_mount(path_dir_mount / "layers")
-  , path_dir_ciopfs_mount(path_dir_config / "casefold")
-  , path_bin_janitor(path_bin_janitor)
-  , path_file_binary(path_file_binary)
-{
-  fs::create_directories(path_dir_mount);
-  fs::create_directories(path_dir_work);
-  fs::create_directories(path_dir_upper);
-  fs::create_directories(path_dir_layers_mount);
-  fs::create_directories(path_dir_ciopfs_mount);
-};
-
+using DaemonMode = ns_db::ns_portal::ns_daemon::Mode;
 
 namespace ns_config
 {
@@ -163,361 +78,623 @@ namespace ns_config
 // Distribution enum
 ENUM(Distribution, ARCH, ALPINE, BLUEPRINT)
 
-// UID/GID pair
-struct Id
-{
-  mode_t uid;
-  mode_t gid;
-};
-
-struct User
-{
-  std::string name;
-  std::filesystem::path path_dir_home;
-  std::filesystem::path path_file_shell;
-  std::filesystem::path path_file_bashrc;
-  std::filesystem::path path_file_passwd;
-  Id id;
-  operator std::string()
-  {
-    return std::format("{}:x:{}:{}:{}:{}:{}", name, id.uid, id.gid, name, path_dir_home.string(), path_file_shell.string());
-  }
-};
-
 namespace
 {
 
 namespace fs = std::filesystem;
 
-/**
- * @brief Writes the passwd file and returns its path
- *
- * @return Value<fs::path> The path to the passwd file
- */
-[[nodiscard]] inline Value<User> write_passwd(fs::path const& path_file_passwd
-  , fs::path const& path_file_bash
-  , fs::path const& path_file_bashrc
-  , Id const& id
-  , std::unordered_map<std::string,std::string> const& variables)
-{
-  // Get user info
-  struct passwd *pw = getpwuid(getuid());
-  return_if(not pw, Error("E::Failed to get current user info"));
-  // Open passwd file
-  std::ofstream file_passwd{path_file_passwd};
-  return_if(not file_passwd.is_open(), Error("E::Failed to open passwd file at {}", path_file_passwd));
-  // Define passwd entries
-  User user
-  {
-    .name = (id.uid == 0)? "root"
-      : variables.contains("USER")? variables.at("USER")
-      : ns_env::get_expected("USER").value_or(pw->pw_name),
-    .path_dir_home = (id.uid == 0)? "/root"
-      : variables.contains("HOME")? variables.at("HOME")
-      : ns_env::get_expected("HOME").value_or(pw->pw_dir),
-    .path_file_shell = variables.contains("SHELL")? fs::path{variables.at("SHELL")}
-      : path_file_bash,
-    .path_file_bashrc = path_file_bashrc,
-    .path_file_passwd = path_file_passwd,
-    .id = id,
-  };
-  // Write to passwd file
-  file_passwd << std::string{user} << '\n';
-  return user;
-}
-
-/**
- * @brief Writes the bashrc file and returns its path
- *
- * @return Value<fs::path> The path to the bashrc file
- */
-[[nodiscard]] inline Value<fs::path> write_bashrc(fs::path const& path_file_bashrc
-  , std::unordered_map<std::string,std::string> const& variables)
-{
-  // Open new bashrc file
-  std::ofstream file_bashrc{path_file_bashrc};
-  return_if(not file_bashrc.is_open(), Error("E::Failed to open bashrc file at {}", path_file_bashrc));
-  // Write custom PS1 or default value
-  if(variables.contains("PS1"))
-  {
-    file_bashrc << "export PS1=" << '"' << variables.at("PS1") << '"';
-  }
-  else
-  {
-    file_bashrc << R"(export PS1="[flatimage-${FIM_DIST,,}] \W > ")";
-  }
-  return path_file_bashrc;
-}
-
-/**
- * @brief Gets the UID and GID for the container
- *
- * Checks environment database for custom UID/GID values, falls back to current user's values.
- * If is_root flag is set, returns 0:0.
- *
- * @return Value<Id> The UID and GID pair
- */
-[[nodiscard]] inline Value<Id> get_id(bool is_root , std::unordered_map<std::string,std::string> const& hash_env)
-{
-  // If root mode is requested, return 0:0
-  if (is_root)
-  {
-    return Id{.uid = 0, .gid = 0};
-  }
-  // Get user info for defaults
-  struct passwd *pw = getpwuid(getuid());
-  return_if(not pw, Error("E::Failed to get current user info"));
-  return Id
-  {
-    .uid = static_cast<mode_t>(Catch(std::stoul(Catch(hash_env.at("UID")).or_default())).value_or(pw->pw_uid)),
-    .gid = static_cast<mode_t>(Catch(std::stoul(Catch(hash_env.at("GID")).or_default())).value_or(pw->pw_gid)),
-  };
-}
-
 } // namespace
 
+/**
+ * @brief Defines all fundamental FlatImage paths
+ *
+ * Organizes paths into three categories: directories, files, and binaries.
+ * All paths are computed from the binary location and process ID.
+ */
+class Path
+{
+  /**
+   * @brief Directory paths used throughout FlatImage
+   *
+   * Creates the following directory structure:
+   * @code
+   * /tmp/fim/                                    (global)
+   * ├── app/
+   * │   └── {COMMIT}_{TIMESTAMP}/               (app)
+   * │       ├── bin/                            (app_bin)
+   * │       │   ├── bash
+   * │       │   ├── fim_janitor
+   * │       │   ├── fim_portal
+   * │       │   └── fim_portal_daemon
+   * │       ├── sbin/                           (app_sbin)
+   * │       └── instance/
+   * │           └── {PID}/                      (instance)
+   * │               ├── bashrc
+   * │               ├── passwd
+   * │               ├── logs/
+   * │               ├── mount/
+   * │               └── layers/
+   * ├── portal/                                 (portal_fifo)
+   * └── run/                                    (runtime)
+   *     └── host/                               (runtime_host)
+   *
+   * {BINARY_DIR}/                               (self)
+   * └── .{BINARY_NAME}.data/                    (host_data)
+   *     ├── tmp/                                (host_data_tmp)
+   *     ├── work/
+   *     ├── data/
+   *     ├── casefold/
+   *     └── recipes/
+   * @endcode
+   */
+  public:
+  struct Dir
+  {
+    fs::path const self;            ///< Parent directory of the FlatImage binary
+    fs::path const global;          ///< Global temporary directory (/tmp/fim)
+    fs::path const app;             ///< Application directory (versioned by commit/timestamp)
+    fs::path const app_bin;         ///< Application binaries directory
+    fs::path const app_sbin;        ///< Application system binaries directory
+    fs::path const instance;        ///< Instance-specific directory (per-PID)
+    fs::path const portal_fifo;     ///< Portal FIFO directory for IPC
+    fs::path const runtime;         ///< Runtime directory (/tmp/fim/run)
+    fs::path const runtime_host;    ///< Host-side runtime directory
+    fs::path const host_home;       ///< Relative path to user's home directory
+    fs::path const host_data;       ///< Data directory next to binary
+    fs::path const host_data_tmp;   ///< Temporary files in data directory
 
+    static Value<Dir> create()
+    {
+      // Get path to self
+      fs::path path_bin_self = fs::path{Pop(ns_env::get_expected("FIM_BIN_SELF"))};
+      // Compute all paths first
+      fs::path self = path_bin_self.parent_path();
+      fs::path global = fs::path("/tmp/fim");
+      fs::path app = global / "app" / std::format("{}_{}", FIM_COMMIT, FIM_TIMESTAMP);
+      fs::path app_bin = app / "bin";
+      fs::path app_sbin = app / "sbin";
+      fs::path instance = std::format("{}/{}/{}", app.string(), "instance", std::to_string(getpid()));
+      fs::path portal_fifo = global / "portal";
+      fs::path runtime = fs::path("/tmp/fim/run");
+      fs::path runtime_host = runtime / "host";
+      fs::path host_home = fs::path{ns_env::get_expected("HOME").value()}.relative_path();
+      fs::path host_data = self / std::format(".{}.data", path_bin_self.filename().string());
+      fs::path host_data_tmp = host_data / "tmp";
+      // Side effect: create directories
+      Pop(ns_fs::create_directories(host_data_tmp));
+      // Aggregate initialization with const members
+      return Dir
+      {
+        .self = std::move(self),
+        .global = std::move(global),
+        .app = std::move(app),
+        .app_bin = std::move(app_bin),
+        .app_sbin = std::move(app_sbin),
+        .instance = std::move(instance),
+        .portal_fifo = std::move(portal_fifo),
+        .runtime = std::move(runtime),
+        .runtime_host = std::move(runtime_host),
+        .host_home = std::move(host_home),
+        .host_data = std::move(host_data),
+        .host_data_tmp = std::move(host_data_tmp)
+      };
+    }
+  } dir;
+
+  /**
+   * @brief Instance-specific configuration files
+   *
+   * Files created within the instance directory:
+   * @code
+   * {instance}/
+   * ├── bashrc    - Shell initialization script
+   * └── passwd    - User/group configuration
+   * @endcode
+   */
+  struct File
+  {
+    fs::path const bashrc;  ///< Path to instance-specific bashrc file
+    fs::path const passwd;  ///< Path to instance-specific passwd file
+
+    static File create(fs::path const& path_dir_instance)
+    {
+      return File{
+        .bashrc = path_dir_instance / "bashrc",
+        .passwd = path_dir_instance / "passwd"
+      };
+    }
+  } file;
+
+  /**
+   * @brief Paths to embedded and extracted binaries
+   *
+   * Binary layout in app_bin directory:
+   * @code
+   * {app_bin}/
+   * ├── bash                 - Shell interpreter
+   * ├── fim_janitor          - Cleanup daemon
+   * ├── fim_portal           - Portal IPC client
+   * └── fim_portal_daemon    - Portal IPC daemon (host-side)
+   * @endcode
+   */
+  struct Bin
+  {
+    fs::path const self;               ///< Path to the FlatImage binary itself
+    fs::path const bash;               ///< Embedded bash shell
+    fs::path const janitor;            ///< Janitor cleanup process
+    fs::path const portal_daemon;      ///< Portal daemon for host-container IPC
+    fs::path const portal_dispatcher;  ///< Portal dispatcher for command routing
+
+    static Value<Bin> create(fs::path const& path_dir_app_bin)
+    {
+      return Bin
+      {
+        .self = Pop(ns_env::get_expected("FIM_BIN_SELF")),
+        .bash = path_dir_app_bin / "bash",
+        .janitor = path_dir_app_bin / "fim_janitor",
+        .portal_daemon = path_dir_app_bin / "fim_portal_daemon",
+        .portal_dispatcher = path_dir_app_bin / "fim_portal"
+      };
+    }
+  } bin;
+
+  /**
+   * @brief Factory method to create Path configuration
+   *
+   * Orchestrates initialization in the correct dependency order:
+   * 1. Dir::create() - Computes and creates directory structure
+   * 2. File::create() - Creates file paths based on instance directory
+   * 3. Bin::create() - Creates binary paths based on app_bin directory
+   *
+   * @return Value<Path> Initialized path configuration or error
+   */
+  static Value<Path> create()
+  {
+    auto dir = Pop(Dir::create());
+    auto file = File::create(dir.instance);
+    auto bin = Pop(Bin::create(dir.app_bin));
+    return Path(dir, file, bin);
+  }
+
+  private:
+  Path(Dir const& dir, File const& file, Bin const& bin)
+    : dir(dir)
+    , file(file)
+    , bin(bin)
+    {
+    }
+};
+
+/**
+ * @brief Log file paths for all FlatImage subsystems
+ *
+ * Creates the following log directory structure:
+ * @code
+ * {instance}/logs/
+ * ├── bwrap/              - Bubblewrap sandbox logs
+ * ├── daemon/
+ * │   ├── host/          - Portal daemon (host-side) logs
+ * │   └── guest/         - Portal daemon (guest-side) logs
+ * ├── dispatcher/        - Portal dispatcher logs
+ * ├── fuse/
+ * │   ├── dwarfs.log     - DwarFS filesystem logs
+ * │   ├── ciopfs.log     - Case-insensitive FS logs
+ * │   ├── overlayfs.log  - OverlayFS logs
+ * │   ├── unionfs.log    - UnionFS logs
+ * │   ├── janitor.log    - Filesystem janitor logs
+ * │   └── guest/         - Guest filesystem logs
+ * ├── janitor.log        - Main janitor process logs
+ * └── boot.log           - Boot/initialization logs
+ * @endcode
+ */
 struct Logs
 {
-  private:
-    fs::path const path_dir_log;
-
-  public:
-  ns_bwrap::Logs const bwrap;
-  ns_db::ns_portal::ns_daemon::ns_log::Logs const daemon_host;
-  ns_db::ns_portal::ns_daemon::ns_log::Logs const daemon_guest;
-  ns_db::ns_portal::ns_dispatcher::Logs const dispatcher;
-  ns_filesystems::ns_controller::Logs const filesystems;
-  fs::path const path_file_janitor;
-  fs::path const path_file_boot;
+  ns_bwrap::ns_proxy::Logs const bwrap;                           ///< Bubblewrap sandbox log paths
+  ns_db::ns_portal::ns_daemon::ns_log::Logs const daemon_host;    ///< Host portal daemon logs
+  ns_db::ns_portal::ns_daemon::ns_log::Logs const daemon_guest;   ///< Guest portal daemon logs
+  ns_db::ns_portal::ns_dispatcher::Logs const dispatcher;         ///< Portal dispatcher logs
+  ns_filesystems::ns_controller::Logs const filesystems;          ///< Filesystem subsystem logs
+  fs::path const path_file_janitor;                               ///< Main janitor process log file
+  fs::path const path_file_boot;                                  ///< Boot initialization log file
 
   Logs() = delete;
   Logs(fs::path const& path_dir_log)
-    : path_dir_log(path_dir_log)
-    , bwrap(path_dir_log / "bwrap")
+    : bwrap(path_dir_log / "bwrap")
     , daemon_host(path_dir_log / "daemon" / "host")
     , daemon_guest(path_dir_log / "daemon" / "guest")
     , dispatcher(path_dir_log / "dispatcher")
-    , filesystems(path_dir_log / "fuse")
+    , filesystems(ns_filesystems::ns_controller::Logs
+      {
+        .path_file_dwarfs = path_dir_log / "fuse" / "dwarfs.log",
+        .path_file_ciopfs = path_dir_log / "fuse" / "ciopfs.log",
+        .path_file_overlayfs = path_dir_log / "fuse" / "overlayfs.log",
+        .path_file_unionfs = path_dir_log / "fuse" / "unionfs.log",
+        .path_file_janitor = path_dir_log / "fuse" / "janitor.log",
+      })
     , path_file_janitor(path_dir_log / "janitor.log")
     , path_file_boot(path_dir_log / "boot.log")
   {
     fs::create_directories(path_dir_log);
-  }
-};
-
-struct FlatimageConfig
-{
-  // Distribution name
-  Distribution const distribution;
-  // Pid of the current instance
-  pid_t const pid;
-  // Feature flags
-  bool is_root{};
-  bool is_debug{};
-  bool is_casefold{};
-  bool is_notify{};
-  // Logging
-  Logs logs;
-  // Configurations
-  ns_filesystems::ns_controller::Config filesystems;
-  // Daemon data and logs
-  ns_db::ns_portal::ns_daemon::Daemon const daemon_host;
-  ns_db::ns_portal::ns_daemon::Daemon const daemon_guest;
-  // Type of overlay filesystem (bwrap,overlayfs,unionfs)
-  ns_reserved::ns_overlay::OverlayType overlay_type;
-  // Structural directories
-  fs::path const path_dir_global;
-  fs::path const path_dir_mount;
-  fs::path const path_dir_app;
-  fs::path const path_dir_app_bin;
-  fs::path const path_dir_app_sbin;
-  fs::path const path_dir_instance;
-  fs::path const path_file_binary;
-  fs::path const path_dir_binary;
-  fs::path const path_file_bash;
-  fs::path const path_dir_mount_layers;
-  fs::path const path_dir_runtime;
-  fs::path const path_dir_runtime_host;
-  fs::path const path_dir_host_home;
-  fs::path const path_dir_host_config;
-  fs::path const path_dir_host_config_tmp;
-  // Binary files
-  fs::path const path_bin_portal_daemon;
-  fs::path const path_bin_portal_dispatcher;
-  //Compression level
-  uint32_t const layer_compression_level;
-  // PATH environment variable
-  std::string const env_path;
-
-  Value<User> configure_user()
-  {
-    auto hash_env = ns_db::ns_env::map(Pop(ns_db::ns_env::get(path_file_binary)));
-    Id id = Pop(get_id(is_root, hash_env));
-    fs::path path_file_bashrc = Pop(write_bashrc(path_dir_instance / "bashrc", hash_env));
-    return Pop(write_passwd(path_dir_instance / "passwd", path_file_bash, path_file_bashrc, id, hash_env));
-  }
-
-  ~FlatimageConfig()
-  {
-    bwrap_clean(this->filesystems.path_dir_work / "work")
-      .discard("E::Could not clean bwrap directory");
+    fs::create_directories(path_dir_log / "bwrap");
+    fs::create_directories(path_dir_log / "daemon" / "host");
+    fs::create_directories(path_dir_log / "fuse" / "guest");
+    fs::create_directories(path_dir_log / "dispatcher");
   }
 };
 
 /**
+ * @brief Module configurations linked with FlatImage paths
+ *
+ * Manages configurations for fuse and daemon subsystems, creating:
+ * @code
+ * {host_data}/
+ * ├── work/          - OverlayFS/Bwrap work directory
+ * ├── data/          - Upper layer (read-write changes)
+ * ├── casefold/      - Case-insensitive filesystem mount point
+ * └── recipes/       - Package recipe cache
+ *
+ * {instance}/
+ * ├── mount/         - Final merged filesystem mount point
+ * └── layers/        - DwarFS layer mount points
+ *     ├── 0/         - Base layer
+ *     ├── 1/         - Additional layer 1
+ *     └── N/         - Additional layer N
+ * @endcode
+ */
+struct Config
+{
+  /**
+   * @brief Fuse subsystem configuration
+   *
+   * Controls the layered filesystem stack with compression and overlay settings.
+   */
+  ns_filesystems::ns_controller::Config fuse;  ///< Filesystem controller config
+
+  /**
+   * @brief Portal daemon configuration
+   *
+   * Configures IPC daemons for host-container communication.
+   */
+  struct Daemon
+  {
+    ns_db::ns_portal::ns_daemon::Daemon const host;   ///< Host-side portal daemon
+    ns_db::ns_portal::ns_daemon::Daemon const guest;  ///< Guest-side portal daemon
+  } daemon;
+
+  /**
+   * @brief Factory method to create Config
+   *
+   * Creates all necessary directories and initializes module configurations:
+   * - Filesystem: mount, work, upper, layers, casefold directories
+   * - Daemon: host and guest portal configurations
+   *
+   * @param is_casefold Enable case-insensitive filesystem layer
+   * @param path_dir_instance Instance-specific directory path
+   * @param path_dir_host_data Host configuration directory path
+   * @param path_bin_janitor Path to janitor cleanup binary
+   * @param path_bin_self Path to FlatImage binary
+   * @param path_bin_portal_daemon Path to portal daemon binary
+   * @param path_dir_fifo Portal FIFO directory path
+   * @return Value<Config> Initialized configuration or error
+   */
+  static Value<Config> create(
+    bool const is_casefold,
+    fs::path const& path_dir_instance,
+    fs::path const& path_dir_host_data,
+    fs::path const& path_bin_janitor,
+    fs::path const& path_bin_self,
+    fs::path const& path_bin_portal_daemon,
+    fs::path const& path_dir_fifo
+  )
+  {
+    // Compute paths first
+    auto path_dir_mount = path_dir_instance / "mount";
+    auto path_dir_work = path_dir_host_data / "work";
+    auto path_dir_upper = path_dir_host_data / "data";
+    auto path_dir_layers = path_dir_instance / "layers";
+    auto path_dir_ciopfs = path_dir_host_data / "casefold";
+
+    // Side effects: create directories
+    fs::create_directories(path_dir_mount);
+    fs::create_directories(path_dir_work);
+    fs::create_directories(path_dir_upper);
+    fs::create_directories(path_dir_layers);
+    fs::create_directories(path_dir_ciopfs);
+
+    // Configure overlay type
+    using ns_reserved::ns_overlay::OverlayType;
+    OverlayType overlay_type =
+        ns_env::exists("FIM_OVERLAY", "unionfs")? ns_reserved::ns_overlay::OverlayType::UNIONFS
+      : ns_env::exists("FIM_OVERLAY", "overlayfs")? ns_reserved::ns_overlay::OverlayType::OVERLAYFS
+      : ns_env::exists("FIM_OVERLAY", "bwrap")? ns_reserved::ns_overlay::OverlayType::BWRAP
+      : ns_reserved::ns_overlay::read(path_bin_self)
+        .value_or(OverlayType::BWRAP).get();
+    if(is_casefold and overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
+    {
+      logger("W::casefold cannot be used with bwrap overlayfs, falling back to unionfs");
+      overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
+    }
+
+    // Compression level configuration (goes from 0 to 10, default is 7)
+    uint32_t const compression_level = ({
+      std::string str_compression_level = ns_env::get_expected<"D">("FIM_COMPRESSION_LEVEL").value_or("7");
+      Catch(std::stoi(str_compression_level)).value_or(7);
+    });
+
+    // Construct configuration objects
+    auto fuse = ns_filesystems::ns_controller::Config
+    {
+      .is_casefold = is_casefold,
+      .compression_level = compression_level,
+      .overlay_type = overlay_type,
+      .path_dir_mount = std::move(path_dir_mount),
+      .path_dir_work = std::move(path_dir_work),
+      .path_dir_upper = std::move(path_dir_upper),
+      .path_dir_layers = std::move(path_dir_layers),
+      .path_dir_ciopfs = std::move(path_dir_ciopfs),
+      .path_bin_janitor = path_bin_janitor,
+      .path_bin_self = path_bin_self,
+    };
+
+    auto daemon = Daemon
+    {
+      .host = ns_db::ns_portal::ns_daemon::Daemon(DaemonMode::HOST, path_bin_portal_daemon, path_dir_fifo),
+      .guest = ns_db::ns_portal::ns_daemon::Daemon(DaemonMode::GUEST, path_bin_portal_daemon, path_dir_fifo),
+    };
+
+    return Config
+    {
+      .fuse = std::move(fuse),
+      .daemon = std::move(daemon)
+    };
+  }
+};
+
+/**
+ * @brief Runtime feature flags
+ *
+ * Controls FlatImage behavior through environment variables and reserved space:
+ *
+ * Flag resolution priority (highest to lowest):
+ * 1. Environment variables (FIM_ROOT, FIM_DEBUG, FIM_CASEFOLD)
+ * 2. Reserved space configuration (casefold, notify)
+ * 3. Binary environment database (UID check for root)
+ *
+ * @note All flags are immutable after creation
+ */
+struct Flags
+{
+  private:
+  Flags() = default;
+
+  public:
+  bool is_root;       ///< Execute as root (UID=0)? Checked via FIM_ROOT env or stored UID
+  bool is_debug;      ///< Enable debug logging? Set via FIM_DEBUG=1
+  bool is_casefold;   ///< Enable case-insensitive filesystem? Via FIM_CASEFOLD or reserved space
+  bool is_notify;     ///< Show desktop notifications? Stored in reserved space
+
+  /**
+   * @brief Factory method to create Flags
+   *
+   * Resolves flags from multiple sources in priority order:
+   * - is_root: FIM_ROOT env → binary UID database
+   * - is_debug: FIM_DEBUG env
+   * - is_casefold: FIM_CASEFOLD env → reserved space
+   * - is_notify: reserved space only
+   *
+   * @param path_bin_self Path to FlatImage binary
+   * @return Value<Flags> Initialized flags or error
+   */
+  static Value<Flags> create(fs::path const& path_bin_self)
+  {
+    Flags flags;
+    auto environment = ns_db::ns_env::map(Pop(ns_db::ns_env::get(path_bin_self)));
+    flags.is_root = ns_env::exists("FIM_ROOT", "1")
+      or (environment.contains("UID") and environment.at("UID") == "0");
+    flags.is_casefold = ns_env::exists("FIM_CASEFOLD", "1")
+      or Pop(ns_reserved::ns_casefold::read(path_bin_self));
+    flags.is_notify = Pop(ns_reserved::ns_notify::read(path_bin_self));
+    flags.is_debug = ns_env::exists("FIM_DEBUG", "1");
+    return flags;
+  }
+};
+
+/**
+ * @brief Main FlatImage configuration object
+ *
+ * Central "single source of truth" for all FlatImage configuration.
+ * Aggregates paths, flags, logs, and module configurations into one immutable structure.
+ *
+ * Complete directory hierarchy managed by this object:
+ * @code
+ * /tmp/fim/                                      (Path::Dir::global)
+ * ├── app/
+ * │   └── {COMMIT}_{TIMESTAMP}/                 (Path::Dir::app)
+ * │       ├── bin/                              (Path::Dir::app_bin)
+ * │       │   ├── bash                          (Path::Bin::bash)
+ * │       │   ├── fim_janitor                   (Path::Bin::janitor)
+ * │       │   ├── fim_portal                    (Path::Bin::portal_dispatcher)
+ * │       │   └── fim_portal_daemon             (Path::Bin::portal_daemon)
+ * │       ├── sbin/                             (Path::Dir::app_sbin)
+ * │       └── instance/
+ * │           └── {PID}/                        (Path::Dir::instance)
+ * │               ├── bashrc                    (Path::File::bashrc)
+ * │               ├── passwd                    (Path::File::passwd)
+ * │               ├── logs/                     (Logs - entire hierarchy)
+ * │               │   ├── bwrap/
+ * │               │   ├── daemon/
+ * │               │   ├── dispatcher/
+ * │               │   ├── fuse/
+ * │               │   ├── janitor.log
+ * │               │   └── boot.log
+ * │               ├── mount/                    (Config::Filesystem - merged root)
+ * │               └── layers/                   (Config::Filesystem - layer mounts)
+ * │                   ├── 0/
+ * │                   └── N/
+ * ├── portal/                                   (Path::Dir::portal_fifo)
+ * └── run/                                      (Path::Dir::runtime)
+ *     └── host/                                 (Path::Dir::runtime_host)
+ *
+ * {BINARY_DIR}/                                 (Path::Dir::self)
+ * └── .{BINARY_NAME}.data/                      (Path::Dir::host_data)
+ *     ├── tmp/                                  (Path::Dir::host_data_tmp)
+ *     ├── work/                                 (Config::Filesystem - overlayfs work)
+ *     ├── data/                                 (Config::Filesystem - upper layer)
+ *     ├── casefold/                             (Config::Filesystem - ciopfs mount)
+ *     └── recipes/
+ * @endcode
+ *
+ * @see Path for path management
+ * @see Flags for runtime feature flags
+ * @see Logs for log file paths
+ * @see Config for module configurations
+ */
+struct FlatImage
+{
+  Distribution const distribution;  ///< Linux distribution (ARCH/ALPINE/BLUEPRINT)
+  pid_t const pid;                  ///< Current instance process ID
+  Flags flags;                      ///< Runtime feature flags
+  Logs logs;                        ///< Log file paths for all subsystems
+  Config config;                    ///< Module configurations (filesystem, daemon)
+  Path path;                        ///< Directory, file, and binary paths
+
+  [[nodiscard]] Value<ns_bwrap::ns_proxy::User> configure_bwrap() const
+  {
+    using namespace ns_bwrap::ns_proxy;
+    // Get environment variables saved in the binary
+    auto variables = ns_db::ns_env::map(Pop(ns_db::ns_env::get(path.bin.self)));
+    // Get user info for defaults
+    struct passwd *pw = getpwuid(getuid());
+    return_if(not pw, Error("E::Failed to get current user info"));
+    // Get user id with this priority
+    // 1. is_root
+    // 1. Binary environment data
+    // 2. pw
+    Id id = flags.is_root? Id{.uid = 0, .gid = 0} : Id
+    {
+      .uid = static_cast<mode_t>(Catch(std::stoul(Catch(variables.at("UID")).or_default())).value_or(pw->pw_uid)),
+      .gid = static_cast<mode_t>(Catch(std::stoul(Catch(variables.at("GID")).or_default())).value_or(pw->pw_gid)),
+    };
+    // Create user
+    User user(User::UserData
+    {
+      .id = id,
+      .name = (id.uid == 0)? "root"
+        : variables.contains("USER")? variables.at("USER")
+        : ns_env::get_expected("USER").value_or(pw->pw_name),
+      .path_dir_home = (id.uid == 0)? "/root"
+        : variables.contains("HOME")? variables.at("HOME")
+        : ns_env::get_expected("HOME").value_or(pw->pw_dir),
+      .path_file_shell = variables.contains("SHELL")? fs::path{variables.at("SHELL")}
+        : "/bin/sh",
+      .path_file_bashrc = path.file.bashrc,
+      .path_file_passwd = path.file.passwd,
+    });
+    // Write files
+    Pop(user.write_bashrc(path.file.bashrc, variables.contains("PS1")? variables.at("PS1") : ""));
+    Pop(user.write_passwd(path.file.passwd));
+    return user;
+  }
+
+  ns_reserved::ns_overlay::OverlayType overlay_type()
+  {
+    // Configure overlay type
+    using ns_reserved::ns_overlay::OverlayType;
+    OverlayType overlay_type = ns_env::exists("FIM_OVERLAY", "unionfs")? ns_reserved::ns_overlay::OverlayType::UNIONFS
+      : ns_env::exists("FIM_OVERLAY", "overlayfs")? ns_reserved::ns_overlay::OverlayType::OVERLAYFS
+      : ns_env::exists("FIM_OVERLAY", "bwrap")? ns_reserved::ns_overlay::OverlayType::BWRAP
+      : ns_reserved::ns_overlay::read(path.bin.self).value_or(OverlayType::BWRAP).get();
+
+    // Check for case folding usage constraints
+    if(flags.is_casefold and overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
+    {
+      logger("W::casefold cannot be used with bwrap overlayfs, falling back to unionfs");
+      overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
+    }
+    return overlay_type;
+  }
+}; // struct FlatImage
+
+/**
  * @brief Factory method that makes a FlatImage configuration object
  *
- * @return Value<FlatimageConfig> A FlatImage configuration object or the respective error
+ * @return Value<FlatImage> A FlatImage configuration object or the respective error
  */
-[[nodiscard]] inline Value<std::shared_ptr<FlatimageConfig>> config()
+[[nodiscard]] inline Value<std::shared_ptr<FlatImage>> config()
 {
-  // Get the current instance's pid
-  pid_t pid = getpid();
-  // pid and distribution variables
-  ns_env::set("FIM_PID", pid, ns_env::Replace::Y);
-  ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
-  
-  // Standard paths
-  fs::path const path_dir_global = Pop(ns_env::get_expected("FIM_DIR_GLOBAL"));
-  fs::path const path_file_binary = Pop(ns_env::get_expected("FIM_FILE_BINARY"));
-  fs::path const path_dir_binary = path_file_binary.parent_path();
-  fs::path const path_dir_app = Pop(ns_env::get_expected("FIM_DIR_APP"));
-  fs::path const path_dir_app_bin = Pop(ns_env::get_expected("FIM_DIR_APP_BIN"));
-  fs::path const path_dir_app_sbin = Pop(ns_env::get_expected("FIM_DIR_APP_SBIN"));
-  fs::path const path_dir_instance = Pop(ns_env::get_expected("FIM_DIR_INSTANCE"));
-  fs::path const path_dir_mount = Pop(ns_env::get_expected("FIM_DIR_MOUNT"));
-  fs::path const path_file_bash = path_dir_app_bin / "bash";
-  fs::path const path_dir_mount_layers = path_dir_mount / "layers";
-
-  // Binary files
-  fs::path const path_bin_janitor = path_dir_app_bin / "fim_janitor";
-  fs::path const path_bin_portal_dispatcher = path_dir_app_bin / "fim_portal";
-  fs::path const path_bin_portal_daemon = path_dir_app_bin / "fim_portal_daemon";
-
-  // Log files
-  Logs logs = Try(Logs(path_dir_instance / "logs"));
-
-// inline ::ns_filesystems::ns_controller::Config::Config(bool is_casefold
-//   , ns_reserved::ns_overlay::OverlayType const& type
-//   , fs::path const& path_dir_mount
-//   , fs::path const& path_dir_config
-//   , fs::path const& path_bin_janitor
-//   , fs::path const& path_file_binary
-
   // Distribution
   Distribution const distribution = Pop(Distribution::from_string(FIM_DIST));
 
-  // Get built-in environment variables
-  auto hash_env = ns_db::ns_env::map(Pop(ns_db::ns_env::get(path_file_binary)));
+  // Standard paths
+  Path path = Pop(Path::create());
 
   // Flags
-  bool const is_root = ns_env::exists("FIM_ROOT", "1")
-    or (hash_env.contains("UID") and hash_env.at("UID") == "0");
+  Flags flags = Pop(Flags::create(path.bin.self));
 
-  // Flags for readonly, debug, notify, and casefolding
-  bool const is_debug = ns_env::exists("FIM_DEBUG", "1");
-  bool const is_casefold = ns_env::exists("FIM_CASEFOLD", "1")
-    or Pop(ns_reserved::ns_casefold::read(path_file_binary));
-  bool const is_notify = Pop(ns_reserved::ns_notify::read(path_file_binary));
+  // Log files
+  Logs logs = Try(Logs(path.dir.instance / "logs"));
 
-  // Configure overlay type
-  using ns_reserved::ns_overlay::OverlayType;
-  OverlayType overlay_type = ns_env::exists("FIM_OVERLAY", "unionfs")? ns_reserved::ns_overlay::OverlayType::UNIONFS
-    : ns_env::exists("FIM_OVERLAY", "overlayfs")? ns_reserved::ns_overlay::OverlayType::OVERLAYFS
-    : ns_env::exists("FIM_OVERLAY", "bwrap")? ns_reserved::ns_overlay::OverlayType::BWRAP
-    : ns_reserved::ns_overlay::read(path_file_binary).value_or(OverlayType::BWRAP).get();
-
-  // Check for case folding usage constraints
-  if(is_casefold and overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)
-  {
-    logger("W::casefold cannot be used with bwrap overlayfs, falling back to unionfs");
-    overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
-  }
-
-  // Paths only available inside the container (runtime)
-  fs::path const path_dir_runtime = "/tmp/fim/run";
-  fs::path const path_dir_runtime_host = path_dir_runtime / "host";
-  ns_env::set("FIM_DIR_RUNTIME", path_dir_runtime, ns_env::Replace::Y);
-  ns_env::set("FIM_DIR_RUNTIME_HOST", path_dir_runtime_host, ns_env::Replace::Y);
-
-  // Home directory
-  fs::path const path_dir_host_home = fs::path{Pop(ns_env::get_expected("HOME"))}.relative_path();
-
-  // Create host config directory
-  fs::path const path_dir_host_config = path_file_binary.parent_path() / std::format(".{}.config", path_file_binary.filename().string());
-  fs::path const path_dir_host_config_tmp = path_dir_host_config / "tmp";
-  Try(fs::create_directories(path_dir_host_config_tmp));
-  ns_env::set("FIM_DIR_CONFIG", path_dir_host_config, ns_env::Replace::Y);
-
-  // Environment
-  std::string env_path = path_dir_app_bin.string() + ":" + ns_env::get_expected("PATH").value_or("");
-  env_path += ":/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin";
-  env_path += std::format(":{}", path_dir_app_sbin.string());
-  ns_env::set("PATH", env_path, ns_env::Replace::Y);
-
-  // Compression level configuration (goes from 0 to 10, default is 7)
-  uint32_t const layer_compression_level = ({
-    std::string str_compression_level = ns_env::get_expected<"D">("FIM_COMPRESSION_LEVEL").value_or("7");
-    Catch(std::stoi(str_compression_level)).value_or(7);
-  });
-
-  // Initialize daemon configuration
-  fs::path const path_dir_fifo = Pop(ns_fs::create_directories(path_dir_instance / "portal" / "fifo"));
-  using DaemonMode = ns_db::ns_portal::ns_daemon::Mode;
-  ns_db::ns_portal::ns_daemon::Daemon const daemon_host(DaemonMode::HOST, path_bin_portal_daemon, path_dir_fifo);
-  ns_db::ns_portal::ns_daemon::Daemon const daemon_guest(DaemonMode::GUEST, path_bin_portal_daemon, path_dir_fifo);
+  // Module configuration
+  Config config = Pop(Config::create(
+    flags.is_casefold,
+    path.dir.instance,
+    path.dir.host_data,
+    path.bin.janitor,
+    path.bin.self,
+    path.bin.portal_daemon,
+    path.dir.portal_fifo
+  ));
 
   // LD_LIBRARY_PATH
   if ( auto ret = ns_env::get_expected<"D">("LD_LIBRARY_PATH") )
   {
-    ns_env::set("LD_LIBRARY_PATH", std::format("/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu:{}", ret.value()), ns_env::Replace::Y);
+    ns_env::set("LD_LIBRARY_PATH"
+      , std::format("/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu:{}", ret.value())
+      , ns_env::Replace::Y
+    );
   }
   else
   {
-    ns_env::set("LD_LIBRARY_PATH", "/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu", ns_env::Replace::Y);
+    ns_env::set("LD_LIBRARY_PATH"
+      , "/usr/lib/x86_64-linux-gnu:/usr/lib/i386-linux-gnu"
+      , ns_env::Replace::Y
+    );
   }
 
-  // Filesystem configuration
-  auto const filesystems = ns_filesystems::ns_controller::Config(is_casefold
-    , overlay_type
-    , path_dir_mount
-    , path_dir_host_config
-    , path_bin_janitor
-    , path_file_binary
-  );
+  // PATH
+  std::string env_path = path.dir.app_bin.string()
+    + ":"
+    + ns_env::get_expected("PATH").value_or("")
+    + ":"
+    + "/sbin:/usr/sbin:/usr/local/sbin:/bin:/usr/bin:/usr/local/bin"
+    + ":"
+    + path.dir.app_sbin.string();
+  ns_env::set("PATH", env_path, ns_env::Replace::Y);
 
-  return std::shared_ptr<FlatimageConfig>(new FlatimageConfig{
+  // Get the current instance's pid
+  pid_t pid = getpid();
+
+  // Set environment variables
+  Pop(ns_env::get_expected("FIM_BIN_SELF"), "C::Path to self is not defined");
+  ns_env::set("FIM_DIR_GLOBAL", path.dir.global, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_APP", path.dir.app, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_APP_BIN", path.dir.app_bin, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_APP_SBIN", path.dir.app_sbin, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_INSTANCE", path.dir.instance, ns_env::Replace::Y);
+  ns_env::set("FIM_PID", pid, ns_env::Replace::Y);
+  ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_RUNTIME", path.dir.runtime, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_RUNTIME_HOST", path.dir.runtime_host, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_CONFIG", path.dir.host_data, ns_env::Replace::Y);
+
+  // Create FlatImage object
+  return std::shared_ptr<FlatImage>(new FlatImage{
     .distribution = distribution,
     .pid = pid,
-    .is_root = is_root,
-    .is_debug = is_debug,
-    .is_casefold = is_casefold,
-    .is_notify = is_notify,
+    .flags = flags,
     .logs = logs,
-    .filesystems = filesystems,
-    .daemon_host = daemon_host,
-    .daemon_guest = daemon_guest,
-    .overlay_type = overlay_type,
-    .path_dir_global = path_dir_global,
-    .path_dir_mount = path_dir_mount,
-    .path_dir_app = path_dir_app,
-    .path_dir_app_bin = path_dir_app_bin,
-    .path_dir_app_sbin = path_dir_app_sbin,
-    .path_dir_instance = path_dir_instance,
-    .path_file_binary = path_file_binary,
-    .path_dir_binary = path_dir_binary,
-    .path_file_bash = path_file_bash,
-    .path_dir_mount_layers = path_dir_mount_layers,
-    .path_dir_runtime = path_dir_runtime,
-    .path_dir_runtime_host = path_dir_runtime_host,
-    .path_dir_host_home = path_dir_host_home,
-    .path_dir_host_config = path_dir_host_config,
-    .path_dir_host_config_tmp = path_dir_host_config_tmp,
-    .path_bin_portal_daemon = path_bin_portal_daemon,
-    .path_bin_portal_dispatcher = path_bin_portal_dispatcher,
-    .layer_compression_level = layer_compression_level,
-    .env_path = env_path,
+    .config = config,
+    .path = path,
   });
 }
 

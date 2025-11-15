@@ -42,16 +42,16 @@ extern char** environ;
 {
   using ns_db::ns_portal::ns_dispatcher::deserialize;
   // Create configuration object
-  std::shared_ptr<ns_config::FlatimageConfig> config = Pop(ns_config::config());
-  return_if(config == nullptr, Error("E::Failed to initialize configuration"));
+  std::shared_ptr<ns_config::FlatImage> fim = Pop(ns_config::config());
+  return_if(fim == nullptr, Error("E::Failed to initialize configuration"));
   // Set log file, permissive
-  ns_log::set_sink_file(config->logs.path_file_boot);
+  ns_log::set_sink_file(fim->logs.path_file_boot);
   // Start host portal, permissive
-  [[maybe_unused]] auto portal = ns_portal::spawn(config->daemon_host
-    , config->logs.daemon_host
+  [[maybe_unused]] auto portal = ns_portal::spawn(fim->config.daemon.host
+    , fim->logs.daemon_host
   ).forward("E::Could not start portal daemon");
   // Execute flatimage command if exists
-  return Pop(ns_parser::execute_command(*config, argc, argv));
+  return Pop(ns_parser::execute_command(*fim, argc, argv));
 }
 
 /**

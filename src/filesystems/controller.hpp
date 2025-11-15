@@ -32,34 +32,41 @@ struct Logs
   fs::path const path_file_overlayfs;
   fs::path const path_file_unionfs;
   fs::path const path_file_janitor;
-
-  Logs(std::filesystem::path const& path_dir_log);
 };
 
 struct Config
 {
+  // Filesystem configuration
   bool const is_casefold;
-  ns_reserved::ns_overlay::OverlayType const overlay_type;
+  uint32_t const compression_level;
+  ns_reserved::ns_overlay::OverlayType overlay_type;
+  // Main mount point
   fs::path const path_dir_mount;
   // Overlayfs / Unionfs
   fs::path const path_dir_work;
   fs::path const path_dir_upper;
-  fs::path const path_dir_layers_mount;
+  fs::path const path_dir_layers;
   // Ciopfs
-  fs::path const path_dir_ciopfs_mount;
+  fs::path const path_dir_ciopfs;
   fs::path const path_bin_janitor;
-  fs::path const path_file_binary;
-
-  Config(bool is_casefold
-    , ns_reserved::ns_overlay::OverlayType const& type
-    , std::filesystem::path const& path_dir_mount
-    , std::filesystem::path const& path_dir_config
-    , std::filesystem::path const& path_bin_janitor
-    , std::filesystem::path const& path_file_binary
-  );
+  fs::path const path_bin_self;
 };
 
-[[nodiscard]] std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers);
+/**
+ * @brief Get the mounted layers object
+ *
+ * @param path_dir_layers Path to the layer directory
+ * @return std::vector<fs::path> The list of layer directory paths
+ */
+[[nodiscard]] inline std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers)
+{
+  std::vector<fs::path> vec_path_dir_layer = fs::directory_iterator(path_dir_layers)
+    | std::views::filter([](auto&& e){ return fs::is_directory(e.path()); })
+    | std::views::transform([](auto&& e){ return e.path(); })
+    | std::ranges::to<std::vector<fs::path>>();
+  std::ranges::sort(vec_path_dir_layer);
+  return vec_path_dir_layer;
+}
 
 class Controller
 {
@@ -72,7 +79,7 @@ class Controller
     std::vector<std::unique_ptr<ns_filesystem::Filesystem>> m_filesystems;
     std::unique_ptr<ns_subprocess::Child> m_child_janitor;
 
-    [[nodiscard]] uint64_t mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_file_binary, uint64_t offset);
+    [[nodiscard]] uint64_t mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_bin_self, uint64_t offset);
     void mount_ciopfs(fs::path const& path_dir_lower, fs::path const& path_dir_upper);
     void mount_unionfs(std::vector<fs::path> const& vec_path_dir_layer
       , fs::path const& path_dir_data
@@ -97,10 +104,10 @@ class Controller
 
 /**
  * @brief Construct a new Controller:: Controller object
- * 
+ *
  * @param config FlatImage configuration object
  */
-inline Controller::Controller(Logs const& logs, Config const& config)
+inline Controller::Controller(Logs const& logs , Config const& config)
   : m_logs(logs)
   , m_path_dir_mount(config.path_dir_mount)
   , m_path_dir_work(config.path_dir_work)
@@ -110,12 +117,12 @@ inline Controller::Controller(Logs const& logs, Config const& config)
   , m_child_janitor(nullptr)
 {
   // Mount compressed layers
-  [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_layers_mount, config.path_file_binary, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
+  [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_layers, config.path_bin_self, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
   // Use unionfs-fuse
   if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::UNIONFS )
   {
     logger("D::Overlay type: UNIONFS_FUSE");
-    mount_unionfs(get_mounted_layers(config.path_dir_layers_mount)
+    mount_unionfs(get_mounted_layers(config.path_dir_layers)
       , config.path_dir_upper
       , config.path_dir_mount
     );
@@ -124,7 +131,7 @@ inline Controller::Controller(Logs const& logs, Config const& config)
   else if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::OVERLAYFS )
   {
     logger("D::Overlay type: FUSE_OVERLAYFS");
-    mount_overlayfs(get_mounted_layers(config.path_dir_layers_mount)
+    mount_overlayfs(get_mounted_layers(config.path_dir_layers)
       , config.path_dir_upper
       , config.path_dir_mount
       , config.path_dir_work
@@ -143,7 +150,7 @@ inline Controller::Controller(Logs const& logs, Config const& config)
     }
     else
     {
-      mount_ciopfs(config.path_dir_mount, config.path_dir_ciopfs_mount);
+      mount_ciopfs(config.path_dir_mount, config.path_dir_ciopfs);
       logger("D::casefold is enabled");
     }
   }
@@ -195,16 +202,16 @@ inline Controller::~Controller()
 
 /**
  * @brief Mounts a dwarfs filesystem
- * 
+ *
  * @param path_dir_mount Path to the directory to mount the filesystem
- * @param path_file_binary Path to the file which contains the dwarfs filesystem
- * @param offset Offset in the 'path_file_binary' in which the filesystem starts
+ * @param path_bin_self Path to the file which contains the dwarfs filesystem
+ * @param offset Offset in the 'path_bin_self' in which the filesystem starts
  * @return uint64_t The index of the last mounted dwarfs filesystem + 1
  */
-inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_file_binary, uint64_t offset)
+inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_bin_self, uint64_t offset)
 {
   // Open the main binary
-  std::ifstream file_binary(path_file_binary, std::ios::binary);
+  std::ifstream file_binary(path_bin_self, std::ios::binary);
 
   // Filesystem index
   uint64_t index_fs{};
@@ -252,11 +259,11 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     // Skip size bytes
     offset += 8;
     // Check if filesystem is of type 'DWARFS'
-    break_if(not ns_dwarfs::is_dwarfs(path_file_binary, offset)
+    break_if(not ns_dwarfs::is_dwarfs(path_bin_self, offset)
       , "E::Invalid dwarfs filesystem appended on the image"
     );
     // Mount filesystem
-    break_if(not f_mount(path_file_binary, path_dir_mount, index_fs, offset, size_fs)
+    break_if(not f_mount(path_bin_self, path_dir_mount, index_fs, offset, size_fs)
       , "E::Failed to mount filesystem at index {}", index_fs
     );
     // Go to next filesystem if exists
@@ -323,7 +330,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
 
 /**
  * @brief Mounts an unionfs filesystem
- * 
+ *
  * @param vec_path_dir_layer Vector with the directories to be overlayed (bottom-up)
  * @param path_dir_data Directory to store file changes
  * @param path_dir_mount Path to the mountpoint of the unionfs filesystem
@@ -343,7 +350,7 @@ inline void Controller::mount_unionfs(std::vector<fs::path> const& vec_path_dir_
 
 /**
  * @brief Mounts a fuse-overlayfs filesystem
- * 
+ *
  * @param vec_path_dir_layer Vector with the directories to be overlayed (bottom-up)
  * @param path_dir_data Directory to store file changes
  * @param path_dir_mount Path to the mountpoint of the unionfs filesystem
@@ -366,7 +373,7 @@ inline void Controller::mount_overlayfs(std::vector<fs::path> const& vec_path_di
 
 /**
  * @brief Mounts a fuse-ciopfs filesystem, which is used for case-insensitivity in file paths
- * 
+ *
  * @param path_dir_lower Directory where the files are stored in
  * @param path_dir_upper Mount point of the fuse-ciopfs filesystem
  */

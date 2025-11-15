@@ -2,7 +2,7 @@
  * @file bwrap.hpp
  * @author Ruan Formigoni
  * @brief Configures and launches [bubblewrap](https://github.com/containers/bubblewrap)
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -36,6 +36,22 @@ namespace fs = std::filesystem;
 
 }
 
+namespace ns_proxy
+{
+
+/**
+ * @brief A pair of uid and gid mode_t values
+ */
+struct Id
+{
+  mode_t uid;
+  mode_t gid;
+};
+
+
+/**
+ * @brief Bwrap's native overlay related options
+ */
 struct Overlay
 {
   std::vector<fs::path> vec_path_dir_layer;
@@ -43,17 +59,136 @@ struct Overlay
   fs::path path_dir_work;
 };
 
+/**
+ * @brief Log files used by bwrap
+ */
 struct Logs
 {
-  fs::path const path_dir_log;
   fs::path const path_file_apparmor;
-  Logs(fs::path const& path_dir_log)
-    : path_dir_log(path_dir_log)
-    , path_file_apparmor(path_dir_log / "apparmor.log")
+  Logs(fs::path const& path_dir_log) : path_file_apparmor(path_dir_log / "apparmor.log")
   {
     fs::create_directories(path_file_apparmor.parent_path());
   }
 };
+
+/**
+ * @brief The representation of a user in bubblewrap
+ */
+struct User
+{
+  struct UserData
+  {
+    Id id;
+    std::string const name;
+    std::filesystem::path const path_dir_home;
+    std::filesystem::path const path_file_shell;
+    std::filesystem::path const path_file_bashrc;
+    std::filesystem::path const path_file_passwd;
+    /**
+    * @brief Generates the passwd file entry
+    *
+    * @return std::string The passwd file entry
+    */
+    inline operator std::string()
+    {
+      return std::format("{}:x:{}:{}:{}:{}:{}", name, id.uid, id.gid, name, path_dir_home.string(), path_file_shell.string());
+    }
+  } data;
+
+  /**
+   * @brief Construct a new User object with the provided user data
+   *
+   * @param data The user data for the container environment
+   */
+  User(UserData const& data)
+    : data(data)
+  {}
+
+  /**
+   * @brief Writes the passwd entry to the provided file path
+   *
+   * @return Value<void> Nothing on success, or the respective error
+   */
+  [[nodiscard]] Value<void> write_passwd(fs::path const& path_file_passwd)
+  {
+    std::ofstream file_passwd{path_file_passwd};
+    return_if(not file_passwd.is_open(), Error("E::Failed to open passwd file at {}", path_file_passwd));
+    file_passwd << std::string{data} << '\n';
+    return {};
+  }
+
+  /**
+  * @brief Writes the bashrc file and returns its path
+  *
+  * @return Value<fs::path> The path to the bashrc file
+  */
+  [[nodiscard]] Value<void> write_bashrc(fs::path const& path_file_bashrc, std::string_view ps1)
+  {
+    // Open new bashrc file
+    std::ofstream file_bashrc{path_file_bashrc};
+    return_if(not file_bashrc.is_open(), Error("E::Failed to open bashrc file at {}", path_file_bashrc));
+    // Write custom ps1 or default value
+    if(ps1.empty())
+    {
+      file_bashrc << R"(export PS1="[flatimage-${FIM_DIST,,}] \W > ")";
+    }
+    else
+    {
+      file_bashrc << "export PS1=" << '"' << ps1 << '"';
+    }
+    return {};
+  }
+};
+
+} // namespace ns_proxy
+
+/**
+ * @brief
+ *
+ * Bwrap leaves behind a 'root' owned empty directory
+ * It is possible to remove without root since it is empty after bwrap is finished
+ * Might take some attempts
+ *
+ * @note Even if it fails, this won't affect the next program execution since
+ *
+*/
+inline Value<void> bwrap_clean(fs::path const& path_dir_work)
+{
+  // Check if directory exists
+  if(not Try(fs::exists(path_dir_work), "E::Could not check bwrap work directory"))
+  {
+    return {};
+  }
+  // Try to change permissions
+  if(::chmod(path_dir_work.c_str(), 0755) < 0)
+  {
+    logger("D::Error to modify permissions '{}': '{}'", path_dir_work, strerror(errno));
+  }
+  // True if the file was deleted
+  // False if it did not exist
+  // Exception if it cannot be removed: cannot remove all: Read-only file system'
+  // Thus, the check is if it throws or not
+  Try(fs::remove_all(path_dir_work), "E::Failed to remove bwrap work directory");
+  // Success
+  return {};
+}
+
+/**
+ * @brief Get the mounted layers object
+ *
+ * @param path_dir_layers Path to the layer directory
+ * @return std::vector<fs::path> The list of layer directory paths
+ */
+[[nodiscard]] inline std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers)
+{
+  std::vector<fs::path> vec_path_dir_layer = fs::directory_iterator(path_dir_layers)
+    | std::views::filter([](auto&& e){ return fs::is_directory(e.path()); })
+    | std::views::transform([](auto&& e){ return e.path(); })
+    | std::ranges::to<std::vector<fs::path>>();
+  std::ranges::sort(vec_path_dir_layer);
+  return vec_path_dir_layer;
+}
+
 
 using Permissions = ns_reserved::ns_permissions::Permissions;
 using Permission = ns_reserved::ns_permissions::Permission;
@@ -64,41 +199,33 @@ class Bwrap
 {
   private:
     // Logging
-    Logs m_logs;
+    ns_proxy::Logs m_logs;
     // Program to run, its arguments and environment
     fs::path m_path_file_program;
     std::vector<std::string> m_program_args;
     std::vector<std::string> m_program_env;
+    // Overlay
+    std::optional<ns_proxy::Overlay> m_overlay;
+    // Root directory
+    fs::path const m_path_dir_root;
     // XDG_RUNTIME_DIR
     fs::path m_path_dir_xdg_runtime;
-    // Overlay work dir, bwrap leaves this directory with
-    // 000 permissions after usage, save it to make it 755
-    // on exit
-    std::optional<fs::path> m_opt_path_dir_work;
     // Arguments and environment to bwrap
     std::vector<std::string> m_args;
     // Run bwrap with uid and gid equal to 0
     bool m_is_root;
     // Bwrap native --overlay options
-    void overlay(std::vector<fs::path> const& vec_path_dir_layer
-      , fs::path const& path_dir_upper
-      , fs::path const& path_dir_work);
+    void overlay(ns_proxy::Overlay const& overlay);
     // Set XDG_RUNTIME_DIR
     void set_xdg_runtime_dir();
     // Setup
     Value<fs::path> test_and_setup(fs::path const& path_file_bwrap);
+    Bwrap& symlink_nvidia(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
 
   public:
-    Bwrap(Logs logs
-      , std::string_view user
-      , mode_t uid
-      , mode_t gid
-      , std::optional<Overlay> opt_overlay
+    Bwrap(ns_proxy::Logs logs
+      , ns_proxy::User user
       , fs::path const& path_dir_root
-      , fs::path const& path_dir_home
-      , fs::path const& path_file_bashrc
-      , fs::path const& path_file_passwd
-      , fs::path const& path_file_shell
       , fs::path const& path_file_program
       , std::vector<std::string> const& program_args
       , std::vector<std::string> const& program_env);
@@ -107,7 +234,6 @@ class Bwrap
     Bwrap(Bwrap&&) = delete;
     Bwrap& operator=(Bwrap const&) = delete;
     Bwrap& operator=(Bwrap&&) = delete;
-    [[maybe_unused]] [[nodiscard]] Bwrap& symlink_nvidia(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_binds(ns_db::ns_bind::Binds const& binds);
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_home();
     [[maybe_unused]] [[nodiscard]] Bwrap& bind_media();
@@ -126,6 +252,7 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind(fs::path const& src, fs::path const& dst);
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
+    [[maybe_unused]] void set_overlay(ns_proxy::Overlay const& overlay);
     [[maybe_unused]] [[nodiscard]] Value<bwrap_run_ret_t> run(Permissions const& permissions
       , fs::path const& path_file_daemon
       , ns_db::ns_portal::ns_dispatcher::Dispatcher const& arg1_dispatcher
@@ -146,24 +273,21 @@ class Bwrap
  * @param program_args Arguments for the program launched in the sandbox
  * @param program_env Environment for the program launched in the sandbox
  */
-inline Bwrap::Bwrap(Logs logs
-    , std::string_view user
-    , mode_t uid
-    , mode_t gid
-    , std::optional<Overlay> opt_overlay
-    , fs::path const& path_dir_root
-    , fs::path const& path_dir_home
-    , fs::path const& path_file_bashrc
-    , fs::path const& path_file_passwd
-    , fs::path const& path_file_shell
-    , fs::path const& path_file_program
-    , std::vector<std::string> const& program_args
-    , std::vector<std::string> const& program_env)
+inline Bwrap::Bwrap(ns_proxy::Logs logs
+      , ns_proxy::User user
+      , fs::path const& path_dir_root
+      , fs::path const& path_file_program
+      , std::vector<std::string> const& program_args
+      , std::vector<std::string> const& program_env)
   : m_logs(logs)
   , m_path_file_program(path_file_program)
   , m_program_args(program_args)
-  , m_opt_path_dir_work(opt_overlay.transform([](auto&& e){ return e.path_dir_work; }))
-  , m_is_root(uid == 0)
+  , m_program_env()
+  , m_overlay(std::nullopt)
+  , m_path_dir_root(path_dir_root)
+  , m_path_dir_xdg_runtime()
+  , m_args()
+  , m_is_root(user.data.id.uid == 0)
 {
   // Push passed environment
   std::ranges::for_each(program_env, [&](auto&& e){ logger("I::ENV: {}", e); m_program_env.push_back(e); });
@@ -172,29 +296,16 @@ inline Bwrap::Bwrap(Logs logs
   // Configure user info
   ns_vector::push_back(m_args
     // Configure user name
-    , "--setenv", "USER", std::string{user}
+    , "--setenv", "USER", std::string{user.data.name}
     // Configure uid and gid
-    , "--uid", std::to_string(uid), "--gid", std::to_string(gid)
+    , "--uid", std::to_string(user.data.id.uid), "--gid", std::to_string(user.data.id.gid)
     // Configure HOME
-    ,  "--setenv", "HOME", path_dir_home.string()
+    ,  "--setenv", "HOME", user.data.path_dir_home.string()
     // Configure SHELL
-    ,  "--setenv", "SHELL", path_file_shell.string()
+    ,  "--setenv", "SHELL", user.data.path_file_shell.string()
   );
   // Setup .bashrc
-  ns_env::set("BASHRC_FILE", path_file_bashrc.c_str(), ns_env::Replace::Y);
-  // Use native bwrap --overlay options or overlayfs
-  if ( opt_overlay )
-  {
-    overlay(opt_overlay->vec_path_dir_layer
-      , opt_overlay->path_dir_upper
-      , opt_overlay->path_dir_work
-    );
-  }
-  else
-  {
-    log_if(not fs::is_directory(path_dir_root), "E::'{}' does not exist or is not a directory", path_dir_root.string());
-    ns_vector::push_back(m_args, "--bind", path_dir_root, "/");
-  }
+  ns_env::set("BASHRC_FILE", user.data.path_file_bashrc.c_str(), ns_env::Replace::Y);
   // System bindings
   ns_vector::push_back(m_args
     , "--dev", "/dev"
@@ -205,7 +316,7 @@ inline Bwrap::Bwrap(Logs logs
   );
   // Configure passwd file, make it as a rw binding, because some package managers
   // might try to update it.
-  ns_vector::push_back(m_args, "--bind-try", path_file_passwd, "/etc/passwd");
+  ns_vector::push_back(m_args, "--bind-try", user.data.path_file_passwd, "/etc/passwd");
   // Check if XDG_RUNTIME_DIR is set or try to set it manually
   set_xdg_runtime_dir();
 }
@@ -215,26 +326,29 @@ inline Bwrap::Bwrap(Logs logs
  */
 inline Bwrap::~Bwrap()
 {
+  if(not m_overlay) { return; }
+
+  ns_bwrap::bwrap_clean(m_overlay->path_dir_work / "work").discard("E::Could not clean bwrap directory");
 }
 
 /**
  * @brief Configures the bubblewrap overlay filesystem options
- * 
+ *
  * @param vec_path_dir_layer Directories to overlay
  * @param path_dir_upper Path to the upper directory where changes are saved to
  * @param path_dir_work Path to the work directory, required by overlayfs
  */
-inline void Bwrap::overlay(std::vector<fs::path> const& vec_path_dir_layer
-  , fs::path const& path_dir_upper
-  , fs::path const& path_dir_work)
+inline void Bwrap::overlay(ns_proxy::Overlay const& overlay)
 {
+  std::vector<std::string> args;
   // Build --overlay related commands
-  for(fs::path const& path_dir_layer : vec_path_dir_layer)
+  for(fs::path const& path_dir_layer : overlay.vec_path_dir_layer)
   {
     logger("I::Overlay layer '{}'", path_dir_layer);
-    ns_vector::push_back(m_args, "--overlay-src", path_dir_layer);
+    ns_vector::push_back(args, "--overlay-src", path_dir_layer);
   } // for
-  ns_vector::push_back(m_args, "--overlay", path_dir_upper, path_dir_work, "/");
+  ns_vector::push_back(args, "--overlay", overlay.path_dir_upper, overlay.path_dir_work, "/");
+  m_args.insert(m_args.begin(), args.begin(), args.end());
 }
 
 /**
@@ -250,7 +364,7 @@ inline void Bwrap::set_xdg_runtime_dir()
 
 /**
  * @brief Runs bubblewrap and tries to integrate with apparmor if execution fails
- * 
+ *
  * @param path_file_bwrap_src Path to the bubblewrap binary
  * @return The path of the bubblewrap binary greenlit in apparmor
  */
@@ -281,7 +395,7 @@ inline Value<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src
 
 /**
  * @brief Setup symlinks to nvidia drivers
- * 
+ *
  * @param path_dir_root_guest Path to the root directory of the sandbox
  * @param path_dir_root_host Path to the root directory of the host system (from the guest)
  * @return Bwrap& A reference to *this
@@ -348,7 +462,7 @@ inline Bwrap& Bwrap::symlink_nvidia(fs::path const& path_dir_root_guest, fs::pat
 
 /**
  * @brief Allows to specify custom bindings from a json file
- * 
+ *
  * @param path_file_bindings Path to the json file which contains the bindings
  * @return Bwrap& A reference to *this
  */
@@ -372,7 +486,7 @@ inline Bwrap& Bwrap::with_binds(ns_db::ns_bind::Binds const& binds)
 
 /**
  * @brief Includes a binding from the host to the guest
- * 
+ *
  * @param src Source of the binding from the host
  * @param dst Destination of the binding in the guest
  * @return Bwrap& A reference to *this
@@ -385,7 +499,7 @@ inline Bwrap& Bwrap::with_bind(fs::path const& src, fs::path const& dst)
 
 /**
  * @brief Includes a read-only binding from the host to the guest
- * 
+ *
  * @param src Source of the binding from the host
  * @param dst Destination of the binding in the guest
  * @return Bwrap& A reference to *this
@@ -397,8 +511,18 @@ inline Bwrap& Bwrap::with_bind_ro(fs::path const& src, fs::path const& dst)
 }
 
 /**
+ * @brief Enable bwrap's overlay filesystem
+ *
+ * @param overlay The overlay configuration object
+ */
+inline void Bwrap::set_overlay(ns_proxy::Overlay const& overlay)
+{
+  m_overlay = overlay;
+}
+
+/**
  * @brief Includes a binding from the host $HOME to the guest
- * 
+ *
  * @return Bwrap& A reference to *this
  */
 inline Bwrap& Bwrap::bind_home()
@@ -416,9 +540,9 @@ inline Bwrap& Bwrap::bind_home()
 
 /**
  * @brief Binds the host's media directories to the guest
- * 
+ *
  * The bindings are `/media`, `/run/media`, and `/mnt`
- * 
+ *
  * @return Bwrap& A reference to *this
  */
 inline Bwrap& Bwrap::bind_media()
@@ -432,7 +556,7 @@ inline Bwrap& Bwrap::bind_media()
 
 /**
  * @brief Binds the host's audio sockets and devices to the guest
- * 
+ *
  * The bindings are $XDG_RUNTIME_DIR/{/pulse/native,pipewire-0}
  *
  * @return Bwrap& A reference to *this
@@ -460,7 +584,7 @@ inline Bwrap& Bwrap::bind_audio()
 
 /**
  * @brief Binds the wayland socket from the host to the guest
- * 
+ *
  * Requires the WAYLAND_DISPLAY variable set
  * The binding is $XDG_RUNTIME_DIR/$WAYLAND_DISPLAY
  *
@@ -488,7 +612,7 @@ inline Bwrap& Bwrap::bind_wayland()
 
 /**
  * @brief Binds the xorg socket from the host to the guest
- * 
+ *
  * Requires the DISPLAY environment variable set
  * Requires the XAUTHORITY environment variable set
  *
@@ -518,7 +642,7 @@ inline Bwrap& Bwrap::bind_xorg()
 
 /**
  * @brief Binds the user session bus from the host to the guest
- * 
+ *
  * Requires the DBUS_SESSION_BUS_ADDRESS environment variable set
  *
  * @return Bwrap& A reference to *this
@@ -558,7 +682,7 @@ inline Bwrap& Bwrap::bind_dbus_user()
 
 /**
  * @brief Binds the syst from the host to the guest
- * 
+ *
  * the binding is `/run/dbus/system_bus_socket`
  *
  * @return bwrap& a reference to *this
@@ -572,7 +696,7 @@ inline Bwrap& Bwrap::bind_dbus_system()
 
 /**
  * @brief binds the udev folder from the host to the guest
- * 
+ *
  * The binding is `/run/udev`
  *
  * @return Bwrap& A reference to *this
@@ -586,7 +710,7 @@ inline Bwrap& Bwrap::bind_udev()
 
 /**
  * @brief Binds the input devices from the host to the guest
- * 
+ *
  * The bindings are `/dev/{input,uinput}`
  *
  * @return Bwrap& A reference to *this
@@ -601,7 +725,7 @@ inline Bwrap& Bwrap::bind_input()
 
 /**
  * @brief Binds the usb devices from the host to the guest
- * 
+ *
  * The bindings are `/dev/bus/usb` and `/dev/usb`
  *
  * @return Bwrap& A reference to *this
@@ -616,7 +740,7 @@ inline Bwrap& Bwrap::bind_usb()
 
 /**
  * @brief Binds the network configuration from the host to the guest
- * 
+ *
  * The bindings are:
  * - `/etc/host.conf`
  * - `/etc/hosts`
@@ -637,7 +761,7 @@ inline Bwrap& Bwrap::bind_network()
 
 /**
  * @brief Binds the /dev/shm directory to the containter
- * 
+ *
  * A tmpfs mount used for POSIX shared memory
  *
  * @return Bwrap& A reference to *this
@@ -651,7 +775,7 @@ inline Bwrap& Bwrap::bind_shm()
 
 /**
  * @brief Binds optical devices to the container
- * 
+ *
  * Grants access to optical devices such as CD and DVD drives.
  * The maximum number of scsi devices is defined in the linux kernel
  * as [#define SR_DISKS	256](https://github.com/torvalds/linux/blob/master/drivers/scsi/sr.c).
@@ -685,7 +809,7 @@ inline Bwrap& Bwrap::bind_optical()
 
 /**
  * @brief Binds the /dev directory to the containter
- * 
+ *
  * Superseeds all previous /dev related bindings
  *
  * @return Bwrap& A reference to *this
@@ -700,10 +824,10 @@ inline Bwrap& Bwrap::bind_dev()
 
 /**
  * @brief Binds the gpu device from the host to the guest
- * 
+ *
  * @param path_dir_root_guest Path to the root directory of the sandbox
  * @param path_dir_root_host Path to the root directory of the host system (from the guest)
- * @return Bwrap& 
+ * @return Bwrap&
  */
 inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path const& path_dir_root_host)
 {
@@ -714,10 +838,10 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
 
 /**
  * @brief Runs the command in the bubblewrap sandbox
- * 
+ *
  * @param permissions Permissions for the program, configured in bubblewrap
  * @param path_dir_app_bin Path to the binary directory of flatimage's binary files
- * @return bwrap_run_ret_t 
+ * @return bwrap_run_ret_t
  */
 inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   , fs::path const& path_file_daemon
@@ -773,6 +897,16 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   ns_vector::push_back(m_args, "--setenv", "FIM_DAEMON_LOG", str_arg2_daemon);
 
   return_if(not Try(fs::exists(path_file_daemon)), Error("E::Missing portal daemon to run binary file path"));
+
+  // Configure bwrap overlay filesystem if required
+  if(m_overlay)
+  {
+    overlay(m_overlay.value());
+  }
+  else
+  {
+    ns_vector::push_front(m_args, "--bind", m_path_dir_root, "/");
+  }
 
   // Run Bwrap
   auto code = ns_subprocess::Subprocess(path_file_bash)

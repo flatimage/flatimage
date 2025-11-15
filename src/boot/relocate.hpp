@@ -2,7 +2,7 @@
  * @file relocate.hpp
  * @author Ruan Formigoni
  * @brief Used to copy execve the flatimage program
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -17,10 +17,11 @@
 #include "../lib/elf.hpp"
 #include "../db/db.hpp"
 #include "../std/expected.hpp"
+#include "../config.hpp"
 
 namespace ns_relocate
 {
-    
+
 namespace
 {
 
@@ -63,7 +64,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
 
 /**
  * @brief Relocate the binary (by copying it) from the image.
- * 
+ *
  * The binary is copied from the image to the instance directory,
  * for an execve to be performed. This is done to free the main
  * flatimage file to mount the filesystems.
@@ -72,64 +73,46 @@ constexpr std::array<const char*,403> const arr_busybox_applet
  * @param offset Offset to the reserved space, past the elf and appended binaries
  * @return Nothing on success, or the respective error
  */
-[[nodiscard]] inline Value<void> relocate_impl(char** argv, uint32_t offset)
+[[nodiscard]] inline Value<void> relocate_impl(char** argv
+  , uint32_t offset
+  , fs::path const& path_file_self)
 {
-  std::error_code ec;
+  // Save the original path before relocation
+  ns_env::set("FIM_BIN_SELF", path_file_self, ns_env::Replace::Y);
   // This part of the code is executed to write the runner,
   // rightafter the code is replaced by the runner.
   // This is done because the current executable cannot mount itself.
-
-  // Get path to called executable
-  return_if(!fs::exists("/proc/self/exe", ec), Error("E::Error retrieving executable path for self"));
-  auto path_absolute = Try(fs::read_symlink("/proc/self/exe"));
-  // Create base dir
-  fs::path path_dir_base = "/tmp/fim";
-  Try(fs::create_directories(path_dir_base));
-  // Make the temporary directory name
-  fs::path path_dir_app = path_dir_base / "app" / std::format("{}_{}", FIM_COMMIT, FIM_TIMESTAMP);
-  Try(fs::create_directories(path_dir_app));
-  // Create bin dir
-  fs::path path_dir_app_bin = path_dir_app / "bin";
-  Try(fs::create_directories(path_dir_app_bin));
-  // Create sbin dir
-  fs::path path_dir_app_sbin = path_dir_app / "sbin";
-  Try(fs::create_directories(path_dir_app_sbin));
-  // Set variables
-  ns_env::set("FIM_DIR_GLOBAL", path_dir_base.c_str(), ns_env::Replace::Y);
-  ns_env::set("FIM_DIR_APP", path_dir_app.c_str(), ns_env::Replace::Y);
-  ns_env::set("FIM_DIR_APP_BIN", path_dir_app_bin.c_str(), ns_env::Replace::Y);
-  ns_env::set("FIM_DIR_APP_SBIN", path_dir_app_sbin.c_str(), ns_env::Replace::Y);
-  ns_env::set("FIM_FILE_BINARY", path_absolute.c_str(), ns_env::Replace::Y);
-  // Create instance directory
-  fs::path path_dir_instance = std::format("{}/{}/{}", path_dir_app.string(), "instance", std::to_string(getpid()));
-  Try(fs::create_directories(path_dir_instance));
-  ns_env::set("FIM_DIR_INSTANCE", path_dir_instance.c_str(), ns_env::Replace::Y);
-  // Path to directory with mount points
-  fs::path path_dir_mount = path_dir_instance / "mount";
-  Try(fs::create_directories(path_dir_mount));
-  ns_env::set("FIM_DIR_MOUNT", path_dir_mount.c_str(), ns_env::Replace::Y);
-
+  // Configure directory paths
+  ns_config::Path const path = Pop(ns_config::Path::create());
+  auto const dir = path.dir;
+  auto const bin = path.bin;
+  // Create directories
+  Try(fs::create_directories(dir.global));
+  Try(fs::create_directories(dir.app));
+  Try(fs::create_directories(dir.app_bin));
+  Try(fs::create_directories(dir.app_sbin));
+  Try(fs::create_directories(dir.instance));
   // Starting offsets
   uint64_t offset_beg = 0;
-  uint64_t offset_end = Pop(ns_elf::skip_elf_header(path_absolute.c_str()));
+  uint64_t offset_end = Pop(ns_elf::skip_elf_header(bin.self.c_str()));
   // Write by binary header offset
   auto f_write_from_header = [&](fs::path path_file, uint64_t offset_end)
     -> Value<std::pair<uint64_t,uint64_t>>
   {
     // Update offsets
     offset_beg = offset_end;
-    offset_end = Pop(ns_elf::skip_elf_header(path_absolute.c_str(),offset_beg)) + offset_beg;
+    offset_end = Pop(ns_elf::skip_elf_header(bin.self.c_str(),offset_beg)) + offset_beg;
     // Write binary only if it doesnt already exist
-    if ( ! fs::exists(path_file, ec) )
+    if ( ! Try(fs::exists(path_file)) )
     {
-      Pop(ns_elf::copy_binary(path_absolute.string()
+      Pop(ns_elf::copy_binary(bin.self.string()
         , path_file
         , {offset_beg
         , offset_end})
       );
     }
     // Set permissions (with error_code - doesn't throw)
-    fs::permissions(path_file.c_str(), fs::perms::owner_all | fs::perms::group_all, ec);
+    Try(fs::permissions(path_file.c_str(), fs::perms::owner_all | fs::perms::group_all));
     // Return new values for offsets
     return std::make_pair(offset_beg, offset_end);
   };
@@ -146,7 +129,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
     // Read size bytes (FATAL if fails)
     uint64_t size;
     return_if(not file_binary.read(reinterpret_cast<char*>(&size), sizeof(size)), Error("E::Could not read binary size"));
-    // Open output file and write 
+    // Open output file and write
     if (fs::exists(path_file, ec))
     {
       file_binary.seekg(offset_beg + size + sizeof(size));
@@ -171,29 +154,34 @@ constexpr std::array<const char*,403> const arr_busybox_applet
 
   // Write binaries
   auto start = std::chrono::high_resolution_clock::now();
-  std::ifstream file_binary{path_absolute, std::ios::in | std::ios::binary};
+  std::ifstream file_binary{bin.self, std::ios::in | std::ios::binary};
   return_if(not file_binary.is_open(), Error("E::Could not open flatimage binary file"));
   constexpr static char const str_raw_json[] =
   {
     #embed FIM_FILE_TOOLS
   };
-  std::tie(offset_beg, offset_end) = Pop(f_write_from_header(path_dir_instance / "fim_boot" , 0));
+  std::tie(offset_beg, offset_end) = Pop(f_write_from_header(dir.instance / "fim_boot" , 0));
   // TODO: Make this compile-time with C++26 reflection features
   for(auto&& tool : Pop(Pop(ns_db::from_string(str_raw_json)).template value<std::vector<std::string>>()))
   {
-    std::tie(offset_beg, offset_end) = Pop(f_write_from_offset(file_binary, path_dir_app_bin / tool, offset_end));
+    std::tie(offset_beg, offset_end) = Pop(f_write_from_offset(file_binary, dir.app_bin / tool, offset_end));
   }
   file_binary.close();
+  auto f_symlink = [](auto&& points_to, auto&& saved_at)
+  {
+    if(fs::exists(saved_at)) { fs::remove(saved_at); }
+    fs::create_symlink(points_to, saved_at);
+  };
   // Create symlinks (with error_code - doesn't throw)
-  fs::path path_file_dwarfs_aio = path_dir_app_bin / "dwarfs_aio";
-  fs::create_symlink(path_file_dwarfs_aio, path_dir_app_bin / "dwarfs", ec);
-  fs::create_symlink(path_file_dwarfs_aio, path_dir_app_bin / "mkdwarfs", ec);
+  fs::path path_file_dwarfs_aio = dir.app_bin / "dwarfs_aio";
+  Try(f_symlink(path_file_dwarfs_aio, dir.app_bin / "dwarfs"));
+  Try(f_symlink(path_file_dwarfs_aio, dir.app_bin / "mkdwarfs"));
   auto end = std::chrono::high_resolution_clock::now();
 
   // Create busybox symlinks, allow (symlinks exists) errors
   for(auto const& busybox_applet : arr_busybox_applet)
   {
-    fs::create_symlink(path_dir_app_bin / "busybox", path_dir_app_sbin / busybox_applet, ec);
+    Try(f_symlink(dir.app_bin / "busybox", dir.app_sbin / busybox_applet));
   } // for
 
   // Filesystem starts here
@@ -212,7 +200,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   } // if
 
   // Launch Runner
-  int code = execve(std::format("{}/fim_boot", path_dir_instance.string()).c_str(), argv, environ);
+  int code = execve(std::format("{}/fim_boot", dir.instance.string()).c_str(), argv, environ);
   return Error("E::Could not perform 'evecve({})': {}", code, strerror(errno));
 }
 
@@ -220,7 +208,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
 
 /**
  * @brief Calls the implementation of relocate
- * 
+ *
  * @param argv Argument vector passed to the main program
  * @param offset Offset to the reserved space, past the elf and appended binaries
  * @return Nothing on success, or the respective error
@@ -232,7 +220,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   // If it is outside /tmp, move the binary
   if (Try(fs::file_size(path_file_self)) != Pop(ns_elf::skip_elf_header(path_file_self)))
   {
-    Pop(relocate_impl(argv, offset), "E::Could not relocate binary");
+    Pop(relocate_impl(argv, offset, path_file_self), "E::Could not relocate binary");
   }
   return {};
 }
