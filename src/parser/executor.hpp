@@ -117,7 +117,7 @@ using namespace ns_parser::ns_interface;
     ns_dispatcher::Dispatcher dispatcher(fim.pid
       , ns_daemon::Mode::HOST
       , fim.path.dir.app
-      , fim.logs.dispatcher.path_file_log
+      , fim.logs.dispatcher.path_dir_log
     );
     // Run the portal program with the guest dispatcher configuration
     // Run bwrap
@@ -463,7 +463,7 @@ using namespace ns_parser::ns_interface;
       ns_dispatcher::Dispatcher dispatcher(instance.pid
         , ns_daemon::Mode::GUEST
         , fim.path.dir.app
-        , fim.logs.dispatcher.path_file_log
+        , fim.logs.dispatcher
       );
       // Run the portal program with the guest dispatcher configuration
       return Pop(ns_subprocess::Subprocess(fim.path.dir.app_bin / "fim_portal")

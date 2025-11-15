@@ -2,7 +2,7 @@
  * @file child.hpp
  * @author Ruan Formigoni
  * @brief Spawns a child process and connects its I/O to pipes
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -64,6 +64,8 @@ namespace ns_message = ns_db::ns_portal::ns_message;
  * @param vec_argv Arguments to the child process (first element is the command)
  * @param message Message containing FIFO paths and environment for IPC
  * @return Value<void> Success or error
+ *
+ * @todo Forward grand child pid to a log file
  */
 [[nodiscard]] inline Value<void> spawn(ns_daemon::ns_log::Logs logs
   , std::vector<std::string> const& vec_argv
@@ -78,8 +80,6 @@ namespace ns_message = ns_db::ns_portal::ns_message;
   auto child = ns_subprocess::Subprocess(command)
     .with_args(args)
     .with_env(message.get_environment())
-    .with_stdio(ns_subprocess::Stream::Pipe)
-    .with_log_file(logs.get_path_file_grand())
     .with_die_on_pid(getpid())
     .with_callback_child([&message]([[maybe_unused]] ns_subprocess::ArgsCallbackChild args) {
       // Open stdin FIFO for reading and redirect to stdin (FD 0)
@@ -141,7 +141,9 @@ namespace ns_message = ns_db::ns_portal::ns_message;
 [[nodiscard]] inline Value<void> spawn(ns_daemon::ns_log::Logs logs, ns_message::Message const& message)
 {
   // Setup child logging
-  ns_log::set_sink_file(logs.get_path_file_child());
+  fs::path path_file_log = ns_fs::placeholders_replace(logs.get_path_file_child(), getpid());
+  Try(fs::create_directories(path_file_log.parent_path()));
+  ns_log::set_sink_file(ns_fs::placeholders_replace(path_file_log, getpid()));
   // Get command from message
   auto vec_argv = message.get_command();
   // Ignore on empty command

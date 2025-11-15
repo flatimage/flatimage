@@ -90,42 +90,47 @@ namespace fs = std::filesystem;
  *
  * Organizes paths into three categories: directories, files, and binaries.
  * All paths are computed from the binary location and process ID.
+ *
+ * FlatImage uses the following directory structure
+ *
+ * @code
+ * /tmp/fim/                                    (global)
+ * ├── app/
+ * │   └── {COMMIT}_{TIMESTAMP}/               (app)
+ * │       ├── bin/                            (app_bin)
+ * │       │   ├── bash
+ * │       │   ├── fim_janitor
+ * │       │   ├── fim_portal
+ * │       │   └── fim_portal_daemon
+ * │       ├── sbin/                           (app_sbin)
+ * │       └── instance/
+ * │           └── <PID>/                      (instance)
+ * │               ├── bashrc
+ * │               ├── passwd
+ * │               ├── portal/                 (portal)
+ * │               │   ├── daemon/
+ * │               │   └── dispatcher/
+ * │               ├── logs/
+ * │               ├── mount/                  (merged root)
+ * │               └── layers/                 (layer mounts)
+ * │                   ├── 0/
+ * │                   └── N/
+ * └── run/                                    (runtime)
+ *     └── host/                               (runtime_host)
+ *
+ * {BINARY_DIR}/                               (self)
+ * └── .{BINARY_NAME}.data/                    (host_data)
+ *     ├── tmp/                                (host_data_tmp)
+ *     ├── work/<PID>/                         (fuse work)
+ *     ├── data/
+ *     ├── casefold/
+ *     └── recipes/
+ * @endcode
  */
 class Path
 {
   /**
    * @brief Directory paths used throughout FlatImage
-   *
-   * Creates the following directory structure:
-   * @code
-   * /tmp/fim/                                    (global)
-   * ├── app/
-   * │   └── {COMMIT}_{TIMESTAMP}/               (app)
-   * │       ├── bin/                            (app_bin)
-   * │       │   ├── bash
-   * │       │   ├── fim_janitor
-   * │       │   ├── fim_portal
-   * │       │   └── fim_portal_daemon
-   * │       ├── sbin/                           (app_sbin)
-   * │       └── instance/
-   * │           └── {PID}/                      (instance)
-   * │               ├── bashrc
-   * │               ├── passwd
-   * │               ├── logs/
-   * │               ├── mount/
-   * │               └── layers/
-   * ├── portal/                                 (portal_fifo)
-   * └── run/                                    (runtime)
-   *     └── host/                               (runtime_host)
-   *
-   * {BINARY_DIR}/                               (self)
-   * └── .{BINARY_NAME}.data/                    (host_data)
-   *     ├── tmp/                                (host_data_tmp)
-   *     ├── work/
-   *     ├── data/
-   *     ├── casefold/
-   *     └── recipes/
-   * @endcode
    */
   public:
   struct Dir
@@ -136,7 +141,7 @@ class Path
     fs::path const app_bin;         ///< Application binaries directory
     fs::path const app_sbin;        ///< Application system binaries directory
     fs::path const instance;        ///< Instance-specific directory (per-PID)
-    fs::path const portal_fifo;     ///< Portal FIFO directory for IPC
+    fs::path const portal;          ///< Portal directory for IPC
     fs::path const runtime;         ///< Runtime directory (/tmp/fim/run)
     fs::path const runtime_host;    ///< Host-side runtime directory
     fs::path const host_home;       ///< Relative path to user's home directory
@@ -154,7 +159,7 @@ class Path
       fs::path app_bin = app / "bin";
       fs::path app_sbin = app / "sbin";
       fs::path instance = std::format("{}/{}/{}", app.string(), "instance", std::to_string(getpid()));
-      fs::path portal_fifo = global / "portal";
+      fs::path portal = instance / "portal";
       fs::path runtime = fs::path("/tmp/fim/run");
       fs::path runtime_host = runtime / "host";
       fs::path host_home = fs::path{ns_env::get_expected("HOME").value()}.relative_path();
@@ -171,7 +176,7 @@ class Path
         .app_bin = std::move(app_bin),
         .app_sbin = std::move(app_sbin),
         .instance = std::move(instance),
-        .portal_fifo = std::move(portal_fifo),
+        .portal = std::move(portal),
         .runtime = std::move(runtime),
         .runtime_host = std::move(runtime_host),
         .host_home = std::move(host_home),
@@ -183,13 +188,6 @@ class Path
 
   /**
    * @brief Instance-specific configuration files
-   *
-   * Files created within the instance directory:
-   * @code
-   * {instance}/
-   * ├── bashrc    - Shell initialization script
-   * └── passwd    - User/group configuration
-   * @endcode
    */
   struct File
   {
@@ -207,15 +205,6 @@ class Path
 
   /**
    * @brief Paths to embedded and extracted binaries
-   *
-   * Binary layout in app_bin directory:
-   * @code
-   * {app_bin}/
-   * ├── bash                 - Shell interpreter
-   * ├── fim_janitor          - Cleanup daemon
-   * ├── fim_portal           - Portal IPC client
-   * └── fim_portal_daemon    - Portal IPC daemon (host-side)
-   * @endcode
    */
   struct Bin
   {
@@ -271,20 +260,31 @@ class Path
  * Creates the following log directory structure:
  * @code
  * {instance}/logs/
- * ├── bwrap/              - Bubblewrap sandbox logs
+ * ├── bwrap/                        - Bubblewrap sandbox logs
  * ├── daemon/
- * │   ├── host/          - Portal daemon (host-side) logs
- * │   └── guest/         - Portal daemon (guest-side) logs
- * ├── dispatcher/        - Portal dispatcher logs
+ * │   ├── host/                     - Portal daemon (host-side) logs
+ * │   │   ├── <PID>                -
+ * │   │   │   ├── child.log        -
+ * │   │   │   └── grand.log        -
+ * │   │   └── daemon.log           - Daemon process logging
+ * │   ├── guest/                   - Portal daemon (guest-side) logs
+ * │   │   ├── <PID>                -
+ * │   │   │   ├── child.log        -
+ * │   │   │   └── grand.log        -
+ * │   └── └── daemon.log                - Portal daemon (host-side) logs
+ * ├── dispatcher/                   - Portal dispatcher logs
+ * │   ├── host/                     - Portal daemon (host-side) logs
+ * │   │   └── <PID>.log             - Portal daemon (host-side) logs
+ * │   ├── guest/                    - Portal daemon (guest-side) logs
+ * │   └── └── <PID>.log             - Portal daemon (host-side) logs
  * ├── fuse/
- * │   ├── dwarfs.log     - DwarFS filesystem logs
- * │   ├── ciopfs.log     - Case-insensitive FS logs
- * │   ├── overlayfs.log  - OverlayFS logs
- * │   ├── unionfs.log    - UnionFS logs
- * │   ├── janitor.log    - Filesystem janitor logs
- * │   └── guest/         - Guest filesystem logs
- * ├── janitor.log        - Main janitor process logs
- * └── boot.log           - Boot/initialization logs
+ * │   ├── dwarfs.log                - DwarFS filesystem logs
+ * │   ├── ciopfs.log                - Case-insensitive FS logs
+ * │   ├── overlayfs.log             - OverlayFS logs
+ * │   ├── unionfs.log               - UnionFS logs
+ * │   ├── janitor.log               - Filesystem janitor logs
+ * │   └── guest/                    - Guest filesystem logs
+ * └── boot.log                      - Boot/initialization logs
  * @endcode
  */
 struct Logs
@@ -294,7 +294,6 @@ struct Logs
   ns_db::ns_portal::ns_daemon::ns_log::Logs const daemon_guest;   ///< Guest portal daemon logs
   ns_db::ns_portal::ns_dispatcher::Logs const dispatcher;         ///< Portal dispatcher logs
   ns_filesystems::ns_controller::Logs const filesystems;          ///< Filesystem subsystem logs
-  fs::path const path_file_janitor;                               ///< Main janitor process log file
   fs::path const path_file_boot;                                  ///< Boot initialization log file
 
   Logs() = delete;
@@ -311,7 +310,6 @@ struct Logs
         .path_file_unionfs = path_dir_log / "fuse" / "unionfs.log",
         .path_file_janitor = path_dir_log / "fuse" / "janitor.log",
       })
-    , path_file_janitor(path_dir_log / "janitor.log")
     , path_file_boot(path_dir_log / "boot.log")
   {
     fs::create_directories(path_dir_log);
@@ -326,20 +324,6 @@ struct Logs
  * @brief Module configurations linked with FlatImage paths
  *
  * Manages configurations for fuse and daemon subsystems, creating:
- * @code
- * {host_data}/
- * ├── work/          - OverlayFS/Bwrap work directory
- * ├── data/          - Upper layer (read-write changes)
- * ├── casefold/      - Case-insensitive filesystem mount point
- * └── recipes/       - Package recipe cache
- *
- * {instance}/
- * ├── mount/         - Final merged filesystem mount point
- * └── layers/        - DwarFS layer mount points
- *     ├── 0/         - Base layer
- *     ├── 1/         - Additional layer 1
- *     └── N/         - Additional layer N
- * @endcode
  */
 struct Config
 {
@@ -374,7 +358,7 @@ struct Config
    * @param path_bin_janitor Path to janitor cleanup binary
    * @param path_bin_self Path to FlatImage binary
    * @param path_bin_portal_daemon Path to portal daemon binary
-   * @param path_dir_fifo Portal FIFO directory path
+   * @param path_dir_portal Portal FIFO directory path
    * @return Value<Config> Initialized configuration or error
    */
   static Value<Config> create(
@@ -384,12 +368,12 @@ struct Config
     fs::path const& path_bin_janitor,
     fs::path const& path_bin_self,
     fs::path const& path_bin_portal_daemon,
-    fs::path const& path_dir_fifo
+    fs::path const& path_dir_portal
   )
   {
     // Compute paths first
     auto path_dir_mount = path_dir_instance / "mount";
-    auto path_dir_work = path_dir_host_data / "work";
+    auto path_dir_work = path_dir_host_data / "work" / std::to_string(getpid());
     auto path_dir_upper = path_dir_host_data / "data";
     auto path_dir_layers = path_dir_instance / "layers";
     auto path_dir_ciopfs = path_dir_host_data / "casefold";
@@ -438,8 +422,14 @@ struct Config
 
     auto daemon = Daemon
     {
-      .host = ns_db::ns_portal::ns_daemon::Daemon(DaemonMode::HOST, path_bin_portal_daemon, path_dir_fifo),
-      .guest = ns_db::ns_portal::ns_daemon::Daemon(DaemonMode::GUEST, path_bin_portal_daemon, path_dir_fifo),
+      .host = ns_db::ns_portal::ns_daemon::Daemon(DaemonMode::HOST
+        , path_bin_portal_daemon
+        , path_dir_portal
+      ),
+      .guest = ns_db::ns_portal::ns_daemon::Daemon(DaemonMode::GUEST
+        , path_bin_portal_daemon
+        , path_dir_portal
+      ),
     };
 
     return Config
@@ -504,50 +494,6 @@ struct Flags
  *
  * Central "single source of truth" for all FlatImage configuration.
  * Aggregates paths, flags, logs, and module configurations into one immutable structure.
- *
- * Complete directory hierarchy managed by this object:
- * @code
- * /tmp/fim/                                      (Path::Dir::global)
- * ├── app/
- * │   └── {COMMIT}_{TIMESTAMP}/                 (Path::Dir::app)
- * │       ├── bin/                              (Path::Dir::app_bin)
- * │       │   ├── bash                          (Path::Bin::bash)
- * │       │   ├── fim_janitor                   (Path::Bin::janitor)
- * │       │   ├── fim_portal                    (Path::Bin::portal_dispatcher)
- * │       │   └── fim_portal_daemon             (Path::Bin::portal_daemon)
- * │       ├── sbin/                             (Path::Dir::app_sbin)
- * │       └── instance/
- * │           └── {PID}/                        (Path::Dir::instance)
- * │               ├── bashrc                    (Path::File::bashrc)
- * │               ├── passwd                    (Path::File::passwd)
- * │               ├── logs/                     (Logs - entire hierarchy)
- * │               │   ├── bwrap/
- * │               │   ├── daemon/
- * │               │   ├── dispatcher/
- * │               │   ├── fuse/
- * │               │   ├── janitor.log
- * │               │   └── boot.log
- * │               ├── mount/                    (Config::Filesystem - merged root)
- * │               └── layers/                   (Config::Filesystem - layer mounts)
- * │                   ├── 0/
- * │                   └── N/
- * ├── portal/                                   (Path::Dir::portal_fifo)
- * └── run/                                      (Path::Dir::runtime)
- *     └── host/                                 (Path::Dir::runtime_host)
- *
- * {BINARY_DIR}/                                 (Path::Dir::self)
- * └── .{BINARY_NAME}.data/                      (Path::Dir::host_data)
- *     ├── tmp/                                  (Path::Dir::host_data_tmp)
- *     ├── work/                                 (Config::Filesystem - overlayfs work)
- *     ├── data/                                 (Config::Filesystem - upper layer)
- *     ├── casefold/                             (Config::Filesystem - ciopfs mount)
- *     └── recipes/
- * @endcode
- *
- * @see Path for path management
- * @see Flags for runtime feature flags
- * @see Logs for log file paths
- * @see Config for module configurations
  */
 struct FlatImage
 {
@@ -642,7 +588,7 @@ struct FlatImage
     path.bin.janitor,
     path.bin.self,
     path.bin.portal_daemon,
-    path.dir.portal_fifo
+    path.dir.portal
   ));
 
   // LD_LIBRARY_PATH

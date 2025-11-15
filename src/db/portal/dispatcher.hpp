@@ -29,9 +29,9 @@ using ns_db::ns_portal::ns_daemon::Mode;
 
 struct Logs
 {
-  fs::path path_file_log;
+  fs::path path_dir_log;
   Logs(fs::path const& path_dir_log)
-    : path_file_log(path_dir_log / "dispatcher.log")
+    : path_dir_log(path_dir_log)
   {}
 };
 
@@ -46,7 +46,7 @@ class Dispatcher
     Dispatcher();
 
   public:
-    explicit Dispatcher(pid_t pid, Mode mode, fs::path const& path_dir_app, fs::path const& path_dir_log);
+    explicit Dispatcher(pid_t pid, Mode mode, fs::path const& path_dir_app, Logs const& logs);
 
     [[maybe_unused]] fs::path get_path_dir_fifo() const { return m_path_dir_fifo; }
     [[maybe_unused]] fs::path get_path_fifo_daemon() const { return m_path_fifo_daemon; }
@@ -73,11 +73,11 @@ inline Dispatcher::Dispatcher()
  * @param path_fifo_daemon The path to the daemon FIFO
  * @param path_file_log The log file path
  */
-inline Dispatcher::Dispatcher(pid_t pid, Mode mode, fs::path const& path_dir_app, fs::path const& path_dir_log)
+inline Dispatcher::Dispatcher(pid_t pid, Mode mode, fs::path const& path_dir_app, Logs const& logs)
   : m_mode(mode)
-  , m_path_dir_fifo(ns_fs::placeholders_replace(path_dir_app  / "instance" / "{}" / "portal" / "fifo", pid))
-  , m_path_fifo_daemon(m_path_dir_fifo / std::format("daemon.{}.fifo", mode.lower()))
-  , m_path_file_log(path_dir_log / std::format("dispatcher.{}.{}.log", mode.lower(), pid))
+  , m_path_dir_fifo(ns_fs::placeholders_replace(path_dir_app  / "instance" / "{}" / "portal" / "dispatcher" / "fifo", pid))
+  , m_path_fifo_daemon(ns_fs::placeholders_replace(path_dir_app  / "instance" / "{}" / "portal" / "daemon" / "host.fifo", pid))
+  , m_path_file_log(logs.path_dir_log / mode.lower() / std::format("{}.log", pid))
 {
   fs::create_directories(m_path_file_log.parent_path());
 }

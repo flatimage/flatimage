@@ -2,7 +2,7 @@
  * @file portal_dispatcher.cpp
  * @author Ruan Formigoni
  * @brief Dispatches child process requests to the portal daemon
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -38,7 +38,7 @@ std::optional<pid_t> opt_child = std::nullopt;
 
 /**
  * @brief Forwards received signal to requested child process
- * 
+ *
  * @param sig The signal to forward
  */
 void signal_handler(int sig)
@@ -142,7 +142,7 @@ void register_signals()
 
 /**
  * @brief Sends a request to the daemon to create a new process
- * 
+ *
  * @param cmd Command to request, with it's respective arguments
  * @param daemon_target "host" sends a command to the 'host' daemon and "guest" sends a command to the 'guest' daemon
  * @param path_dir_instance Path to the instance directory to use
@@ -150,19 +150,16 @@ void register_signals()
  */
 [[nodiscard]] Value<int> process_request(fs::path const& path_fifo_daemon
     , fs::path const& path_dir_fifo
-    , fs::path const& path_file_log
     , std::vector<std::string> const& cmd
   )
 {
   using namespace std::chrono_literals;
-  // Create define log file for child
-  Pop(ns_fs::create_directories(path_file_log.parent_path()));
   // Get environment
   auto environment = std::ranges::subrange(environ, std::unreachable_sentinel)
     | std::views::take_while([](char* p) { return p != nullptr; })
     | std::ranges::to<std::vector<std::string>>();
   // Build message with dispatcher PID
-  auto message = ns_message::Message(getpid(), cmd, path_dir_fifo, path_file_log, environment);
+  auto message = ns_message::Message(getpid(), cmd, path_dir_fifo, environment);
   // Create fifos and build message
   Pop(fifo_create(message));
   // Create parent directories
@@ -186,12 +183,13 @@ int main(int argc, char** argv)
   ns_dispatcher::Dispatcher arg_cfg = Pop(
     ns_dispatcher::deserialize(Pop(ns_env::get_expected("FIM_DISPATCHER_CFG")))
   );
+  // Set log file
+  ns_log::set_sink_file(arg_cfg.get_path_file_log());
   // Register signals
   register_signals();
   // Request process from daemon
   return Pop(process_request(arg_cfg.get_path_fifo_daemon()
     , arg_cfg.get_path_dir_fifo()
-    , arg_cfg.get_path_file_log()
     , args
   ) , "E::Failure to dispatch process request");
 }

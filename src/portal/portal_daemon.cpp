@@ -2,7 +2,7 @@
  * @file portal_daemon.cpp
  * @author Ruan Formigoni
  * @brief Spawns a daemon that receives child process requests
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -72,10 +72,18 @@ int main()
   // Create a fifo to receive commands from
   fs::path path_fifo_in = Pop(ns_portal::ns_fifo::create(args_cfg.get_path_fifo_listen()));
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
-  return_if(fd_fifo < 0, EXIT_FAILURE, "E::{strerror(errno)}");
+  return_if(fd_fifo < 0
+    , EXIT_FAILURE
+    , "E::Could not open file '{}': {}", path_fifo_in, strerror(errno)
+  );
+  logger("D::Listening fifo {}", path_fifo_in);
 
   // Create dummy writter to keep fifo open
   [[maybe_unused]] int fd_dummy = ::open(path_fifo_in.c_str(), O_WRONLY);
+  return_if(fd_dummy < 0
+    , EXIT_FAILURE
+    , "E::Could not open dummy writer in '{}', {}", path_fifo_in, strerror(errno)
+  );
 
   // Get reference pid to the main flatimage program
   pid_t pid_reference = args_cfg.get_pid_reference();

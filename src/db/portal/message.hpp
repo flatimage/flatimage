@@ -33,7 +33,6 @@ class Message
     fs::path m_stderr;
     fs::path m_exit;
     fs::path m_pid;
-    fs::path m_log;
     std::vector<std::string> m_environment;
 
     Message();
@@ -42,7 +41,6 @@ class Message
     Message(pid_t pid
       , std::vector<std::string> const& command
       , fs::path const& path_dir_fifo
-      , fs::path const& path_file_log
       , std::vector<std::string> const& environment
     );
 
@@ -52,7 +50,6 @@ class Message
     [[maybe_unused]] fs::path get_stderr() const { return m_stderr; }
     [[maybe_unused]] fs::path get_exit() const { return m_exit; }
     [[maybe_unused]] fs::path get_pid() const { return m_pid; }
-    [[maybe_unused]] fs::path const& get_log() const { return m_log; }
     [[maybe_unused]] std::vector<std::string> const& get_environment() const { return m_environment; }
 
     friend Value<Message> deserialize(std::string_view str_raw_json) noexcept;
@@ -69,7 +66,6 @@ inline Message::Message()
   , m_stderr()
   , m_exit()
   , m_pid()
-  , m_log()
   , m_environment()
 {}
 
@@ -80,7 +76,6 @@ inline Message::Message()
 inline Message::Message(pid_t pid
     , std::vector<std::string> const& command
     , fs::path const& path_dir_fifo
-    , fs::path const& path_file_log
     , std::vector<std::string> const& environment
   ) : m_command(command)
     , m_stdin(ns_fs::placeholders_replace(path_dir_fifo / "{}" / "stdin.fifo", pid))
@@ -88,7 +83,6 @@ inline Message::Message(pid_t pid
     , m_stderr(ns_fs::placeholders_replace(path_dir_fifo / "{}" / "stderr.fifo", pid))
     , m_exit(ns_fs::placeholders_replace(path_dir_fifo / "{}" / "exit.fifo", pid))
     , m_pid(ns_fs::placeholders_replace(path_dir_fifo / "{}" / "pid.fifo", pid))
-    , m_log(path_file_log)
     , m_environment(environment)
 {}
 
@@ -112,8 +106,6 @@ inline Message::Message(pid_t pid
   message.m_stderr = Pop(db("stderr").template value<std::string>());
   message.m_exit = Pop(db("exit").template value<std::string>());
   message.m_pid = Pop(db("pid").template value<std::string>());
-  // Parse log file path (required)
-  message.m_log = Pop(db("log").template value<std::string>());
   // Parse environment variables (required)
   message.m_environment = Pop(db("environment").template value<std::vector<std::string>>());
   return message;
@@ -134,7 +126,6 @@ inline Message::Message(pid_t pid
   db("stderr") = message.get_stderr().string();
   db("exit") = message.get_exit().string();
   db("pid") = message.get_pid().string();
-  db("log") = message.get_log().string();
   db("environment") = message.get_environment();
   return db.dump();
 }

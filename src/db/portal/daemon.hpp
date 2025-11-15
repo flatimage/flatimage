@@ -66,13 +66,11 @@ inline Logs::Logs()
  */
 inline Logs::Logs(fs::path const& path_dir_log)
   : m_path_dir_log(path_dir_log)
-  , m_path_file_parent(path_dir_log / "parent.log")
-  , m_path_file_child(path_dir_log / "child.log")
-  , m_path_file_grand(path_dir_log / "grand.log")
+  , m_path_file_parent(path_dir_log / "daemon.log")
+  , m_path_file_child(path_dir_log / "{}" / "child.log")
+  , m_path_file_grand(path_dir_log / "{}" / "grand.log")
 {
   fs::create_directories(m_path_file_parent.parent_path());
-  fs::create_directories(m_path_file_child.parent_path());
-  fs::create_directories(m_path_file_grand.parent_path());
 }
 
 
@@ -159,7 +157,7 @@ inline Daemon::Daemon(Mode mode, fs::path const& path_bin_daemon, fs::path const
   : m_mode(mode)
   , m_pid_reference(getpid())
   , m_path_bin_daemon(path_bin_daemon)
-  , path_fifo_listen(path_dir_fifo / std::format("daemon.{}.fifo", m_mode.lower()))
+  , path_fifo_listen(path_dir_fifo / "daemon" / std::format("{}.fifo", m_mode.lower()))
 {}
 
 /**
