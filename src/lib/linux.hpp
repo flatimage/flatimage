@@ -26,7 +26,16 @@
 namespace ns_linux
 {
 
-extern "C" inline void alarm_handler(int) { /* no-op */ }
+/**
+ * @brief Signal handler for SIGALRM used by InterruptTimer
+ *
+ * This is a no-op handler that simply acknowledges the SIGALRM signal.
+ * It's designed to interrupt blocking system calls when the timer expires,
+ * allowing the InterruptTimer class to implement timeout behavior.
+ *
+ * @param sig Signal number (SIGALRM)
+ */
+extern "C" inline void alarm_handler(int sig) { /* no-op */ }
 namespace
 {
 
@@ -159,7 +168,7 @@ class InterruptTimer
  * @param fd The file descriptor
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer in which to store the read data
- * @return ssize_t The number of read bytes or -1 and errno is set
+ * @return ssize_t The number of read bytes or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard read() error codes).
  *
  * @note If timeout expires, read() is interrupted and returns -1 with errno = EINTR
  * @todo Make this return Value due to timer
@@ -186,7 +195,7 @@ template<typename Data>
  * @param fd The file descriptor
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer with the data to write
- * @return ssize_t The number of written bytes or -1 and errno is set
+ * @return ssize_t The number of written bytes or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard write() error codes).
  *
  * @note If timeout expires, write() is interrupted and returns -1 with errno = EINTR
  * @todo Make this return Value due to timer
@@ -212,7 +221,7 @@ template<typename Data>
  * @param path_file_src Path for the file to open
  * @param timeout The timeout in std::chrono::milliseconds
  * @param oflag The open flags O_*
- * @return int The file descriptor or -1 on error and errno is set
+ * @return int The file descriptor or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard open() error codes).
  *
  * @note If timeout expires, open() is interrupted and returns -1 with errno = EINTR
  * @todo Make this return Value due to timer
@@ -238,7 +247,7 @@ template<typename Data>
  * @param path_file_src Path to the file to open and read
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer in which to store the read data
- * @return ssize_t The number of bytes read or -1 on error
+ * @return ssize_t The number of bytes read or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard open()/read() error codes).
  */
 template<typename Data>
 [[nodiscard]] inline ssize_t open_read_with_timeout(fs::path const& path_file_src
@@ -259,7 +268,7 @@ template<typename Data>
  * @param path_file_src Path to the file to open and write
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer with the data to write
- * @return ssize_t The number of bytes written or -1 on error
+ * @return ssize_t The number of bytes written or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard open()/write() error codes).
  */
 template<typename Data>
 [[nodiscard]] inline ssize_t open_write_with_timeout(fs::path const& path_file_src

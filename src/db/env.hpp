@@ -90,8 +90,8 @@ namespace fs = std::filesystem;
 }
 
 /**
- * @brief Adds a new environment variable to the jdatabase
- * 
+ * @brief Adds a new environment variable to the database
+ *
  * @param path_file_binary The path to the environment variable database
  * @param entries List of environment variables to append to the existing ones
  * @return Nothing on success, or the respective error

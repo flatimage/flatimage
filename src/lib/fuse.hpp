@@ -53,8 +53,9 @@ inline Value<bool> is_fuse(fs::path const& path_dir_mount)
 
 /**
  * @brief Waits for the given directory to not be fuse
- * 
+ *
  * @param path_dir_filesystem Path to the directory to wait for
+ * @return void This function does not return a value. It waits until the filesystem is no longer a FUSE mount or timeout occurs.
  */
 inline void wait_fuse(fs::path const& path_dir_filesystem)
 {

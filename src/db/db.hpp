@@ -75,6 +75,9 @@ class Db
     [[maybe_unused]] [[nodiscard]] std::vector<std::pair<std::string, Db>> items() const noexcept;
     template<typename V = Db>
     [[maybe_unused]] [[nodiscard]] Value<V> value() noexcept;
+    /**
+     * @todo Delete unused function
+     */
     template<typename F, IsString Ks>
     [[maybe_unused]] [[nodiscard]] decltype(auto) apply(F&& f, Ks&& ks);
     [[maybe_unused]] [[nodiscard]] Value<std::string> dump();

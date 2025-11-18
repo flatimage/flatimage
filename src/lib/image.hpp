@@ -30,6 +30,20 @@ namespace fs = std::filesystem;
 
 ENUM(ImageFormat, JPG, PNG);
 
+/**
+ * @brief Internal implementation for resizing an image
+ *
+ * Reads an image file, determines its format (JPG or PNG), and resizes it
+ * using ImageMagick to the specified dimensions. The resize maintains aspect
+ * ratio by using the larger dimension (width or height) as the constraint.
+ *
+ * @param path_file_src Path to the source image file
+ * @param path_file_dst Path to the destination image file
+ * @param width Target width for the resized image
+ * @param height Target height for the resized image
+ * @return Value<void> Nothing on success, or error if file doesn't exist,
+ *         format is invalid, or ImageMagick resize fails
+ */
 inline Value<void> resize_impl(fs::path const& path_file_src
   , fs::path const& path_file_dst
   , uint32_t width

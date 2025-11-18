@@ -39,10 +39,11 @@ class Filesystem
 };
 
 /**
- * @brief Construct a new Filesystem:: Filesystem object
+ * @brief Construct a new Filesystem object
  *
  * @param pid_to_die_for Pid the mount process should die with
  * @param path_dir_mount Path to the mount directory
+ * @param path_file_log Path to the log file for filesystem operations
  */
 inline Filesystem::Filesystem(pid_t pid_to_die_for
   , std::filesystem::path const& path_dir_mount

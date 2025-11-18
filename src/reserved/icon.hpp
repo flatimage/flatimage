@@ -26,17 +26,33 @@ namespace fs = std::filesystem;
 }
 
 #pragma pack(push, 1)
+/**
+ * @brief Stores icon data in reserved space
+ *
+ * Packed structure for embedding icon image data within the FlatImage binary.
+ */
 struct Icon
 {
   char m_ext[4];
   char m_data[(1<<20) - 12];
   uint64_t m_size;
+
+  /**
+   * @brief Default constructor, initializes to empty icon
+   */
   Icon()
     : m_size(0)
   {
     std::fill_n(m_ext, std::size(m_ext), 0);
     std::fill_n(m_data, std::size(m_data), 0);
   }
+
+  /**
+   * @brief Constructs an icon with the specified data
+   * @param ext File extension (3 characters + null terminator)
+   * @param data Icon image data
+   * @param size Size of the icon data in bytes
+   */
   Icon(char* ext, char* data, uint64_t size)
     : m_size(size)
   {

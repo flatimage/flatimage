@@ -102,11 +102,11 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
 
 /**
  * @brief Redirects the output of a fifo to a file descriptor
- * 
+ *
  * @param ppid Keep trying to read and write while this pid is alive
  * @param path_file_fifo Path to the fifo to read from
  * @param fd_dst Path to the file descriptor to write to
- * @return pid_t The value of fork() on parent and calls _exit(code) on child
+ * @return pid_t Returns the child process PID in the parent process, or -1 on fork error. The child process never returns (calls _exit).
  */
 [[nodiscard]] inline pid_t redirect_fifo_to_fd(pid_t ppid, fs::path const& path_file_fifo, int fd_dst)
 {
@@ -135,11 +135,11 @@ inline void redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
 
 /**
  * @brief Redirects the output of a file descriptor to a fifo
- * 
+ *
  * @param ppid Keep trying to read and write while this pid is alive
  * @param fd_src Path to the file descriptor to read from
  * @param path_file_fifo Path to the fifo to write to
- * @return pid_t The value of fork() on parent and calls _exit(code) on child
+ * @return pid_t Returns the child process PID in the parent process, or -1 on fork error. The child process never returns (calls _exit).
  */
 [[nodiscard]] inline pid_t redirect_fd_to_fifo(pid_t ppid, int fd_src, fs::path const& path_file_fifo)
 {

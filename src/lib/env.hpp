@@ -120,8 +120,8 @@ inline Value<std::string> expand(ns_concept::StringRepresentable auto&& var)
 
 /**
  * @brief Returns or computes the value of XDG_DATA_HOME
- * 
-  * @tparam T The return type, defaults to std::string
+ *
+ * @tparam T The return type for the path (defaults to std::string, can be fs::path or other string-convertible types)
  * @return Value<T> The path to XDG_DATA_HOME or the respective error
  */
 template<typename T = std::string>

@@ -143,13 +143,15 @@ struct User
 } // namespace ns_proxy
 
 /**
- * @brief
+ * @brief Cleans up the bwrap work directory
  *
- * Bwrap leaves behind a 'root' owned empty directory
- * It is possible to remove without root since it is empty after bwrap is finished
- * Might take some attempts
+ * Bwrap leaves behind a 'root' owned empty directory.
+ * It is possible to remove without root since it is empty after bwrap is finished.
+ * Might take some attempts.
  *
- * @note Even if it fails, this won't affect the next program execution since
+ * @param path_dir_work Path to the bwrap work directory to clean
+ * @return Value<void> Nothing on success, or the respective error
+ * @note Even if it fails, this won't affect the next program execution since the directory is empty
  *
 */
 inline Value<void> bwrap_clean(fs::path const& path_dir_work)
@@ -195,6 +197,13 @@ using Permission = ns_reserved::ns_permissions::Permission;
 
 struct bwrap_run_ret_t { int code; int syscall_nr; int errno_nr; };
 
+/**
+ * @brief Manages bubblewrap (bwrap) containerization
+ *
+ * Provides a high-level interface for configuring and running processes
+ * within isolated bubblewrap containers with customizable bindings,
+ * overlays, and permissions.
+ */
 class Bwrap
 {
   private:
@@ -262,16 +271,14 @@ class Bwrap
 };
 
  /**
- * @brief Construct a new Bwrap:: Bwrap object
+ * @brief Construct a new Bwrap object
  *
- * @param is_root A flag to set the sandbox user as root
- * @param opt_overlay Optional overlay filesystem configuration
+ * @param logs Log files used by bwrap (e.g., apparmor logs)
+ * @param user The user representation in the bubblewrap container
  * @param path_dir_root Path to the sandbox root directory
- * @param path_file_bashrc Path to the `.bashrc` file used by the sandbox shell
- * @param path_file_passwd Path to the passwd file to bind
  * @param path_file_program Program to launch in the sandbox
  * @param program_args Arguments for the program launched in the sandbox
- * @param program_env Environment for the program launched in the sandbox
+ * @param program_env Environment variables for the program launched in the sandbox
  */
 inline Bwrap::Bwrap(ns_proxy::Logs logs
       , ns_proxy::User user
@@ -839,9 +846,12 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
 /**
  * @brief Runs the command in the bubblewrap sandbox
  *
- * @param permissions Permissions for the program, configured in bubblewrap
- * @param path_dir_app_bin Path to the binary directory of flatimage's binary files
- * @return bwrap_run_ret_t
+ * @param permissions Permissions for the program (HOME, MEDIA, AUDIO, etc.), configured in bubblewrap
+ * @param path_file_daemon Path to the portal daemon executable
+ * @param arg1_dispatcher Dispatcher configuration for the portal communication (controls FIFO communication between host and container)
+ * @param arg1_daemon Daemon host configuration for the portal (controls daemon communication settings)
+ * @param arg2_daemon Log configuration for the portal daemon (specifies log file paths and settings)
+ * @return Value<bwrap_run_ret_t> Return value containing exit code, syscall number, and errno on error
  */
 inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   , fs::path const& path_file_daemon

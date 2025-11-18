@@ -125,6 +125,9 @@ inline Value<Bits> read(fs::path const& path_file_binary) noexcept
   return bits;
 }
 
+/**
+ * @brief Manages FlatImage permissions stored in reserved space
+ */
 class Permissions
 {
   private:
@@ -149,10 +152,19 @@ class Permissions
       return {};
     }
   public:
+    /**
+     * @brief Constructs a Permissions manager for the given binary
+     * @param path_file_binary Path to the FlatImage binary file
+     */
     Permissions(fs::path const& path_file_binary)
       : m_path_file_binary(path_file_binary)
     {}
-    
+
+    /**
+     * @brief Sets all permissions to the specified value
+     * @param value True to enable all permissions, false to disable
+     * @return Value<void> Success or error
+     */
     [[nodiscard]] inline Value<void> set_all(bool value)
     {
       auto permissions = permission_mask
@@ -162,21 +174,41 @@ class Permissions
       return set_permissions(Bits{}, permissions, value);
     }
 
+    /**
+     * @brief Sets the specified permissions (replaces existing)
+     * @param permissions Set of permissions to enable
+     * @return Value<void> Success or error
+     */
     [[nodiscard]] inline Value<void> set(std::set<Permission> const& permissions)
     {
       return set_permissions(Bits{}, permissions, true);
     }
 
+    /**
+     * @brief Adds permissions to existing configuration
+     * @param permissions Set of permissions to add
+     * @return Value<void> Success or error
+     */
     [[nodiscard]] inline Value<void> add(std::set<Permission> const& permissions)
     {
       return set_permissions(Pop(read(m_path_file_binary)), permissions, true);
     }
 
+    /**
+     * @brief Removes permissions from existing configuration
+     * @param permissions Set of permissions to remove
+     * @return Value<void> Success or error
+     */
     [[nodiscard]] inline Value<void> del(std::set<Permission> const& permissions)
     {
       return set_permissions(Pop(read(m_path_file_binary)), permissions, false);
     }
 
+    /**
+     * @brief Checks if a specific permission is enabled
+     * @param permission Permission to check
+     * @return True if the permission is enabled, false otherwise
+     */
     [[nodiscard]] inline bool contains(Permission const& permission) const noexcept
     {
       return_if(permission == Permission::NONE or permission == Permission::ALL, false);
@@ -186,6 +218,10 @@ class Permissions
       return (bits & it->second) != 0;
     }
 
+    /**
+     * @brief Converts enabled permissions to string representations
+     * @return Value containing a set of permission names
+     */
     [[nodiscard]] inline Value<std::set<std::string>> to_strings() const noexcept
     {
       return ::ns_reserved::ns_permissions::to_strings(Pop(read(m_path_file_binary)));

@@ -25,7 +25,15 @@
 // https://www.cs.wm.edu/~smherwig/courses/csci415-common/signals/sig_atomic/index.html
 volatile std::sig_atomic_t G_PARENT_OK = 0;
 
-void cleanup(int)
+/**
+ * @brief Signal handler for parent process exit detection
+ *
+ * Sets the G_PARENT_OK flag to 1 when parent process exits,
+ * triggering cleanup operations.
+ *
+ * @param sig Signal number (unused)
+ */
+void cleanup(int sig)
 {
   G_PARENT_OK = 1;
 }
@@ -81,6 +89,13 @@ void cleanup(int)
   return {};
 }
 
+/**
+ * @brief Entry point for the janitor cleanup process
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return int Exit code (0 for success, non-zero for failure)
+ */
 int main(int argc, char** argv)
 {
   auto __expected_fn = [](auto&&){ return 1; };

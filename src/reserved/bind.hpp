@@ -1,5 +1,5 @@
 /**
- * @file bindings.hpp
+ * @file bind.hpp
  * @author Ruan Formigoni
  * @brief Manages the bindings reserved space
  * 

@@ -1,14 +1,21 @@
-//
-// @author      : Ruan E. Formigoni (ruanformigoni@gmail.com)
-// @file        : magic
-// @created     : Monday Dec 25, 2023 23:37:09 -03
-//
-// @description : Patch magic bytes to identify file as a flatimage
-//
+/**
+ * @file magic.cpp
+ * @author Ruan E. Formigoni
+ * @brief Patches magic bytes to identify file as a FlatImage
+ *
+ * @copyright Copyright (c) 2025 Ruan Formigoni
+ */
 
 #include <fstream>
 #include <iostream>
 
+/**
+ * @brief Entry point for the magic bytes patcher
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return int Exit code (0 for success, non-zero for failure)
+ */
 int main(int argc, char** argv)
 {
   // Check arg count

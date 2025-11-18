@@ -24,6 +24,13 @@ profile bwrap /opt/flatimage/bwrap flags=(unconfined) {
 
 namespace fs = std::filesystem;
 
+/**
+ * @brief Entry point for the apparmor configuration utility
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return int Exit code (0 for success, non-zero for failure)
+ */
 int main(int argc, char const* argv[])
 {
   auto __expected_fn = [](auto&&){ return EXIT_FAILURE; };

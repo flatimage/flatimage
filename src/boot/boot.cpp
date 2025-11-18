@@ -82,6 +82,13 @@ void set_logger_level(int argc, char** argv)
   ns_log::set_level(ns_log::Level::INFO);
 }
 
+/**
+ * @brief Entry point for the FlatImage program
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return int Exit code (0 for success, non-zero for failure)
+ */
 int main(int argc, char** argv)
 {
   auto __expected_fn = [](auto&&){ return 125; };

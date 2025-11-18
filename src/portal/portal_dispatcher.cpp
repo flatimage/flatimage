@@ -49,6 +49,12 @@ void signal_handler(int sig)
   }
 }
 
+/**
+ * @brief Registers signal handlers for dispatcher cleanup
+ *
+ * Registers handlers for various signals (SIGINT, SIGTERM, etc.) to ensure
+ * proper cleanup when the dispatcher receives termination signals.
+ */
 void register_signals()
 {
   signal(SIGABRT, signal_handler);
@@ -67,6 +73,12 @@ void register_signals()
   signal(SIGVTALRM, signal_handler);
 }
 
+/**
+ * @brief Creates FIFOs for child process I/O
+ *
+ * @param msg Message containing FIFO paths for stdin, stdout, and stderr
+ * @return Value<void> Success or error
+ */
 [[nodiscard]] Value<void> fifo_create(ns_message::Message const& msg)
 {
   Pop(ns_portal::ns_fifo::create(msg.get_stdin()));
@@ -170,6 +182,13 @@ void register_signals()
   return Pop(process_wait(message));
 }
 
+/**
+ * @brief Entry point for the portal dispatcher
+ *
+ * @param argc Argument count
+ * @param argv Argument vector
+ * @return int Exit code (0 for success, non-zero for failure)
+ */
 int main(int argc, char** argv)
 {
   auto __expected_fn = [](auto&& e){ logger("E::{}", e.error()); return EXIT_FAILURE; };

@@ -30,7 +30,7 @@ namespace fs = std::filesystem;
  * 
  * @param path_file_binary Path to the flatimage binary
  * @param is_casefold Whether casefold should be enabled or not
- * @return Value<void> 
+ * @return Value<void> Success or error 
  */
 inline Value<void> write(fs::path const& path_file_binary, uint8_t is_casefold)
 {

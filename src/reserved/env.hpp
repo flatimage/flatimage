@@ -1,5 +1,5 @@
 /**
- * @file environment.hpp
+ * @file env.hpp
  * @author Ruan Formigoni
  * @brief Manages the environment reserved space
  *

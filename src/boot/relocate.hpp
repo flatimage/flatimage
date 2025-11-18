@@ -71,6 +71,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
  *
  * @param argv Argument vector passed to the main program
  * @param offset Offset to the reserved space, past the elf and appended binaries
+ * @param path_file_self Path to the current executable binary
  * @return Nothing on success, or the respective error
  */
 [[nodiscard]] inline Value<void> relocate_impl(char** argv
@@ -95,7 +96,16 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   // Starting offsets
   uint64_t offset_beg = 0;
   uint64_t offset_end = Pop(ns_elf::skip_elf_header(bin.self.c_str()));
-  // Write by binary header offset
+  /**
+   * @brief Lambda function to write a binary by reading its ELF header offset
+   *
+   * Extracts a binary from the flatimage by reading its ELF header to determine size,
+   * and writes it to the specified path. Skips if the file already exists.
+   *
+   * @param path_file Destination path for the extracted binary
+   * @param offset_end Current end offset in the source file
+   * @return Value<std::pair<uint64_t,uint64_t>> Pair of (begin_offset, end_offset) for the next binary, or error
+   */
   auto f_write_from_header = [&](fs::path path_file, uint64_t offset_end)
     -> Value<std::pair<uint64_t,uint64_t>>
   {
@@ -117,7 +127,17 @@ constexpr std::array<const char*,403> const arr_busybox_applet
     return std::make_pair(offset_beg, offset_end);
   };
 
-  // Write by binary byte offset
+  /**
+   * @brief Lambda function to write a binary by reading size metadata at a specific offset
+   *
+   * Reads a uint64_t size value at the specified offset, then extracts that many bytes
+   * to write the binary to the specified path. Skips if the file already exists.
+   *
+   * @param file_binary Input stream positioned in the source flatimage file
+   * @param path_file Destination path for the extracted binary
+   * @param offset_end Current end offset in the source file
+   * @return Value<std::pair<uint64_t,uint64_t>> Pair of (begin_offset, end_offset) for the next binary, or error
+   */
   auto f_write_from_offset = [&](std::ifstream& file_binary, fs::path path_file, uint64_t offset_end)
     -> Value<std::pair<uint64_t,uint64_t>>
   {

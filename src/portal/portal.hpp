@@ -29,6 +29,12 @@ using Logs = ns_db::ns_portal::ns_daemon::ns_log::Logs;
 
 namespace ns_daemon = ns_db::ns_portal::ns_daemon;
 
+/**
+ * @brief Manages portal daemon for inter-process communication
+ *
+ * The Portal class provides FIFO-based IPC between host and container
+ * processes, managing the daemon lifecycle and child process communication.
+ */
 class Portal
 {
   private:
@@ -40,11 +46,22 @@ class Portal
     friend constexpr std::unique_ptr<Portal> std::make_unique<Portal>();
 };
 
+
+/**
+  * @brief Private constructor, use spawn() to create instances
+  */
 inline Portal::Portal()
   : m_child(nullptr)
 {
 }
 
+/**
+ * @brief Spawns a new portal daemon instance
+ *
+ * @param daemon Daemon configuration
+ * @param logs Logging configuration
+ * @return Value containing unique pointer to Portal or error
+ */
 [[nodiscard]] inline Value<std::unique_ptr<Portal>> spawn(Daemon const& daemon, Logs const& logs)
 {
   auto portal = std::make_unique<Portal>();

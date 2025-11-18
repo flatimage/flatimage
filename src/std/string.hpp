@@ -18,21 +18,44 @@
 namespace ns_string
 {
 
+/**
+ * @brief Compile-time string container with fixed size
+ * @tparam N Size of the string including null terminator
+ */
 template<size_t N>
 struct static_string
 {
   char data[N];
-  // Functions
+
+  /**
+   * @brief Constructs a static string from a string literal
+   * @param str String literal to copy
+   */
   constexpr static_string(const char (&str)[N])
   {
     std::copy_n(str, N, data);
   }
+
+  /** @brief Default constructor */
   constexpr static_string() = default;
+
+  /** @brief Implicit conversion to C-style string */
   constexpr operator const char*() const { return data; }
+
+  /** @brief Implicit conversion to string_view */
   constexpr operator std::string_view() const { return std::string_view(data, N - 1); }
+
+  /**
+   * @brief Returns the size of the string (excluding null terminator)
+   * @return Size of the string
+   */
   constexpr size_t size() const { return N - 1; }
-  // Concatenate this string with other static_strings
-  // Use 'auto' to accept any static_string<M> as NTTP
+
+  /**
+   * @brief Concatenates this string with other static strings
+   * @tparam Strs Static strings to concatenate
+   * @return New static_string containing the concatenated result
+   */
   template <auto... Strs>
   constexpr auto join() const noexcept
   {

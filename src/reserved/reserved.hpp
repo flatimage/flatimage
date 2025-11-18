@@ -27,7 +27,13 @@ namespace
 {
 namespace fs = std::filesystem;
 
-// Check if there is enough reserved space at compile-time
+/**
+ * @brief Defines offsets for all reserved space components
+ *
+ * This struct provides compile-time constants defining the layout of the
+ * reserved space within the FlatImage binary. It also validates that the
+ * total reserved space doesn't exceed FIM_RESERVED_SIZE.
+ */
 struct Reserved
 {
   // Permissions
@@ -60,6 +66,10 @@ struct Reserved
   // remote
   constexpr static uint64_t const fim_reserved_offset_remote_begin = fim_reserved_offset_bindings_end;
   constexpr static uint64_t const fim_reserved_offset_remote_end = fim_reserved_offset_remote_begin + 4_kib;
+
+  /**
+   * @brief Validates reserved space layout at compile-time
+   */
   constexpr Reserved()
   {
     static_assert(fim_reserved_offset_remote_end < FIM_RESERVED_SIZE, "Insufficient reserved space");

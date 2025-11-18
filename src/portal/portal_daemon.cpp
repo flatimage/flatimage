@@ -41,11 +41,23 @@ namespace ns_daemon = ns_db::ns_portal::ns_daemon;
 // https://www.cs.wm.edu/~smherwig/courses/csci415-common/signals/sig_atomic/index.html
 volatile std::sig_atomic_t G_CONTINUE = 1;
 
-void cleanup(int)
+/**
+ * @brief Signal handler for daemon cleanup
+ *
+ * Sets the G_CONTINUE flag to 0 to signal the daemon's main loop to exit.
+ *
+ * @param sig Signal number (unused)
+ */
+void cleanup(int sig)
 {
   G_CONTINUE = 0;
 }
 
+/**
+ * @brief Entry point for the portal daemon
+ *
+ * @return int Exit code (0 for success, non-zero for failure)
+ */
 int main()
 {
   // Register cleanup signal handler

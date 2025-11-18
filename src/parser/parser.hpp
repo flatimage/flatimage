@@ -77,11 +77,22 @@ enum class FimCommand
 
 using namespace ns_parser::ns_interface;
 
+/**
+ * @brief Vector-based argument container with pop operations
+ *
+ * Wraps a vector of strings to provide convenient argument parsing
+ * with formatted error messages.
+ */
 class VecArgs
 {
   private:
     std::vector<std::string> m_data;
   public:
+    /**
+     * @brief Constructs a VecArgs from an iterator range
+     * @param begin Beginning of the argument range
+     * @param end End of the argument range
+     */
     VecArgs(char** begin, char** end)
     {
       if(begin != end)
@@ -89,6 +100,14 @@ class VecArgs
         m_data = std::vector<std::string>(begin,end);
       }
     }
+
+    /**
+     * @brief Pops the front element with formatted error message
+     * @tparam Format Error message format string
+     * @tparam Ts Types of format arguments
+     * @param ts Format arguments
+     * @return Value containing the popped string or error
+     */
     template<ns_string::static_string Format, typename... Ts>
     Value<std::string> pop_front(Ts&&... ts)
     {
@@ -107,18 +126,37 @@ class VecArgs
       m_data.erase(m_data.begin());
       return item;
     }
+
+    /**
+     * @brief Returns a const reference to the underlying data
+     * @return Const reference to the vector of strings
+     */
     std::vector<std::string> const& data()
     {
       return m_data;
     }
+
+    /**
+     * @brief Returns the number of arguments
+     * @return Size of the argument vector
+     */
     size_t size()
     {
       return m_data.size();
     }
+
+    /**
+     * @brief Checks if the argument vector is empty
+     * @return True if empty, false otherwise
+     */
     bool empty()
     {
       return m_data.empty();
     }
+
+    /**
+     * @brief Clears all arguments
+     */
     void clear()
     {
       m_data.clear();

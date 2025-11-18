@@ -47,12 +47,13 @@ class Overlayfs final : public ns_filesystem::Filesystem
 
 
 /**
- * @brief Construct a new Overlayfs:: Overlayfs object
+ * @brief Construct a new Overlayfs object
  *
  * @param pid_to_die_for Pid the mount process should die with
  * @param path_dir_mount Path to the mount directory
  * @param path_dir_upper Upper directory where the changes of overlayfs are stored
  * @param path_dir_work Work directory of overlayfs
+ * @param path_file_log Path to the log file for filesystem operations
  * @param vec_path_dir_layers Vector of directories to overlay with overlayfs (bottom-up)
  */
 inline Overlayfs::Overlayfs(pid_t pid_to_die_for

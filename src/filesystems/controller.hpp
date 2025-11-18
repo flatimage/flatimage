@@ -177,6 +177,10 @@ inline Controller::~Controller()
 /**
  * @brief Spawns the janitor.
  * In case the parent process fails to clean the mountpoints, this child does it
+ *
+ * @param path_bin_janitor Path to the janitor executable binary
+ * @param path_file_log Path to the log file for janitor output
+ * @return Value<void> Nothing on success, or the respective error
  */
 [[nodiscard]] inline Value<void> Controller::spawn_janitor(fs::path const& path_bin_janitor
   , fs::path const& path_file_log)
