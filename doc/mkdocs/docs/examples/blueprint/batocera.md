@@ -175,7 +175,7 @@ Launch Batocera with:
 ./batocera.flatimage
 ```
 
-All Batocera data (ROMs, saves, configurations) will be stored in the `.batocera.flatimage.config` directory, making it fully portable.
+All Batocera data (ROMs, saves, configurations) will be stored in the `.batocera.flatimage.data` directory, making it fully portable.
 
 ---
 
@@ -269,8 +269,8 @@ Copy ROM files into the Batocera userdata directory:
 
 ```bash
 # Copy ROMs from host
-# ROMs are stored in the .batocera.flatimage.config directory
-cp -r ~/roms/* ./.batocera.flatimage.config/userdata/roms/
+# ROMs are stored in the .batocera.flatimage.data directory
+cp -r ~/roms/* ./.batocera.flatimage.data/userdata/roms/
 ```
 
 ---

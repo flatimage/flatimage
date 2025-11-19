@@ -7,15 +7,22 @@ RUN echo https://dl-cdn.alpinelinux.org/alpine/edge/testing/ >> /etc/apk/reposit
 
 # Install deps for MkDocs
 RUN apk update && apk upgrade
-RUN apk add --no-cache build-base cmake pipx
+RUN apk add --no-cache build-base cmake python3 py3-pip py3-virtualenv
 
 # Copy project directory
 COPY . /flatimage
 WORKDIR /flatimage
 
-# Setup MkDocs
-RUN pipx install -f --include-deps mkdocs mkdocs-mermaid2-plugin
-ENV PATH="${PATH}:/root/.local/bin"
+# Create virtual environment and install MkDocs packages
+RUN python3 -m venv /flatimage/doc/mkdocs/env && \
+    /flatimage/doc/mkdocs/env/bin/python3 -m ensurepip --upgrade && \
+    /flatimage/doc/mkdocs/env/bin/python3 -m pip install --upgrade pip && \
+    /flatimage/doc/mkdocs/env/bin/python3 -m pip install mkdocs mkdocs-material mkdocs-mermaid2-plugin mkdocs-panzoom-plugin
+
+# Apply panzoom patch for mermaid diagram support
+RUN PLUGIN_PATH=$(find /flatimage/doc/mkdocs/env/lib -name "mkdocs_panzoom_plugin" -type d)/plugin.py && \
+    sed -i '/def on_post_page(self, output: str, \/, \*, page, config):/,/return str(html_page)/d' "$PLUGIN_PATH" && \
+    sed -i '/return config/r /flatimage/docker/Dockerfile.mkdocs.patches/panzoom_mermaid_support.py' "$PLUGIN_PATH"
 
 # Setup CMake
 RUN cmake -H. -Bbuild -DFIM_TARGET=mkdocs

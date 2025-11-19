@@ -114,7 +114,7 @@ flowchart TD
         subgraph Binary1["app.flatimage"]
             L0_1["layer-0: base system"]
         end
-        subgraph Config1[".app.flatimage.config"]
+        subgraph Config1[".app.flatimage.data"]
             Empty1["(empty)"]
         end
     end
@@ -124,7 +124,7 @@ flowchart TD
         subgraph Binary2["app.flatimage"]
             L0_2["layer-0: base system"]
         end
-        subgraph Config2[".app.flatimage.config"]
+        subgraph Config2[".app.flatimage.data"]
             Firefox2["firefox"]
         end
     end
@@ -134,7 +134,7 @@ flowchart TD
         subgraph Binary3["app.flatimage"]
             L0_3["layer-0: base system"]
         end
-        subgraph Config3[".app.flatimage.config"]
+        subgraph Config3[".app.flatimage.data"]
             direction TB
             Layer3["layer-1: firefox"]
             Firefox3["firefox"]
@@ -146,7 +146,7 @@ flowchart TD
         subgraph Binary4["app.flatimage"]
             L0_4["layer-0: base system"]
         end
-        subgraph Config4[".app.flatimage.config"]
+        subgraph Config4[".app.flatimage.data"]
             Layer4["layer-1: firefox"]
         end
     end
@@ -156,7 +156,7 @@ flowchart TD
         subgraph Binary5["app.flatimage"]
             Layers5["layer-1: firefox<br/>────────────────<br/>layer-0: base system"]
         end
-        subgraph Config5[".app.flatimage.config"]
+        subgraph Config5[".app.flatimage.data"]
             Empty5["(empty)"]
         end
     end
@@ -183,7 +183,7 @@ flowchart TD
 
 - Layers are stacked from bottom to top (oldest to newest)
 - Files in newer layers override files in older layers
-- The `.app.flatimage.config` directory holds uncommitted changes (working directory)
+- The `.app.flatimage.data` directory holds uncommitted changes (working directory)
 - When you run `fim-layer commit`, changes move from config to binary as a new layer
 
 **Key Concepts:**

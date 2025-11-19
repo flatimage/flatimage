@@ -182,4 +182,4 @@ After completing either method, run Steam with:
 ./steam.flatimage
 ```
 
-All steam data will be stored in the `.steam.flatimage.config` directory alongside the executable, making it fully portable across different Linux distributions.
+All steam data will be stored in the `.steam.flatimage.data` directory alongside the executable, making it fully portable across different Linux distributions.

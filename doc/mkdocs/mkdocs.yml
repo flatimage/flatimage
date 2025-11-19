@@ -1,6 +1,6 @@
 site_name: FlatImage Documentation
 nav:
-  - FlatImage: 
+  - FlatImage:
     - Getting Started: index.md
   - Examples:
     - Alpine:
@@ -34,10 +34,39 @@ nav:
     - Compression: configuration/compression.md
     - Binding: configuration/binding.md
   - Architecture:
-    - Environment: architecture/environment.md
+    - Overview: architecture/overview.md
+    - Boot Sequence: architecture/boot-sequence.md
     - Directories: architecture/directories.md
+    - Environment: architecture/environment.md
+    - Layers: architecture/layers.md
+    - Filesystem: architecture/filesystem.md
     - Portal: architecture/portal.md
-theme: readthedocs
+    - Process: architecture/process.md
+    - Reserved Space: architecture/reserved-space.md
+# theme: readthedocs
+theme:
+  logo: icon.svg
+  name: material
+  palette:
+    scheme: default
+    primary: indigo
+extra_css:
+  - stylesheets/extra.css
 plugins:
   - search
   - mermaid2
+  - panzoom:
+      key: "shift"
+      hint_location: "bottom"
+      always_show_hint: true
+      mermaid: true
+      full_screen: True
+      include_selectors:
+        - .myClass
+        - "#myId"
+        - ".mermaid"
+        - ".d2"
+      exclude_selectors:
+        - "img"
+site_url: https://flatimage.github.io
+repo_url: https://github.com/flatimage/flatimage

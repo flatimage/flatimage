@@ -1,37 +1,127 @@
-## What is it?
+# Environment Variables
 
-FlatImage provides a number of environment variables to query information about
-filesystem paths and metadata.
+## Overview
 
-## How to use
+FlatImage provides environment variables for querying runtime information, controlling behavior, and accessing filesystem paths. Variables are organized into three categories:
 
-**Modifiable**:
+1. **User-Modifiable Variables** - Can be set before running FlatImage to change behavior
+2. **System-Set Variables** - Automatically set by FlatImage during initialization
+3. **Internal Variables** - Used internally for configuration and debugging
 
-* `FIM_DEBUG`              : If defined to 1, print debug messages.
-* `FIM_MAIN_OFFSET`        : Shows filesystem offset and exits.
-* `FIM_OVERLAY`            : Override overlay filesystem type (bwrap, overlayfs, or unionfs). Takes precedence over configuration stored in binary.
-* `FIM_CASEFOLD`           : If defined to 1, enable case-insensitive filesystem. Overrides configuration stored in binary.
-* `FIM_COMPRESSION_LEVEL`  : Layer compression level (0-10, default: 7). Used by `fim-layer commit` and `fim-layer create` commands. Lower values = faster/larger, higher values = slower/smaller.
-* `FIM_DIRS_LAYER`         : Colon-separated list of directories containing layer files to mount (e.g., `/path/to/layers1:/path/to/layers2`).
-* `FIM_FILES_LAYER`        : Colon-separated list of specific layer file paths to mount (e.g., `/path/to/layer1.dwarfs:/path/to/layer2.dwarfs`).
+## User-Modifiable Variables
 
-**Filesystem Paths**:
+These variables can be set before executing a FlatImage to control its behavior:
 
-* `FIM_DIR_GLOBAL`        : Temporary FlatImage directory, `/tmp/fim`
-* `FIM_DIR_APP`           : Applications directory, `/tmp/fim/app/commit_timestamp`
-* `FIM_DIR_APP_BIN`       : Application binaries directory, `$FIM_DIR_APP/bin`
-* `FIM_DIR_INSTANCE`      : Directory of the current app instance, `$FIM_DIR_APP/instance/[pid]`
-* `FIM_DIR_MOUNT`         : Directory of instance mount points, `$FIM_DIR_INSTANCE/mount`
-* `FIM_DIR_RUNTIME`       : Runtime directories, `/tmp/fim/run`
-* `FIM_DIR_RUNTIME_HOST`  : Read-only runtime host access, `$FIM_DIR_RUNTIME/host`
-* `FIM_DIR_CONFIG`        : Configuration directory in the host machine, `.app.flatimage.config`
-* `FIM_FILE_BINARY`       : Full path to the flatimage file
+### Runtime Control
 
-**FlatImage MetaData**
+| Variable | Type | Description | Default |
+|----------|------|-------------|---------|
+| `FIM_DEBUG` | Integer (0/1) | Enable debug logging. | `0` (disabled) |
+| `FIM_MAIN_OFFSET` | Flag | If set, prints the filesystem offset in the binary and exits. | Not set |
+| `FIM_OVERLAY` | String | Override overlay filesystem type. Valid values: `bwrap`, `overlayfs`, `unionfs`. | From binary config |
+| `FIM_CASEFOLD` | Integer (0/1) | Enable case-insensitive filesystem (CIOPFS layer). | From binary config |
 
-* `FIM_VERSION`           : The version of the flatimage package
-* `FIM_DIST`              : The linux distribution name
+Source: `environment.md` header, behavior verified in `filesystems/controller.hpp`
 
-## How it works
+### Layer Management
 
-After the `boot` binary is copied to `/tmp/fim`, FlatImage forks and execves into the copied binary with the environment configuration defined by `relocate.hpp` and `config.hpp`.
+| Variable | Type | Description | Example |
+|----------|------|-------------|---------|
+| `FIM_COMPRESSION_LEVEL` | Integer (0-10) | DwarFS compression level for `fim-layer commit` and `fim-layer create`. | `7` (default) |
+| `FIM_DIRS_LAYER` | Colon-separated paths | Directories containing layer files to mount. | `/path/to/layers1:/path/to/layers2` |
+| `FIM_FILES_LAYER` | Colon-separated paths | Specific layer file paths to mount. | `/path/to/layer1.dwarfs:/path/to/custom.dwarfs` |
+
+**Layer Loading Priority:**
+
+1. Embedded layers in binary (base layer)
+2. Committed layers in binary
+3. External directories (`FIM_DIRS_LAYER`)
+4. External files (`FIM_FILES_LAYER`)
+
+## System-Set Variables
+
+These variables are automatically set by FlatImage during initialization and should not be modified by users:
+
+### Metadata Variables
+
+| Variable | Value | Description |
+|----------|-------|-------------|
+| `FIM_VERSION` | String | FlatImage version (e.g., `1.2.3`) |
+| `FIM_COMMIT` | String | Git commit hash (first 7 chars) |
+| `FIM_DIST` | String | Distribution name: `ARCH`, `ALPINE`, or `BLUEPRINT` |
+| `FIM_TIMESTAMP` | String | Build timestamp in `YYYYMMDDHHMMSS` format |
+| `FIM_PID` | Integer | Process ID of current FlatImage instance |
+
+### Filesystem Path Variables
+
+| Variable | Path | Description |
+|----------|------|-------------|
+| `FIM_DIR_GLOBAL` | `/tmp/fim` | Global temporary directory for all FlatImage instances |
+| `FIM_DIR_APP` | `/tmp/fim/app/{COMMIT}_{TIMESTAMP}` | Application directory (unique per build) |
+| `FIM_DIR_APP_BIN` | `$FIM_DIR_APP/bin` | Embedded binaries directory |
+| `FIM_DIR_APP_SBIN` | `$FIM_DIR_APP/sbin` | Symbolic links directory |
+| `FIM_DIR_INSTANCE` | `$FIM_DIR_APP/instance/{PID}` | Instance-specific directory (unique per process) |
+| `FIM_DIR_RUNTIME` | `/tmp/fim/run` | Runtime directory |
+| `FIM_DIR_RUNTIME_HOST` | `/tmp/fim/run/host` | Read-only host filesystem access (container-only) |
+| `FIM_DIR_CONFIG` | `{BINARY_DIR}/.{BINARY_NAME}.data` | Host-side data directory (persistent storage) |
+
+**Example Values:**
+```bash
+FIM_DIR_GLOBAL=/tmp/fim
+FIM_DIR_APP=/tmp/fim/app/119216d_20241019145954
+FIM_DIR_APP_BIN=/tmp/fim/app/119216d_20241019145954/bin
+FIM_DIR_INSTANCE=/tmp/fim/app/119216d_20241019145954/instance/12345
+FIM_DIR_CONFIG=/home/user/.firefox.flatimage.data
+```
+
+### Binary Path Variables
+
+| Variable | Path | Description |
+|----------|------|-------------|
+| `FIM_BIN_SELF` | String | Full path to the FlatImage binary executable |
+| `FIM_OFFSET` | Integer | Byte offset of first DwarFS filesystem in binary |
+
+## Internal Variables
+
+These variables are used internally by FlatImage:
+
+| Variable | Type | Description |
+|----------|------|-------------|
+| `FIM_DAEMON_CFG` | JSON string | Portal daemon configuration (serialized) | Portal system |
+| `BASHRC_FILE` | Path | Instance-specific bashrc file path |
+| `LD_LIBRARY_PATH` | Colon-separated paths | Library search paths for dynamic linking |
+| `PATH` | Colon-separated paths | Executable search paths |
+
+## Querying Environment Variables
+
+From within a FlatImage container, you can query these variables:
+
+```bash
+# Show all FlatImage variables
+env | grep FIM_
+
+# Check current instance directory
+echo $FIM_DIR_INSTANCE
+
+# Verify distribution
+echo $FIM_DIST
+
+# Check version information
+echo "FlatImage $FIM_VERSION (commit $FIM_COMMIT)"
+```
+
+From outside the container (before running):
+
+```bash
+# Enable debug mode
+FIM_DEBUG=1 ./app.flatimage
+
+# Force UnionFS overlay
+FIM_OVERLAY=unionfs ./app.flatimage
+
+# Enable case-insensitive filesystem
+FIM_CASEFOLD=1 ./app.flatimage
+
+# Load external layers
+FIM_FILES_LAYER=/path/to/extra.dwarfs ./app.flatimage
+```

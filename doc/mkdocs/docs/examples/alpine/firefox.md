@@ -158,7 +158,7 @@ Configure Firefox as the default application:
 Commit all changes to a compressed read-only layer:
 
 ```bash
-./firefox.flatimage fim-commit
+./firefox.flatimage fim-layer commit
 ```
 
 ## Optional Additional Configuration
@@ -211,4 +211,4 @@ After completing either method, run Firefox with:
 ./firefox.flatimage
 ```
 
-All Firefox data (profiles, cache, settings) will be stored in the `.firefox.flatimage.config` directory alongside the executable, making it fully portable across different Linux distributions.
+All Firefox data (profiles, cache, settings) will be stored in the `.firefox.flatimage.data` directory alongside the executable, making it fully portable across different Linux distributions.
