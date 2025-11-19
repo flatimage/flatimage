@@ -2,23 +2,12 @@
 .gdb_history
 doxygen
 build
+build-test
+site
 doc/mkdocs/site
+doc/mkdocs/env
 compile_commands.json
 
-# Ignore everything in test
-test/*
-# But not these file types
-!test/*.svg
-!test/*.png
-!test/*.sh
-# Re-allow the directories
-!test/cli
-!test/meta
-# Ignore all files
-test/cli/*
-test/meta/*
-# Only allow Python files inside it
-!test/cli/*.py
-!test/cli/*.svg
-!test/cli/*.png
-!test/meta/*.py
+# Ignore temporary data the test directory
+test/data
+test/**/__pycache__
