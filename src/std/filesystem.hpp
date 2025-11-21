@@ -47,7 +47,7 @@ using perm_options = fs::perm_options;
 
 /**
  * @brief List the files in a directory
- * 
+ *
  * @param path_dir_src Path to the directory to query for files
  * @return Value<std::vector<fs::path>> The list of files or the respective error
  */
@@ -98,14 +98,7 @@ using perm_options = fs::perm_options;
 template<typename... Args>
 [[nodiscard]] inline fs::path placeholders_replace(fs::path const& path, Args&&... args)
 {
-  fs::path result;
-  // Traverse each component of the path and replace placeholders
-  for (auto const& component : path)
-  {
-    std::string comp_str = ns_string::placeholders_replace(component.string(), std::forward<Args>(args)...);
-    result /= comp_str;
-  }
-  return result;
+  return ns_string::placeholders_replace(path, std::forward<Args>(args)...);
 }
 
 } // namespace: ns_fs
