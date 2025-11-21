@@ -1,0 +1,63 @@
+name: Release Linux (GitHub)
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+jobs:
+  #
+  # Build
+  #
+  build:
+    if: ${{ contains(github.server_url, 'github.com') }}
+    strategy:
+      matrix:
+        dist: [alpine]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install tools
+        run: |
+          sudo apt update
+          sudo env DEBIAN_FRONTEND=noninteractive apt install -y tar xz-utils coreutils bc jo upx
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        run: |
+          mkdir -p dist
+          sudo ./deploy/flatimage.sh ${{ matrix.dist }}
+          cp ./build/dist/* ./dist
+      - name: Upload flatimage
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatimage
+          path: dist
+
+  #
+  # Release
+  #
+  release:
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: flatimage
+          path: dist
+          merge-multiple: true
+
+      - name: Install GitHub CLI
+        run: |
+          type -p gh >/dev/null || (sudo apt update && sudo apt install -y gh)
+
+      - name: Upload assets to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.release.tag_name }} dist/*

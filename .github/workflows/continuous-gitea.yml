@@ -1,0 +1,79 @@
+name: Continuous Linux (Gitea)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  #
+  # Build
+  #
+  build:
+    if: ${{ !contains(github.server_url, 'github.com') }}
+    strategy:
+      matrix:
+        dist: [alpine]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install tools
+        run: |
+          sudo apt update
+          sudo env DEBIAN_FRONTEND=noninteractive apt install -y tar xz-utils coreutils bc jo upx
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Build
+        run: |
+          mkdir -p dist
+          sudo ./deploy/flatimage.sh ${{ matrix.dist }}
+          cp ./build/dist/* ./dist
+      - name: Upload flatimage
+        uses: actions/upload-artifact@v3
+        with:
+          name: flatimage
+          path: dist
+
+  #
+  # Release
+  #
+  release:
+    runs-on: ubuntu-latest
+    needs: [build]
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: flatimage
+          path: dist
+
+      - name: Install Gitea CLI (tea)
+        run: |
+          wget -O tea https://gitea.com/gitea/tea/releases/download/v0.11.1/tea-0.11.1-linux-amd64
+          chmod +x tea
+          sudo mv tea /usr/local/bin/
+
+      - name: Create/Update continuous release
+        run: |
+          # Login
+          tea login add \
+            --name current \
+            --url "${{ env.GITHUB_SERVER_URL }}" \
+            --token "${{ secrets.GITHUB_TOKEN }}"
+          # Delete existing continuous release if it exists
+          tea release delete -y --login current --repo ${{ github.repository }} continuous 2>/dev/null || true
+          # Delete the tag if it exists
+          git push origin :refs/tags/continuous 2>/dev/null || true
+          # Create new continuous release
+          tea release create \
+            --login current \
+            --tag continuous \
+            --repo ${{ github.repository }} \
+            --title "Continuous Build" \
+            --note "Automated continuous build from the latest commit on ${GITHUB_REF_NAME}" \
+            --target master \
+            --prerelease \
+            $(find dist -type f -printf '--asset %p ')

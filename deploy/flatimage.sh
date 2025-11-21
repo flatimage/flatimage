@@ -135,22 +135,25 @@ function _docker_run()
       --build-arg FIM_DIST="$fim_dist" \
       -t flatimage-boot \
       -f docker/Dockerfile.boot
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/src/boot /host/bin
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/build/src/magic /host/magic
-    docker run --rm -v "$FIM_DIR_BUILD":"/host" flatimage-boot cp /flatimage/src/janitor/fim_janitor /host/bin
+    docker run --rm flatimage-boot cat /flatimage/build/src/boot > "$FIM_DIR_BUILD/bin/boot"
+    docker run --rm flatimage-boot cat /flatimage/build/src/magic > "$FIM_DIR_BUILD/magic"
+    docker run --rm flatimage-boot cat /flatimage/src/janitor/fim_janitor > "$FIM_DIR_BUILD/bin/fim_janitor"
   )
   # Compile and include portal
   (
     cd "$FIM_DIR"
     docker build . -t "flatimage-portal" -f docker/Dockerfile.portal
-    docker run --rm -v "$FIM_DIR_BUILD":/host "flatimage-portal" cp /fim/dist/fim_portal /fim/dist/fim_portal_daemon /host/bin
+    docker run --rm "flatimage-portal" cat /fim/dist/fim_portal > "$FIM_DIR_BUILD/bin/fim_portal"
+    docker run --rm "flatimage-portal" cat /fim/dist/fim_portal_daemon > "$FIM_DIR_BUILD/bin/fim_portal_daemon"
   )
   # Compile and include bwrap-apparmor
   (
     cd "$FIM_DIR"
     docker build . -t flatimage-bwrap-apparmor -f docker/Dockerfile.bwrap_apparmor
-    docker run --rm -v "$FIM_DIR_BUILD":/host "flatimage-bwrap-apparmor" cp /fim/dist/fim_bwrap_apparmor /host/bin
+    docker run --rm "flatimage-bwrap-apparmor" cat /fim/dist/fim_bwrap_apparmor > "$FIM_DIR_BUILD/bin/fim_bwrap_apparmor"
   )
+  chmod +x "$FIM_DIR_BUILD"/magic
+  chmod +x "$FIM_DIR_BUILD"/bin/*
 }
 
 function _package()
