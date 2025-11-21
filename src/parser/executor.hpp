@@ -103,7 +103,7 @@ using namespace ns_parser::ns_interface;
     {
       bwrap.set_overlay(ns_bwrap::ns_proxy::Overlay
       {
-          .vec_path_dir_layer = ns_filesystems::ns_controller::get_mounted_layers(fuse.path_dir_layers)
+          .vec_path_dir_layer = ns_filesystems::ns_utils::get_mounted_layers(fuse.path_dir_layers)
         , .path_dir_upper = fuse.path_dir_upper
         , .path_dir_work = fuse.path_dir_work
       });
@@ -440,22 +440,9 @@ using namespace ns_parser::ns_interface;
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdInstance>(&variant_cmd) )
   {
-    struct Instance
-    {
-      pid_t pid;
-      fs::path path;
-    };
-    // List instances
-    auto f_pid = [&](auto&& e) { return Catch(std::stoi(e.path().filename().string())).value_or(0); };
+    using ns_filesystems::ns_utils::Instance;
     // Get instances
-    auto instances = fs::directory_iterator(fim.path.dir.app / "instance")
-      | std::views::transform([&](auto&& e){ return Instance(f_pid(e), e.path()); })
-      | std::views::filter([&](auto&& e){ return e.pid > 0; })
-      | std::views::filter([&](auto&& e){ return fs::exists(fs::path{"/proc"} / std::to_string(e.pid)); })
-      | std::views::filter([&](auto&& e){ return e.pid != getpid(); })
-      | std::ranges::to<std::vector<Instance>>();
-    // Sort by pid (filename is a directory named as the pid of that instance)
-    std::ranges::sort(instances, {}, [](auto&& e){ return e.pid; });
+    auto instances = ns_filesystems::ns_utils::get_instances(fim.path.dir.app / "instance");
     // Process the exec command
     if(auto cmd_exec = std::get_if<CmdInstance::Exec>(&(cmd->sub_cmd)))
     {

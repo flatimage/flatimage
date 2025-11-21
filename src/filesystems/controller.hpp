@@ -19,6 +19,7 @@
 #include "unionfs.hpp"
 #include "dwarfs.hpp"
 #include "ciopfs.hpp"
+#include "utils.hpp"
 
 namespace ns_filesystems::ns_controller
 {
@@ -51,22 +52,6 @@ struct Config
   fs::path const path_bin_janitor;
   fs::path const path_bin_self;
 };
-
-/**
- * @brief Get the mounted layers object
- *
- * @param path_dir_layers Path to the layer directory
- * @return std::vector<fs::path> The list of layer directory paths
- */
-[[nodiscard]] inline std::vector<fs::path> get_mounted_layers(fs::path const& path_dir_layers)
-{
-  std::vector<fs::path> vec_path_dir_layer = fs::directory_iterator(path_dir_layers)
-    | std::views::filter([](auto&& e){ return fs::is_directory(e.path()); })
-    | std::views::transform([](auto&& e){ return e.path(); })
-    | std::ranges::to<std::vector<fs::path>>();
-  std::ranges::sort(vec_path_dir_layer);
-  return vec_path_dir_layer;
-}
 
 class Controller
 {
@@ -122,7 +107,7 @@ inline Controller::Controller(Logs const& logs , Config const& config)
   if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::UNIONFS )
   {
     logger("D::Overlay type: UNIONFS_FUSE");
-    mount_unionfs(get_mounted_layers(config.path_dir_layers)
+    mount_unionfs(::ns_filesystems::ns_utils::get_mounted_layers(config.path_dir_layers)
       , config.path_dir_upper
       , config.path_dir_mount
     );
@@ -131,7 +116,7 @@ inline Controller::Controller(Logs const& logs , Config const& config)
   else if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::OVERLAYFS )
   {
     logger("D::Overlay type: FUSE_OVERLAYFS");
-    mount_overlayfs(get_mounted_layers(config.path_dir_layers)
+    mount_overlayfs(::ns_filesystems::ns_utils::get_mounted_layers(config.path_dir_layers)
       , config.path_dir_upper
       , config.path_dir_mount
       , config.path_dir_work
