@@ -234,7 +234,7 @@ constexpr auto __expected_fn = [](auto&& e) { return e; };
  * @internal Used by Try and Catch macros
  */
 template<typename Fn>
-auto __except_impl(ns_log::Location const& loc, Fn&& f) -> Value<std::invoke_result_t<Fn>>
+auto __except_impl(Fn&& f) -> Value<std::invoke_result_t<Fn>>
   requires (not ns_concept::IsInstanceOf<std::invoke_result_t<Fn>, Value>)
   and (not ns_concept::IsInstanceOf<std::invoke_result_t<Fn>, std::expected>)
 {
@@ -252,12 +252,10 @@ auto __except_impl(ns_log::Location const& loc, Fn&& f) -> Value<std::invoke_res
   }
   catch (std::exception const& e)
   {
-    logger_loc(loc, "E::{}::Exception was thrown", e.what());
     return std::unexpected(e.what());
   }
   catch (...)
   {
-    logger_loc(loc, "E::{}::Unknown exception was thrown");
     return std::unexpected("Unknown exception was thrown");
   }
 }
@@ -277,7 +275,7 @@ auto __except_impl(ns_log::Location const& loc, Fn&& f) -> Value<std::invoke_res
  * // Exceptions become errors, errors cause return
  * @endcode
  */
-#define Try(expr,...) Pop(__except_impl(::ns_log::Location(), [&]{ return (expr); }), __VA_ARGS__)
+#define Try(expr,...) Pop(__except_impl([&]{ return (expr); }), __VA_ARGS__)
 
 /**
  * @brief Execute expression with exception handling
@@ -293,7 +291,7 @@ auto __except_impl(ns_log::Location const& loc, Fn&& f) -> Value<std::invoke_res
  * if (!result)  handle error
  * @endcode
  */
-#define Catch(expr) (__except_impl(::ns_log::Location(), [&]{ return (expr); }))
+#define Catch(expr, ...) (__except_impl([&]{ return (expr); })__VA_OPT__(.template forward(__VA_ARGS__)))
 
 
 /**
