@@ -235,6 +235,8 @@ constexpr auto __expected_fn = [](auto&& e) { return e; };
  */
 template<typename Fn>
 auto __except_impl(ns_log::Location const& loc, Fn&& f) -> Value<std::invoke_result_t<Fn>>
+  requires (not ns_concept::IsInstanceOf<std::invoke_result_t<Fn>, Value>)
+  and (not ns_concept::IsInstanceOf<std::invoke_result_t<Fn>, std::expected>)
 {
   try
   {

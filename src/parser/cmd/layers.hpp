@@ -95,7 +95,7 @@ namespace ns_layers
   // Compress filesystem
   logger("I::Compression level: '{}'", compression_level);
   logger("I::Compress filesystem to '{}'", path_file_dst);
-  Try(ns_subprocess::Subprocess(path_file_mkdwarfs)
+  Pop(ns_subprocess::Subprocess(path_file_mkdwarfs)
     .with_args("-f")
     .with_args("-i", path_dir_src, "-o", path_file_dst)
     .with_args("-l", compression_level)

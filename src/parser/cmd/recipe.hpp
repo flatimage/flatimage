@@ -152,12 +152,12 @@ namespace ns_recipe
   // Construct the recipe URL: URL/DISTRO/VERSION/<recipe>.json
   std::string recipe_url = std::format("{}/{}/latest/{}.json", url_remote, distribution.lower(), recipe);
   // Create the output directory if it doesn't exist
-  Try(ns_fs::create_directories(path_dir_output));
+  Pop(ns_fs::create_directories(path_dir_output));
   // Download the recipe using wget
   logger("I::Downloading recipe from '{}'", recipe_url);
   logger("I::Saving to '{}'", path_file_output.string());
   // Execute wget to download the file
-  Try(ns_subprocess::Subprocess(path_file_downloader)
+  Pop(ns_subprocess::Subprocess(path_file_downloader)
     .with_args("-O", path_file_output.string(), recipe_url)
     .spawn()->wait());
   logger("I::Successfully downloaded recipe '{}' to '{}'", recipe, path_file_output.string());

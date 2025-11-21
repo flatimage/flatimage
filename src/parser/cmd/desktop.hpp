@@ -196,7 +196,7 @@ namespace fs = std::filesystem;
   fs::path xdg_data_home = Pop(ns_env::xdg_data_home());
   fs::path path_bin_mime = Pop(ns_env::search_path("update-mime-database"));
   logger("I::Updating mime database '{}'", xdg_data_home);
-  Try(ns_subprocess::Subprocess(path_bin_mime)
+  Pop(ns_subprocess::Subprocess(path_bin_mime)
     .with_args(xdg_data_home / "mime")
     .with_streams(ns_subprocess::stream::null(), std::cout, std::cerr)
     .spawn()->wait());

@@ -394,7 +394,7 @@ inline Value<fs::path> Bwrap::test_and_setup(fs::path const& path_file_bwrap_src
   // Error might be EACCES, try to integrate with apparmor
   fs::path path_file_pkexec = Pop(ns_env::search_path("pkexec"));
   fs::path path_file_bwrap_apparmor = Pop(ns_env::search_path("fim_bwrap_apparmor"));
-  Try(ns_subprocess::Subprocess(path_file_pkexec)
+  Pop(ns_subprocess::Subprocess(path_file_pkexec)
     .with_args(path_file_bwrap_apparmor, m_logs.path_file_apparmor, path_file_bwrap_src)
     .spawn()->wait());
   return path_file_bwrap_opt;
