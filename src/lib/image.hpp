@@ -53,12 +53,12 @@ inline Value<void> resize_impl(fs::path const& path_file_src
 
   // Create icon directory and set file name
   logger("I::Reading image {}", path_file_src);
-  return_if(not fs::is_regular_file(path_file_src)
+  return_if(not Try(fs::is_regular_file(path_file_src))
     , Error("E::File '{}' does not exist or is not a regular file", path_file_src)
   );
 
   // Determine image format
-  std::string ext = path_file_src.extension().string();
+  std::string ext = Try(path_file_src.extension().string());
   std::ranges::transform(ext, ext.begin(), [](unsigned char c){ return static_cast<char>(std::tolower(c)); });
 
   ImageFormat format = Pop(
@@ -71,11 +71,11 @@ inline Value<void> resize_impl(fs::path const& path_file_src
   gil::rgba8_image_t img;
   if (format == ImageFormat::JPG)
   {
-    gil::read_and_convert_image(path_file_src, img, gil::jpeg_tag());
+    Try(gil::read_and_convert_image(path_file_src, img, gil::jpeg_tag()));
   }
   else if (format == ImageFormat::PNG)
   {
-    gil::read_and_convert_image(path_file_src, img, gil::png_tag());
+    Try(gil::read_and_convert_image(path_file_src, img, gil::png_tag()));
   }
   logger("I::Image size is {}x{}", std::to_string(img.width()), std::to_string(img.height()));
   logger("I::Saving image to {}", path_file_dst);
