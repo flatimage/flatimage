@@ -22,6 +22,14 @@ namespace fs = std::filesystem;
 
 }
 
+/**
+ * @namespace ns_layers
+ * @brief Filesystem layer management command implementation
+ *
+ * Implements the fim-layer command for creating, listing, and managing DwarFS compressed
+ * filesystem layers. Supports layer commit operations to snapshot the current writable overlay
+ * into a compressed read-only layer, and layer enumeration to display all available layers.
+ */
 namespace ns_layers
 {
 

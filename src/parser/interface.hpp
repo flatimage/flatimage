@@ -18,6 +18,15 @@
 #include "../db/bind.hpp"
 #include "cmd/desktop.hpp"
 
+/**
+ * @namespace ns_parser::ns_interface
+ * @brief Command interface definitions and argument structures
+ *
+ * Defines data structures and interfaces for FlatImage command arguments including exec/root
+ * execution contexts, permission specifications, environment variables, desktop integration
+ * settings, layer operations, bind mounts, and runtime configurations. Provides type-safe
+ * argument containers for command execution.
+ */
 namespace ns_parser::ns_interface
 {
   

@@ -15,6 +15,14 @@
 
 #include "concept.hpp"
 
+/**
+ * @namespace ns_string
+ * @brief String manipulation and conversion utilities
+ *
+ * This namespace provides enhanced string utilities including compile-time static strings,
+ * type-to-string conversion using concepts, container-to-string serialization, and placeholder
+ * replacement.
+ */
 namespace ns_string
 {
 

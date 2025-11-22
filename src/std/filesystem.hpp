@@ -19,6 +19,13 @@
 #include "expected.hpp"
 #include "string.hpp"
 
+/**
+ * @namespace ns_fs
+ * @brief Enhanced filesystem utilities wrapping std::filesystem
+ *
+ * This namespace extends std::filesystem with additional helper functions for common filesystem
+ * operations.
+ */
 namespace ns_fs
 {
 

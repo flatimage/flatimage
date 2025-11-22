@@ -12,6 +12,23 @@
 #include <vector>
 #include <algorithm>
 
+/**
+ * @namespace ns_cmd
+ * @brief FlatImage command implementations
+ *
+ * Contains implementations for all FlatImage commands (fim-bind, fim-help, fim-desktop, etc.).
+ * Each command is organized in its own nested namespace providing specific functionality for
+ * bind mounts, help text, desktop integration, filesystem layers, and package recipes.
+ */
+
+/**
+ * @namespace ns_cmd::ns_help
+ * @brief Help system and command documentation
+ *
+ * Provides comprehensive help text for all FlatImage commands including usage patterns,
+ * option descriptions, and examples. Generates formatted help output for individual commands
+ * (fim-exec, fim-perms, etc.) and general FlatImage usage information.
+ */
 namespace ns_cmd::ns_help
 {
 

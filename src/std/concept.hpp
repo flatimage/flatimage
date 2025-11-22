@@ -26,6 +26,14 @@
 #include <unordered_map>
 #include <memory>
 
+/**
+ * @namespace ns_concept
+ * @brief C++ concepts for type constraints and compile-time validation
+ *
+ * This namespace provides a comprehensive set of C++ concepts for common type requirements,
+ * including container checks, type conversions, iterability, template instance matching, and more.
+ * Concepts enable compile-time type checking and improve template error messages.
+ */
 namespace ns_concept
 {
 

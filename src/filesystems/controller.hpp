@@ -21,6 +21,24 @@
 #include "ciopfs.hpp"
 #include "utils.hpp"
 
+/**
+ * @namespace ns_filesystems
+ * @brief FlatImage filesystem layer implementations
+ *
+ * Contains all filesystem-related components including the orchestration controller, specific
+ * filesystem implementations (DwarFS, UnionFS, OverlayFS, CIOPFS), base filesystem interface,
+ * and utility functions.
+ */
+
+/**
+ * @namespace ns_filesystems::ns_controller
+ * @brief Filesystem stack orchestration and management
+ *
+ * Orchestrates the entire FlatImage filesystem layer, managing DwarFS base layers, overlay
+ * filesystems (UnionFS/OverlayFS/BWRAP), optional CIOPFS case-folding layer, and janitor
+ * cleanup processes. Coordinates mounting, layering, and unmounting of all filesystem
+ * components to create the final merged root directory.
+ */
 namespace ns_filesystems::ns_controller
 {
 

@@ -16,6 +16,16 @@
 #include "../std/enum.hpp"
 #include "reserved.hpp"
 
+/**
+ * @namespace ns_reserved::ns_overlay
+ * @brief Overlay filesystem type selection in reserved space
+ *
+ * This namespace manages the overlay filesystem type stored as a single-byte mask in the
+ * binary's reserved space. It allows selection between different overlay implementations:
+ * BWRAP (bubblewrap native), OVERLAYFS (fuse-overlayfs), and UNIONFS (unionfs-fuse).
+ * The overlay type determines how the writable layer is merged with read-only base layers
+ * to create the final root filesystem.
+ */
 namespace ns_reserved::ns_overlay
 {
 

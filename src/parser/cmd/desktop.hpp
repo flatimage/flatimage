@@ -23,6 +23,15 @@
 #include "../../config.hpp"
 #include "icon.hpp"
 
+/**
+ * @namespace ns_desktop
+ * @brief Desktop integration command implementation
+ *
+ * Implements the fim-desktop command for XDG desktop integration including
+ * .desktop file generation, MIME type registration, icon installation at
+ * multiple resolutions  and application menu integration. Handles icon
+ * extraction, resizing, and proper XDG directory placement.
+ */
 namespace ns_desktop
 {
 

@@ -15,6 +15,16 @@
 #include "../macro.hpp"
 #include "reserved.hpp"
 
+/**
+ * @namespace ns_reserved::ns_env
+ * @brief Environment variable storage in reserved space
+ *
+ * This namespace manages environment variables stored as a JSON string in the binary's
+ * reserved space. It allows configuration of environment variables
+ * that are set when the containerized application is launched, enabling customization
+ * of runtime behavior, library paths, configuration options, and other environment-based
+ * settings without rebuilding the binary.
+ */
 namespace ns_reserved::ns_env
 {
 

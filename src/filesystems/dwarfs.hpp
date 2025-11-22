@@ -15,6 +15,15 @@
 #include "../macro.hpp"
 #include "filesystem.hpp"
 
+/**
+ * @namespace ns_filesystems::ns_dwarfs
+ * @brief DwarFS compressed read-only filesystem wrapper
+ *
+ * Provides high-compression read-only filesystem support using DwarFS with on-the-fly
+ * decompression. Manages mounting compressed base layers from specific byte offsets within
+ * the FlatImage binary, enabling efficient storage and fast random access to the embedded
+ * Linux distribution filesystem.
+ */
 namespace ns_filesystems::ns_dwarfs
 {
 

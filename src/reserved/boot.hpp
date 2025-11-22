@@ -2,7 +2,7 @@
  * @file boot.hpp
  * @author Ruan Formigoni
  * @brief Manages the boot command reserved space
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -15,6 +15,15 @@
 #include "../macro.hpp"
 #include "reserved.hpp"
 
+/**
+ * @namespace ns_reserved::ns_boot
+ * @brief Boot command storage in reserved space
+ *
+ * This namespace manages the default boot command stored as a JSON string in the binary's
+ * reserved space. The boot command specifies the default program and
+ * arguments to execute when the FlatImage is launched without explicit command-line arguments.
+ * This allows applications to be configured with specific startup commands or entry points.
+ */
 namespace ns_reserved::ns_boot
 {
 
@@ -48,7 +57,7 @@ inline Value<void> write(fs::path const& path_file_binary, std::string_view cons
 
 /**
  * @brief Reads the json string from the target binary
- * 
+ *
  * @param path_file_binary Target binary to write the json string
  * @return On success it returns the read data, or the respective error message
  */

@@ -23,6 +23,14 @@
 // https://man7.org/linux/man-pages/man2/statfs.2.html
 #define FUSE_SUPER_MAGIC 0x65735546
 
+/**
+ * @namespace ns_fuse
+ * @brief FUSE filesystem operation utilities
+ *
+ * Provides utilities for FUSE filesystem management including mount/unmount operations,
+ * mount point validation, and filesystem state checking. Handles both lazy and force
+ * unmounting with automatic cleanup and error handling for FUSE-based filesystems.
+ */
 namespace ns_fuse
 {
 

@@ -15,6 +15,14 @@
 #include "../../db/bind.hpp"
 #include "../../reserved/bind.hpp"
 
+/**
+ * @namespace ns_cmd::ns_bind
+ * @brief Bind mount command implementation
+ *
+ * Implements the fim-bind command for managing host-to-sandbox bind mount configurations.
+ * Provides operations to add, remove, and list bind mounts with support for read-only (RO),
+ * read-write (RW), and device (DEV) mount types. Persists configurations to reserved space.
+ */
 namespace ns_cmd::ns_bind
 {
 

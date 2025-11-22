@@ -53,14 +53,14 @@ PROJECT_NUMBER         =
 # for a project that appears at the top of each page and should give viewer a
 # quick idea about the purpose of the project. Keep the description short.
 
-PROJECT_BRIEF          =
+PROJECT_BRIEF          = "A configurable Linux containerization system"
 
 # With the PROJECT_LOGO tag one can specify a logo or an icon that is included
 # in the documentation. The maximum height of the logo should not exceed 55
 # pixels and the maximum width should not exceed 200 pixels. Doxygen will copy
 # the logo to the output directory.
 
-PROJECT_LOGO           = ./doc/icon.png
+PROJECT_LOGO           = ./doc/image/icon.png
 
 # The OUTPUT_DIRECTORY tag is used to specify the (relative or absolute) path
 # into which the generated documentation will be written. If a relative path is
@@ -360,7 +360,7 @@ MARKDOWN_SUPPORT       = YES
 # Minimum value: 0, maximum value: 99, default value: 5.
 # This tag requires that the tag MARKDOWN_SUPPORT is set to YES.
 
-TOC_INCLUDE_HEADINGS   = 5
+TOC_INCLUDE_HEADINGS   = 2
 
 # When enabled doxygen tries to link words that correspond to documented
 # classes, or namespaces to their corresponding documentation. Such a link can
@@ -906,7 +906,11 @@ WARN_LOGFILE           =
 # spaces. See also FILE_PATTERNS and EXTENSION_MAPPING
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = ./src ./README.md
+INPUT                  = ./src \
+                         ./doc/doxygen/navigating.md \
+                         ./doc/doxygen/conventions.md \
+                         ./doc/doxygen/modules.md \
+                         ./doc/doxygen/building.md
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses
@@ -937,7 +941,8 @@ INPUT_ENCODING         = UTF-8
 
 FILE_PATTERNS          = *.cpp \
                          *.hpp \
-                         *.c
+                         *.c \
+                         *.md
 
 # The RECURSIVE tag can be used to specify whether or not subdirectories should
 # be searched for input files as well.
@@ -1061,7 +1066,7 @@ FILTER_SOURCE_PATTERNS =
 # (index.html). This can be useful if you have a project on for instance GitHub
 # and want to reuse the introduction page also for the doxygen output.
 
-USE_MDFILE_AS_MAINPAGE = ./README.md
+USE_MDFILE_AS_MAINPAGE = ./doc/doxygen/navigating.md
 
 #---------------------------------------------------------------------------
 # Configuration options related to source browsing
@@ -1074,7 +1079,7 @@ USE_MDFILE_AS_MAINPAGE = ./README.md
 # also VERBATIM_HEADERS is set to NO.
 # The default value is: NO.
 
-SOURCE_BROWSER         = NO
+SOURCE_BROWSER         = YES
 
 # Setting the INLINE_SOURCES tag to YES will include the body of functions,
 # classes and enums directly into the documentation.

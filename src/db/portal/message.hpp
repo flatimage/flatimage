@@ -16,6 +16,15 @@
 #include "../../std/filesystem.hpp"
 #include "../db.hpp"
 
+/**
+ * @namespace ns_db::ns_portal::ns_message
+ * @brief Portal IPC message serialization and deserialization
+ *
+ * Handles message format for FIFO-based communication between host and container processes.
+ * Manages command vectors, stdio FIFO paths (stdin/stdout/stderr), exit code channels, PID
+ * tracking, and environment variables for cross-boundary command execution with proper I/O
+ * redirection.
+ */
 namespace ns_db::ns_portal::ns_message
 {
 

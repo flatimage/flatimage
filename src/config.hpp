@@ -72,6 +72,15 @@
 
 using DaemonMode = ns_db::ns_portal::ns_daemon::Mode;
 
+/**
+ * @namespace ns_config
+ * @brief Central FlatImage configuration system
+ *
+ * Serves as the single source of truth for all FlatImage configuration, paths, and runtime flags.
+ * Aggregates directory structures, binary locations, log paths, module configurations (filesystem,
+ * daemon), and feature flags into one immutable configuration object. Factory method config()
+ * initializes all settings from environment variables, reserved space, and compile-time constants.
+ */
 namespace ns_config
 {
 

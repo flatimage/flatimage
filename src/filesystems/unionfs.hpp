@@ -24,6 +24,15 @@ namespace fs = std::filesystem;
 
 } // namespace
 
+/**
+ * @namespace ns_filesystems::ns_unionfs
+ * @brief UnionFS-FUSE overlay filesystem implementation
+ *
+ * Compatible overlay filesystem using unionfs-fuse for layering read-only base mounts with
+ * a writable upper directory. Provides copy-on-write semantics with broader compatibility
+ * than OverlayFS. Suitable for systems where FUSE-OverlayFS is unavailable or when better
+ * compatibility is needed.
+ */
 namespace ns_filesystems::ns_unionfs
 {
 

@@ -20,6 +20,14 @@
 #include "subprocess.hpp"
 #include "../std/enum.hpp"
 
+/**
+ * @namespace ns_image
+ * @brief Image processing utilities
+ *
+ * Handles image file operations including PNG and JPEG processing, icon resizing using
+ * ImageMagick, and format conversion. Supports reading image dimensions, resizing to
+ * standard icon sizes, and converting between image formats for desktop integration.
+ */
 namespace ns_image
 {
 

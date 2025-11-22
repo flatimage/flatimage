@@ -26,6 +26,15 @@
 #include "../lib/env.hpp"
 #include "../macro.hpp"
 
+/**
+ * @namespace ns_bwrap
+ * @brief Bubblewrap sandboxing integration
+ *
+ * Provides unprivileged containerization via Linux namespaces using bubblewrap.
+ * Manages sandbox configuration, permission-based bind mounts, user namespace isolation,
+ * overlay filesystem setup, and GPU/device access control. Supports both native overlay
+ * and FUSE-based overlay modes.
+ */
 namespace ns_bwrap
 {
 
@@ -36,6 +45,14 @@ namespace fs = std::filesystem;
 
 }
 
+/**
+ * @namespace ns_bwrap::ns_proxy
+ * @brief Bubblewrap proxy types and user configuration
+ *
+ * Contains data structures for configuring the bubblewrap sandbox environment,
+ * including user identity mapping (UID/GID), overlay filesystem configuration,
+ * log file paths, and container user representation with passwd/bashrc generation.
+ */
 namespace ns_proxy
 {
 

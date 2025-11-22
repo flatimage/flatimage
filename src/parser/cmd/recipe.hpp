@@ -44,6 +44,15 @@ inline fs::path get_path_recipe(
 
 } // namespace
 
+/**
+ * @namespace ns_recipe
+ * @brief Package recipe command implementation
+ *
+ * Implements the fim-recipe command for installing distribution-specific package recipes.
+ * Handles recipe downloading from remote repositories, dependency resolution,
+ * package installation via distribution package managers, and recipe caching.
+ * Supports pre-configured software bundles like audio, GPU drivers, and desktop environments.
+ */
 namespace ns_recipe
 {
 

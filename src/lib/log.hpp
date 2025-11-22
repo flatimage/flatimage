@@ -132,6 +132,15 @@
 #include "../std/concept.hpp"
 #include "../std/string.hpp"
 
+/**
+ * @namespace ns_log
+ * @brief Multi-level logging system with file and stdout sinks
+ *
+ * Thread-local logging infrastructure supporting DEBUG, INFO, WARNING, ERROR, and CRITICAL
+ * levels with automatic source location tracking. Provides dual output to log files and
+ * stdout/stderr with level-based prefixes (D::, I::, W::, E::, C::) for convenient filtering
+ * and categorization.
+ */
 namespace ns_log
 {
 

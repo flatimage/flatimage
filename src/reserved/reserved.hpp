@@ -18,6 +18,17 @@
 #include "../macro.hpp"
 #include "../std/expected.hpp"
 
+/**
+ * @namespace ns_reserved
+ * @brief Management of ELF binary reserved space for configuration storage
+ *
+ * This namespace provides core functionality for reading and writing configuration data
+ * to a reserved section within the FlatImage ELF binary. It defines the memory layout
+ * (offsets and sizes) for all configuration components and provides low-level read/write
+ * operations. The reserved space allows post-build reconfiguration without rebuilding
+ * the entire binary, storing permissions, environment variables, bind mounts, desktop
+ * integration data, icons, and more.
+ */
 namespace ns_reserved
 {
 

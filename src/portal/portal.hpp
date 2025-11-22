@@ -14,6 +14,15 @@
 #include "../lib/subprocess.hpp"
 #include "../db/portal/daemon.hpp"
 
+/**
+ * @namespace ns_portal
+ * @brief Portal IPC system for host-container communication
+ *
+ * Manages the portal daemon lifecycle for FIFO-based inter-process communication between
+ * host and container environments. Spawns and controls portal daemon processes that enable
+ * cross-boundary command execution, stdio redirection, and message routing for multi-instance
+ * FlatImage applications.
+ */
 namespace ns_portal
 {
 

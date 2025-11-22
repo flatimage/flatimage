@@ -10,6 +10,13 @@
 
 #include <string_view>
 
+/**
+ * @namespace ns_icon
+ * @brief FlatImage default icon SVG data
+ *
+ * Contains the embedded SVG data for the default FlatImage icon used when no custom icon
+ * is specified. Provides the fallback icon for desktop integration and application menus.
+ */
 namespace ns_icon
 {
 

@@ -2,7 +2,7 @@
  * @file icon.hpp
  * @author Ruan Formigoni
  * @brief Manages the icon reserved space
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -15,6 +15,16 @@
 #include "../macro.hpp"
 #include "reserved.hpp"
 
+/**
+ * @namespace ns_reserved::ns_icon
+ * @brief Application icon image storage in reserved space
+ *
+ * This namespace manages embedded icon image data stored in the binary's reserved space.
+ * It stores icons in PNG or JPEG format along with the file extension
+ * and size metadata. The embedded icon is used for desktop integration, appearing in
+ * application launchers, taskbars, and .desktop files. Icons are processed through
+ * ImageMagick for resizing as needed.
+ */
 namespace ns_reserved::ns_icon
 {
 
@@ -87,7 +97,7 @@ inline Value<void> write(fs::path const& path_file_binary, Icon const& icon)
 
 /**
  * @brief Reads the Icon struct from the target binary
- * 
+ *
  * @param path_file_binary Target binary to write the struct from
  * @return On success it returns the read Icon struct, or the respective error message
  */

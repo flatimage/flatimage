@@ -25,6 +25,15 @@
 
 namespace fs = std::filesystem;
 
+/**
+ * @namespace ns_portal::ns_child
+ * @brief Child process spawning and I/O management for portal IPC
+ *
+ * This namespace handles the creation and management of child processes for the portal system.
+ * It provides functions for spawning processes with their standard I/O streams redirected to
+ * FIFO pipes, enabling communication between host and containerized processes. The spawned
+ * processes can have custom environments and communicate their PID and exit codes through FIFOs.
+ */
 namespace ns_portal::ns_child
 {
 

@@ -30,6 +30,15 @@
 #include "subprocess/pipe.hpp"
 #include "subprocess/child.hpp"
 
+/**
+ * @namespace ns_subprocess
+ * @brief Child process management and execution
+ *
+ * Provides comprehensive subprocess spawning and management with configurable stdio redirection
+ * (Pipe/Null/Inherit), environment variable injection, death signal configuration (PR_SET_PDEATHSIG),
+ * daemon mode, and log file integration. Supports both synchronous and asynchronous process
+ * execution with proper cleanup.
+ */
 namespace ns_subprocess
 {
 

@@ -15,6 +15,15 @@
 #include "../reserved/remote.hpp"
 #include "db.hpp"
 
+/**
+ * @namespace ns_db::ns_remote
+ * @brief Remote recipe repository URL management
+ *
+ * Manages the remote URL for FlatImage recipe repositories. Stores and retrieves the base URL
+ * from which recipe JSON files are fetched during package installation. Provides simple get/set
+ * operations with persistence to the binary's reserved space for distribution-specific recipe
+ * sources.
+ */
 namespace ns_db::ns_remote
 {
 

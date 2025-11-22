@@ -13,6 +13,15 @@
 #include "concept.hpp"
 #include "string.hpp"
 
+/**
+ * @namespace ns_vector
+ * @brief Vector and container manipulation utilities
+ *
+ * This namespace provides utility functions for working with std::vector and
+ * other standard library containers. It includes operations for appending
+ * ranges, pushing multiple elements at once, prepending elements to the front
+ * of a container, and creating containers from delimited strings.
+ */
 namespace ns_vector
 {
 

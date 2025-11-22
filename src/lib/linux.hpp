@@ -23,6 +23,14 @@
 #include "../std/expected.hpp"
 #include "log.hpp"
 
+/**
+ * @namespace ns_linux
+ * @brief Linux-specific system operations
+ *
+ * Provides Linux kernel-specific functionality including kernel module availability checking,
+ * system capability detection, and OS-level feature queries. Used to verify FUSE module
+ * availability and other kernel features required by FlatImage.
+ */
 namespace ns_linux
 {
 

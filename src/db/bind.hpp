@@ -16,6 +16,15 @@
 
 #include "../std/enum.hpp"
 
+/**
+ * @namespace ns_db::ns_bind
+ * @brief Bind mount configuration management
+ *
+ * Manages host-to-sandbox bind mount configurations with support for read-only (RO),
+ * read-write (RW), and device (DEV) mount types. Provides serialization/deserialization
+ * to JSON, mount indexing, and collection management for configuring filesystem bindings
+ * between the host system and sandboxed container.
+ */
 namespace ns_db::ns_bind
 {
 

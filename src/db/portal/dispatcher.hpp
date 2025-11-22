@@ -17,6 +17,14 @@
 #include "../db.hpp"
 #include "daemon.hpp"
 
+/**
+ * @namespace ns_db::ns_portal::ns_dispatcher
+ * @brief Portal command dispatcher configuration
+ *
+ * Manages configuration for the portal dispatcher that routes commands between host and guest
+ * environments. Handles FIFO communication paths, daemon connection points, logging paths,
+ * and mode-specific (HOST/GUEST) routing with per-instance isolation via PID-based paths.
+ */
 namespace ns_db::ns_portal::ns_dispatcher
 {
 

@@ -15,6 +15,15 @@
 #include "../macro.hpp"
 #include "reserved.hpp"
 
+/**
+ * @namespace ns_reserved::ns_casefold
+ * @brief Case-insensitive filesystem flag management in reserved space
+ *
+ * This namespace manages a single-byte flag in the binary's reserved space that controls
+ * whether the case-insensitive overlay (CIOPFS) is enabled. When enabled, CIOPFS provides
+ * Windows-style case-insensitive filesystem semantics, which is essential for Wine/Proton
+ * compatibility. Note that CIOPFS is not case-preserving and stores filenames in lowercase.
+ */
 namespace ns_reserved::ns_casefold
 {
 

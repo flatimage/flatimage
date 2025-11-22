@@ -2,7 +2,7 @@
  * @file permissions.hpp
  * @author Ruan Formigoni
  * @brief Manages the permissions reserved space
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -17,6 +17,16 @@
 #include "../std/enum.hpp"
 #include "../std/expected.hpp"
 
+/**
+ * @namespace ns_reserved::ns_permissions
+ * @brief Permission bitfield management in reserved space
+ *
+ * This namespace manages the sandboxing permissions.
+ * It provides operations for setting, adding, removing, and
+ * querying permissions such as X11, Wayland, network, GPU, audio, home directory access,
+ * USB, Bluetooth, and more. Permissions default to zero (no access), and must be explicitly
+ * granted by the user.
+ */
 namespace ns_reserved::ns_permissions
 {
 
@@ -55,7 +65,7 @@ inline std::map<Permission,Bits> const permission_mask =
 
 /**
  * @brief Sets a bit permission with the target value
- * 
+ *
  * @param bits Permission bits
  * @param permission Permission to change in the bits
  * @param value Value to set the target permission
@@ -73,7 +83,7 @@ inline std::map<Permission,Bits> const permission_mask =
 
 /**
  * @brief Creates a set of lowercase string permission representations
- * 
+ *
  * @param bits Permission bits
  * @return std::set<std::string> The string permission list
  */
@@ -109,7 +119,7 @@ inline Value<void> write(fs::path const& path_file_binary, Bits const& bits) noe
 
 /**
  * @brief Read the Bits struct from the given binary
- * 
+ *
  * @param path_file_binary Binary which to read the Bits struct from
  * @return The Bits struct on success, or the respective error
  */

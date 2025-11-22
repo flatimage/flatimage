@@ -2,7 +2,7 @@
  * @file bind.hpp
  * @author Ruan Formigoni
  * @brief Manages the bindings reserved space
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -15,6 +15,16 @@
 #include "../macro.hpp"
 #include "reserved.hpp"
 
+/**
+ * @namespace ns_reserved::ns_bind
+ * @brief Bind mount configuration storage in reserved space
+ *
+ * This namespace manages bind mount configurations stored as a JSON string in the binary's
+ * reserved space. It stores mappings between host paths and container
+ * paths, allowing specific directories or files from the host system to be made available
+ * inside the containerized environment. Bind mounts can be read-only or read-write and
+ * are applied at runtime during container initialization.
+ */
 namespace ns_reserved::ns_bind
 {
 
@@ -48,7 +58,7 @@ inline Value<void> write(fs::path const& path_file_binary, std::string_view cons
 
 /**
  * @brief Reads the bindings json string from the target binary
- * 
+ *
  * @param path_file_binary Target binary to write the json string
  * @return On success it returns the read data, or the respective error message
  */

@@ -15,6 +15,16 @@
 #include "../macro.hpp"
 #include "reserved.hpp"
 
+/**
+ * @namespace ns_reserved::ns_remote
+ * @brief Remote recipe repository URL storage in reserved space
+ *
+ * This namespace manages the remote recipe repository URL. The URL points to a
+ * repository of package recipes that can be installed into the FlatImage to add
+ * additional dependencies, libraries, or applications.  This enables dynamic
+ * package installation without rebuilding the base image, supporting
+ * distribution-specific package managers (apk for Alpine, pacman for Arch).
+ */
 namespace ns_reserved::ns_remote
 {
 

@@ -29,6 +29,14 @@
 namespace ns_subprocess
 {
 
+/**
+ * @namespace ns_subprocess::ns_pipe
+ * @brief Inter-process pipe management
+ *
+ * Manages Unix pipe creation, configuration, and cleanup for inter-process communication.
+ * Handles file descriptor management with RAII semantics, read/write end access, and
+ * automatic closing on destruction for safe stdio redirection in child processes.
+ */
 namespace ns_pipe
 {
 

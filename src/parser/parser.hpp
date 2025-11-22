@@ -20,6 +20,15 @@
 #include "interface.hpp"
 #include "cmd/help.hpp"
 
+/**
+ * @namespace ns_parser
+ * @brief FlatImage command parsing and execution engine
+ *
+ * Parses and executes FlatImage commands (fim-exec, fim-perms, fim-env, fim-desktop, etc.).
+ * Handles argument parsing, command dispatch, and orchestrates the execution flow for all
+ * user-facing FlatImage operations including boot, permissions, bindings, layers, recipes,
+ * and desktop integration.
+ */
 namespace ns_parser
 {
 

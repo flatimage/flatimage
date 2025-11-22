@@ -14,6 +14,15 @@
 #include "../std/expected.hpp"
 #include "db.hpp"
 
+/**
+ * @namespace ns_db::ns_recipe
+ * @brief Package recipe configuration management
+ *
+ * Handles recipe definitions for installing distribution-specific packages.
+ * Manages package lists, dependencies, and descriptions for pre-configured software bundles
+ * (e.g., audio drivers, GPU support, desktop environments). Supports JSON-based recipe
+ * format with recursive dependency resolution.
+ */
 namespace ns_db::ns_recipe
 {
 

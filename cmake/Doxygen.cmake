@@ -14,13 +14,13 @@ FetchContent_MakeAvailable(doxygen-awesome-css)
 FetchContent_GetProperties(doxygen-awesome-css SOURCE_DIR AWESOME_CSS_DIR)
 
 # Generate the Doxyfile
-set(DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/doc/Doxyfile.in)
-set(DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile)
+set(DOXYFILE_IN ${CMAKE_CURRENT_SOURCE_DIR}/doc/doxygen/Doxyfile.in)
+set(DOXYFILE_OUT ${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile)
 configure_file(${DOXYFILE_IN} ${DOXYFILE_OUT} @ONLY)
 
 doxygen_add_docs(doxygen
   src
   ALL
   COMMENT "Generating project documentation with custom Doxyfile"
-  CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+  CONFIG_FILE ${CMAKE_CURRENT_BINARY_DIR}/doc/Doxyfile
 )

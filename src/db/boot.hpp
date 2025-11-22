@@ -14,6 +14,14 @@
 #include "../std/expected.hpp"
 #include "db.hpp"
 
+/**
+ * @namespace ns_db::ns_boot
+ * @brief Boot command configuration storage
+ *
+ * Manages the default boot command and arguments for FlatImage applications. Stores the program
+ * path and argument vector that will be executed when the FlatImage is launched without explicit
+ * commands. Supports JSON serialization/deserialization for persistent storage in reserved space.
+ */
 namespace ns_db::ns_boot
 {
 

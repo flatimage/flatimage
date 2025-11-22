@@ -13,6 +13,15 @@
 
 #include "../lib/fuse.hpp"
 
+/**
+ * @namespace ns_filesystem
+ * @brief Base filesystem interface and abstraction
+ *
+ * Defines the abstract base class for all FlatImage filesystem implementations. Provides
+ * common interface for mounting, child process management, logging, and automatic cleanup
+ * through RAII. All specific filesystem types (DwarFS, UnionFS, OverlayFS, CIOPFS) inherit
+ * from this base.
+ */
 namespace ns_filesystem
 {
 

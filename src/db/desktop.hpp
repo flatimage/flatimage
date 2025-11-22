@@ -15,6 +15,15 @@
 #include "../std/enum.hpp"
 #include "db.hpp"
 
+/**
+ * @namespace ns_db::ns_desktop
+ * @brief Desktop integration configuration management
+ *
+ * Handles XDG desktop integration settings including .desktop entry generation, MIME type
+ * associations, and icon installation. Manages application name, icon paths, integration
+ * toggles (entry/mimetype/icon), and FreeDesktop categories for proper system integration
+ * of FlatImage applications.
+ */
 namespace ns_db::ns_desktop
 {
 

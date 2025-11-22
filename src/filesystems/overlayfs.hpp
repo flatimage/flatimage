@@ -24,6 +24,15 @@ namespace fs = std::filesystem;
 
 } // namespace
 
+/**
+ * @namespace ns_filesystems::ns_overlayfs
+ * @brief FUSE-OverlayFS overlay filesystem implementation
+ *
+ * Fast overlay filesystem using fuse-overlayfs for copy-on-write functionality. Layers
+ * multiple read-only DwarFS mounts with a writable upper directory, providing transparent
+ * write access while preserving base layer immutability. Requires work directory for
+ * overlay metadata.
+ */
 namespace ns_filesystems::ns_overlayfs
 {
 

@@ -15,6 +15,14 @@
 #include "../std/expected.hpp"
 #include "../macro.hpp"
 
+/**
+ * @namespace ns_filesystems::ns_utils
+ * @brief Filesystem utility functions
+ *
+ * Provides utility functions for filesystem management including busy state detection by
+ * scanning /proc/[pid]/mountinfo, layer enumeration, and instance cleanup operations.
+ * Supports filesystem state queries and validation for safe mount/unmount operations.
+ */
 namespace ns_filesystems::ns_utils
 {
 

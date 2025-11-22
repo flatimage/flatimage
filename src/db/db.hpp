@@ -17,7 +17,15 @@
 #include "../std/concept.hpp"
 #include "../macro.hpp"
 
-
+/**
+ * @namespace ns_db
+ * @brief JSON-based configuration database layer
+ *
+ * Provides type-safe wrapper around nlohmann::json for FlatImage configuration storage and retrieval.
+ * Supports both owned and referenced JSON data, enabling flexible ownership semantics. Offers
+ * serialization/deserialization, element access, file I/O, and type-safe conversions with integrated
+ * error handling through the Value<T> pattern.
+ */
 namespace ns_db
 {
 

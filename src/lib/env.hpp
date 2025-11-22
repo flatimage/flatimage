@@ -18,9 +18,16 @@
 #include "../common.hpp"
 #include "../macro.hpp"
 
+/**
+ * @namespace ns_env
+ * @brief Environment variable management utilities
+ *
+ * Provides type-safe environment variable operations including get/set with default values,
+ * PATH searching for executables, variable expansion, and existence checking.
+ */
 namespace ns_env
 {
-  
+
 namespace
 {
 namespace fs = std::filesystem;
@@ -34,7 +41,7 @@ enum class Replace
 
 /**
  * @brief Sets an environment variable
- * 
+ *
  * @tparam T StringRepresentable
  * @tparam U StringRepresentable
  * @param name Variable name
@@ -49,7 +56,7 @@ void set(T&& name, U&& value, Replace replace)
 
 /**
  * @brief Get the value of an environment variable
- * 
+ *
  * @tparam T The output type of the function
  * @param name The name of the variable
  * @return Value<std::string> The value of the variable or the respective error
@@ -67,7 +74,7 @@ inline Value<std::string> get_expected(std::string_view name)
 
 /**
  * @brief Checks if variable exists and equals value
- * 
+ *
  * @param name Name of the variable
  * @param value Value value of the variable
  * @return True if it exists and matches the expected value, or false otherwise
@@ -136,7 +143,7 @@ inline Value<T> xdg_data_home() noexcept
 
 /**
  * @brief Search the directories in the PATH variable for the given input file name
- * 
+ *
  * @param query The file name to search for in PATH directories
  * @return Value<fs::path> The path of the found file or the respective error
  */

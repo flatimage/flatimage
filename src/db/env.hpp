@@ -1,8 +1,8 @@
 /**
- * @file environment.hpp
+ * @file env.hpp
  * @author Ruan Formigoni
  * @brief Manages environment variables in flatimage
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -17,6 +17,15 @@
 #include "../reserved/env.hpp"
 #include "db.hpp"
 
+/**
+ * @namespace ns_db::ns_env
+ * @brief Environment variable database management
+ *
+ * Manages environment variables stored in FlatImage's reserved space. Provides validation,
+ * serialization/deserialization, and key-value parsing for environment entries in 'KEY=VALUE'
+ * format. Supports reading from and writing to the binary's embedded configuration with
+ * configurable environment variable injection into the container.
+ */
 namespace ns_db::ns_env
 {
 
@@ -27,7 +36,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Given a string with an environment variable entry, splits the variable into key and value.
- * 
+ *
  * @param entries The environment variables, each entry has the format 'key=var'
  * @return The list of key/value pairs, invalid entries are ignored
  */
@@ -45,9 +54,9 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Validates environment variable entries
- * 
+ *
  * The validation makes sure they are in the 'key=val' format
- * 
+ *
  * @param entries The entries to validate
  * @return Nothing if all variables are valid or the respective error
  */
@@ -67,7 +76,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Deletes a list of environment variables from the database
- * 
+ *
  * @param path_file_binary Path to the database with environment variables
  * @param entries List of environment variables to erase
  */
@@ -114,7 +123,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Resets all defined environment variables to the ones passed as an argument
- * 
+ *
  * @param path_file_binary The path to the environment variable database
  * @param entries List of environment variables to set
  * @return Nothing on success, or the respective error
@@ -128,7 +137,7 @@ namespace fs = std::filesystem;
 
 /**
  * @brief Get existing variables from the database
- * 
+ *
  * @param path_file_binary The path to the environment variable database
  * @return The list of environment variables, or the respective error
  */

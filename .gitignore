@@ -1,6 +1,5 @@
 # Ignore on project root
 .gdb_history
-doxygen
 build
 build-test
 site

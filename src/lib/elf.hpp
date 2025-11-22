@@ -22,6 +22,14 @@
 #include "../macro.hpp"
 #include "../std/expected.hpp"
 
+/**
+ * @namespace ns_elf
+ * @brief ELF binary manipulation and reserved space management
+ *
+ * Provides utilities for reading and manipulating ELF binaries, including ELF header parsing,
+ * binary extraction at specific offsets, and reserved space read/write operations. Essential
+ * for FlatImage's embedded configuration storage and binary relocation functionality.
+ */
 namespace ns_elf
 {
 

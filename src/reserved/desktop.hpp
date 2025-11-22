@@ -2,7 +2,7 @@
  * @file desktop.hpp
  * @author Ruan Formigoni
  * @brief Manages the desktop reserved space
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -15,6 +15,15 @@
 #include "../macro.hpp"
 #include "reserved.hpp"
 
+/**
+ * @namespace ns_reserved::ns_desktop
+ * @brief Desktop integration data storage in reserved space
+ *
+ * This namespace manages desktop integration configuration stored as a JSON string in
+ * the binary's reserved space. It stores data for generating .desktop
+ * files, including application name, categories, MIME types, and other XDG desktop entry
+ * metadata used for system integration.
+ */
 namespace ns_reserved::ns_desktop
 {
 
@@ -48,7 +57,7 @@ inline Value<void> write(fs::path const& path_file_binary, std::string_view cons
 
 /**
  * @brief Reads the desktop json string from the target binary
- * 
+ *
  * @param path_file_binary Target binary to write the json string
  * @return On success it returns the read data, or the respective error message
  */

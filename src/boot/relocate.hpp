@@ -19,6 +19,14 @@
 #include "../std/expected.hpp"
 #include "../config.hpp"
 
+/**
+ * @namespace ns_relocate
+ * @brief Binary relocation and extraction utilities
+ *
+ * Handles copying and executing the FlatImage binary from the embedded image to temporary storage.
+ * This relocation is necessary to free the main flatimage file for mounting filesystems. Extracts
+ * embedded binaries (bash, janitor, portal components, busybox, etc.)
+ */
 namespace ns_relocate
 {
 

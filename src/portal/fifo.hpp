@@ -23,6 +23,15 @@
 #include "../lib/linux.hpp"
 #include "config.hpp"
 
+/**
+ * @namespace ns_portal::ns_fifo
+ * @brief FIFO (named pipe) operations for portal IPC
+ *
+ * This namespace provides utilities for creating and managing FIFO pipes used in the portal
+ * inter-process communication system. It includes functions for creating FIFOs, redirecting
+ * file descriptors to/from FIFOs, and handling bidirectional communication between host and
+ * container processes.
+ */
 namespace ns_portal::ns_fifo
 {
 

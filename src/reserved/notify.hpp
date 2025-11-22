@@ -15,6 +15,15 @@
 #include "../macro.hpp"
 #include "reserved.hpp"
 
+/**
+ * @namespace ns_reserved::ns_notify
+ * @brief Desktop notification flag management in reserved space
+ *
+ * This namespace manages a single-byte flag in the binary's reserved space that controls
+ * whether desktop notifications are enabled for the FlatImage application. The flag
+ * determines if the application can display notifications to the user through the desktop
+ * environment's notification system.
+ */
 namespace ns_reserved::ns_notify
 {
 

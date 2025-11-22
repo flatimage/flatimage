@@ -1,5 +1,5 @@
 /**
- * @file portal.hpp
+ * @file daemon.hpp
  * @author Ruan Formigoni
  * @brief Defines a class that manages FlatImage's portal configuration
  *
@@ -16,6 +16,15 @@
 #include "../../std/enum.hpp"
 #include "../db.hpp"
 
+/**
+ * @namespace ns_db::ns_portal::ns_daemon
+ * @brief Portal daemon configuration and management
+ *
+ * Manages configuration for the portal daemon process that enables FIFO-based inter-process
+ * communication between host and container environments. Handles daemon mode (HOST/GUEST),
+ * FIFO paths, binary locations, and log configuration with serialization support for passing
+ * configuration via environment variables.
+ */
 namespace ns_db::ns_portal::ns_daemon
 {
 
@@ -24,6 +33,14 @@ namespace
 namespace fs = std::filesystem;
 } // anonymous namespace
 
+/**
+ * @namespace ns_db::ns_portal::ns_daemon::ns_log
+ * @brief Portal daemon logging configuration
+ *
+ * Defines log file paths for portal daemon processes including parent, child, and grandchild
+ * process logs. Manages per-PID log directory structure with support for serialization to
+ * pass logging configuration to spawned daemon processes.
+ */
 namespace ns_log
 {
 
