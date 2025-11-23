@@ -19,6 +19,7 @@
 #include <sys/prctl.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 #include <ranges>
 #include <filesystem>
 #include <utility>
@@ -962,25 +963,57 @@ inline std::unique_ptr<Child> Subprocess::spawn()
     return_if(pipe(pipestderr), Child::create(-1, m_program), "E::{}", strerror(errno));
   }
 
+  // Create shared memory for daemon grandchild PID (if daemon mode)
+  pid_t* grandchild_pid_ptr = nullptr;
+  if ( m_daemon_mode )
+  {
+    grandchild_pid_ptr = static_cast<pid_t*>(mmap(
+      nullptr,
+      sizeof(pid_t),
+      PROT_READ | PROT_WRITE,
+      MAP_SHARED | MAP_ANONYMOUS,
+      -1,
+      0
+    ));
+    return_if(grandchild_pid_ptr == MAP_FAILED, nullptr, "E::mmap failed: {}", strerror(errno));
+    *grandchild_pid_ptr = -1;  // Initialize
+  }
+
   // Create child
   pid_t pid = fork();
 
   // Failed to fork
-  return_if(pid < 0, Child::create(-1, m_program), "E::Failed to fork");
+  if (pid < 0)
+  {
+    if (grandchild_pid_ptr != nullptr)
+    {
+      munmap(grandchild_pid_ptr, sizeof(pid_t));
+    }
+    logger("E::Failed to fork");
+    return Child::create(-1, m_program);
+  }
 
   // Parent returns here, child continues to execve
   if ( pid > 0 )
   {
     std::vector<std::jthread> pipe_threads;
 
-    // If daemon mode, wait for intermediate child to exit
+    // If daemon mode, wait for intermediate child to exit and read grandchild PID
     if ( m_daemon_mode )
     {
       int status;
       log_if(waitpid(pid, &status, 0) < 0, "E::Waitpid failed: {}", strerror(errno));
       logger("D::Daemon mode: intermediate process exited");
-      // Return a Child handle with -1 to indicate daemon (no process to track)
-      return Child::create(-1, m_program);
+
+      // Read grandchild PID from shared memory
+      pid_t pid_grandchild = *grandchild_pid_ptr;
+
+      // Cleanup shared memory
+      munmap(grandchild_pid_ptr, sizeof(pid_t));
+
+      // Return Child handle with grandchild PID
+      logger("D::Daemon grandchild PID: {}", pid_grandchild);
+      return Child::create(pid_grandchild, m_program);
     }
     // Setup pipes for parent and capture threads
     else if ( m_stream_mode == Stream::Pipe)
@@ -1023,12 +1056,18 @@ inline std::unique_ptr<Child> Subprocess::spawn()
 
     if ( pid > 0 )
     {
+      // Intermediate child: write grandchild PID to shared memory
+      *grandchild_pid_ptr = pid;
+
       // Intermediate child exits immediately
       // This causes grandchild to be orphaned and adopted by init
       _exit(0);
     }
 
     // Grandchild continues here - now a daemon
+    // Cleanup shared memory in grandchild (no longer needed)
+    munmap(grandchild_pid_ptr, sizeof(pid_t));
+
     // Change working directory to root to avoid keeping directories busy
     if ( chdir("/") < 0 )
     {

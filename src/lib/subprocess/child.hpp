@@ -154,7 +154,14 @@ class Child
       // Wait for current process
       int status;
       pid_t result = waitpid(m_pid, &status, 0);
-      return_if(result < 0, Error("E::waitpid failed on {}: {}", m_description, strerror(errno)));
+      if (result < 0)
+      {
+        if (errno == ECHILD)
+        {
+          return Error("E::Cannot wait on daemon process {}", m_pid);
+        }
+        return Error("E::waitpid failed on {}: {}", m_description, strerror(errno));
+      }
 
       // Clear jthreads, auto-join
       m_pipe_threads.clear();
