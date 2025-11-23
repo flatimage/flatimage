@@ -84,7 +84,7 @@ inline Dispatcher::Dispatcher()
 inline Dispatcher::Dispatcher(pid_t pid, Mode mode, fs::path const& path_dir_app, Logs const& logs)
   : m_mode(mode)
   , m_path_dir_fifo(ns_fs::placeholders_replace(path_dir_app  / "instance" / "{}" / "portal" / "dispatcher" / "fifo", pid))
-  , m_path_fifo_daemon(ns_fs::placeholders_replace(path_dir_app  / "instance" / "{}" / "portal" / "daemon" / "host.fifo", pid))
+  , m_path_fifo_daemon(ns_fs::placeholders_replace(path_dir_app  / "instance" / "{}" / "portal" / "daemon" / "{}.fifo", pid, mode.lower()))
   , m_path_file_log(logs.path_dir_log / mode.lower() / std::format("{}.log", pid))
 {
   fs::create_directories(m_path_file_log.parent_path());
