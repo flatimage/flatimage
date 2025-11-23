@@ -39,11 +39,11 @@ namespace
 
 namespace fs = std::filesystem;
 
-} // namespace 
+} // namespace
 
 /**
  * @brief Checks if a directory is a fuse filesystem mount point
- * 
+ *
  * @param path_dir_mount Path to the directory to check
  * @return Value<bool> A boolean with the result, or the respective internal error
  */
@@ -83,11 +83,11 @@ inline void wait_fuse(fs::path const& path_dir_filesystem)
 
 /**
  * @brief Un-mounts the given fuse mount point
- * 
+ *
  * @param path_dir_mount Path to the mount point to un-mount
  * @return Value<void> Nothing on success, or the respective error
  */
-inline Value<void> unmount(fs::path const& path_dir_mount)
+inline Value<int> unmount(fs::path const& path_dir_mount)
 {
   using namespace std::chrono_literals;
 
@@ -96,13 +96,15 @@ inline Value<void> unmount(fs::path const& path_dir_mount)
 
   // Un-mount filesystem
   using enum ns_subprocess::Stream;
-  int code = ns_subprocess::Subprocess(path_file_fusermount)
+  auto child = ns_subprocess::Subprocess(path_file_fusermount)
     .with_args("-zu", path_dir_mount)
-    .spawn()
-    ->wait()
-    .forward("E::")
-    .value_or(-1);
+    .spawn();
 
+  // Check if process was started
+  return_if(not child, Error("E::Could not spawn fusermount"));
+
+  // Retrieve return code
+  int code = Pop(child->wait());
 
   // Check for successful un-mount
   if(code == 0)
@@ -120,7 +122,7 @@ inline Value<void> unmount(fs::path const& path_dir_mount)
     std::this_thread::sleep_for(100ms);
   }
 
-  return {};
+  return code;
 } // function: unmount
 
 } // namespace ns_fuse
