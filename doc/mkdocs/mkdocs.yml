@@ -1,4 +1,5 @@
 site_name: FlatImage Documentation
+site_dir: 'site'
 nav:
   - FlatImage:
     - Getting Started: index.md
@@ -10,6 +11,8 @@ nav:
       - Steam: examples/arch/steam.md
     - Blueprint:
       - Batocera: examples/blueprint/batocera.md
+  - How To:
+    - Multiple Instances: howto/multiple-instances.md
   - Commands:
     - fim-bind: cmd/bind.md
     - fim-boot: cmd/boot.md
