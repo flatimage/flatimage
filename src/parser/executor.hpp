@@ -69,6 +69,8 @@ using namespace ns_parser::ns_interface;
 
   auto f_bwrap_impl = [&](auto&& program, auto&& args) -> Value<ns_bwrap::bwrap_run_ret_t>
   {
+    // Check if the data directory is busy
+    Pop(ns_filesystems::ns_utils::wait_busy(fim.path.dir.host_data, std::chrono::seconds(60)));
     // Mount filesystems
     [[maybe_unused]] auto filesystem_controller =
       ns_filesystems::ns_controller::Controller(fim.logs.filesystems
@@ -92,11 +94,6 @@ using namespace ns_parser::ns_interface;
       , args
       , environment
     );
-    // Check if the data directory is busy
-    if(Try(ns_filesystems::ns_utils::is_busy(fim.path.dir.host_data)))
-    {
-      return Error("C::Another instance is running on {}", fim.path.dir.host_data);
-    }
     // Check for an overlapping data directory
     // Optionally user bwrap overlays
     if(fuse.overlay_type == ns_reserved::ns_overlay::OverlayType::BWRAP)

@@ -11,6 +11,8 @@
 #include <string>
 #include <filesystem>
 #include <ranges>
+#include <chrono>
+#include <thread>
 
 #include "../std/expected.hpp"
 #include "../macro.hpp"
@@ -74,6 +76,42 @@ inline bool is_busy(fs::path const& path_dir)
     return_if(it != lines.end(), true, "D::Busy '{}' due to '{}'", path_dir, *it);
   }
   return false;
+}
+
+/**
+ * @brief Waits for a filesystem path to become available (not busy).
+ *
+ * Polls the is_busy() function at 100ms intervals until either the path becomes
+ * available or the timeout is reached. Uses chrono duration for precise time tracking.
+ *
+ * @param path_dir The filesystem path to monitor for busy status.
+ * @param timeout Maximum time to wait before timing out (accepts any chrono duration type).
+ * @return Value<void> Success if the path became available within the timeout,
+ *         or an error if the timeout was reached while the path was still busy.
+ */
+[[nodiscard]] inline Value<void> wait_busy(fs::path const& path_dir, std::chrono::nanoseconds timeout)
+{
+  using namespace std::chrono;
+
+  auto const start_time = steady_clock::now();
+  constexpr auto poll_interval = milliseconds(100);
+
+  while(true)
+  {
+    if(!is_busy(path_dir))
+    {
+      return {}; // Directory is no longer busy
+    }
+
+    auto const elapsed = steady_clock::now() - start_time;
+    if(elapsed >= timeout)
+    {
+      auto const timeout_ms = duration_cast<milliseconds>(timeout).count();
+      return Error("C::Another instance is running on {} (timeout after {}ms)", path_dir, timeout_ms);
+    }
+
+    std::this_thread::sleep_for(poll_interval);
+  }
 }
 
 /**
