@@ -123,7 +123,7 @@ class Subprocess
 
     void die_on_pid(pid_t pid);
     void to_dev_null();
-    void setup_pipes(pid_t child_pid
+    std::vector<std::jthread> setup_pipes(pid_t child_pid
       , int pipestdin[2]
       , int pipestdout[2]
       , int pipestderr[2]
@@ -669,22 +669,23 @@ inline void Subprocess::to_dev_null()
  * @brief Sets up pipes for stdin/stdout/stderr redirection
  *
  * Delegates to ns_pipe::setup() to configure pipe redirection for the child process.
- * Creates detached threads for reading/writing pipes.
+ * Creates threads for reading/writing pipes and returns them to be owned by Child.
  *
  * @param child_pid The PID of the child process (0 for child, >0 for parent)
  * @param pipestdin Stdin pipe array [read_end, write_end] (must be created before fork)
  * @param pipestdout Stdout pipe array [read_end, write_end] (must be created before fork)
  * @param pipestderr Stderr pipe array [read_end, write_end] (must be created before fork)
  * @param log Log file path for the pipe reader threads
+ * @return std::vector<std::jthread> Vector of created threads (empty for child process)
  */
-inline void Subprocess::setup_pipes(pid_t child_pid
+inline std::vector<std::jthread> Subprocess::setup_pipes(pid_t child_pid
   , int pipestdin[2]
   , int pipestdout[2]
   , int pipestderr[2]
   , std::filesystem::path const& log)
 {
-  // Setup pipes for parent or child
-  ns_pipe::setup(child_pid
+  // Setup pipes for parent or child and return threads
+  return ns_pipe::setup(child_pid
     , pipestdin
     , pipestdout
     , pipestderr
@@ -970,6 +971,8 @@ inline std::unique_ptr<Child> Subprocess::spawn()
   // Parent returns here, child continues to execve
   if ( pid > 0 )
   {
+    std::vector<std::jthread> pipe_threads;
+
     // If daemon mode, wait for intermediate child to exit
     if ( m_daemon_mode )
     {
@@ -979,10 +982,10 @@ inline std::unique_ptr<Child> Subprocess::spawn()
       // Return a Child handle with -1 to indicate daemon (no process to track)
       return Child::create(-1, m_program);
     }
-    // Setup pipes for parent
+    // Setup pipes for parent and capture threads
     else if ( m_stream_mode == Stream::Pipe)
     {
-      this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
+      pipe_threads = this->setup_pipes(pid, pipestdin, pipestdout, pipestderr, m_path_file_log);
       logger("D::Parent pipes configured");
     }
 
@@ -993,8 +996,8 @@ inline std::unique_ptr<Child> Subprocess::spawn()
       m_callback_parent.value()(args);
     }
 
-    // Return Child handle with process and pipe PIDs (stdin writer, stdout reader, stderr reader)
-    return Child::create(pid, m_program);
+    // Return Child handle with process and transfer pipe threads ownership
+    return Child::create(pid, m_program, std::move(pipe_threads));
   }
 
   // Child process continues here (intermediate child in daemon mode, final child otherwise)

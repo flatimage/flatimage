@@ -13,6 +13,8 @@
 #include <thread>
 #include <chrono>
 #include <functional>
+#include <optional>
+#include <vector>
 #include <sys/wait.h>
 #include <sys/prctl.h>
 #include <csignal>
@@ -175,9 +177,10 @@ void pipes_child(bool is_istream, int pipe[2], Stream& stream, int fileno)
  * @param pipe Pipe array [read_end, write_end]
  * @param stream The stream reference to use
  * @param path_file_log Optional log file path (unused for stdin)
+ * @return std::optional<std::jthread> The created thread, or std::nullopt if no thread was created
  */
 template<typename Stream>
-void pipes_parent(
+std::optional<std::jthread> pipes_parent(
   pid_t child_pid,
   bool is_istream,
   int pipe[2],
@@ -190,25 +193,25 @@ void pipes_parent(
   int idx_child  = is_istream ? 0 : 1;
 
   // Close the child's end
-  return_if(close(pipe[idx_child]) == -1,,"E::pipe[{}]: {}", idx_child, strerror(errno));
+  return_if(close(pipe[idx_child]) == -1, std::nullopt,"E::pipe[{}]: {}", idx_child, strerror(errno));
 
   // If using standard stream, close parent end and return (no thread needed)
   if (is_standard_stream(stream))
   {
     close(pipe[idx_parent]);
-    return;
+    return std::nullopt;
   }
 
   // Create appropriate thread (use if constexpr to avoid compiling invalid branch)
   if constexpr (std::is_same_v<Stream, std::istream>)
   {
     // Input stream: read from Stream and write to child's stdin pipe
-    std::thread(write_pipe, child_pid, pipe[idx_parent], std::ref(stream)).detach();
+    return std::jthread(write_pipe, child_pid, pipe[idx_parent], std::ref(stream));
   }
   else // std::ostream
   {
     // Output stream: read from child's stdout/stderr pipe and write to Stream
-    std::thread(read_pipe, pipe[idx_parent], std::ref(stream), path_file_log).detach();
+    return std::jthread(read_pipe, pipe[idx_parent], std::ref(stream), path_file_log);
   }
 }
 
@@ -216,7 +219,7 @@ void pipes_parent(
  * @brief Handle pipe setup for both parent and child processes
  *
  * This function manages the pipe setup after fork():
- * - For parent (pid > 0): Creates detached threads for reading/writing pipes
+ * - For parent (pid > 0): Creates threads for reading/writing pipes
  * - For child (pid == 0): Redirects stdin/stdout/stderr to pipes via dup2()
  *
  * Standard streams (std::cin, std::cout, std::cerr) are not redirected,
@@ -230,8 +233,9 @@ void pipes_parent(
  * @param stdout Output stream to write to (for child's stdout)
  * @param stderr Error stream to write to (for child's stderr)
  * @param path_file_log Log file path for pipe reader threads
+ * @return std::vector<std::jthread> Vector of created threads (empty for child process)
  */
-inline void setup(
+inline std::vector<std::jthread> setup(
   pid_t pid,
   int pipestdin[2],
   int pipestdout[2],
@@ -241,12 +245,23 @@ inline void setup(
   std::ostream& stderr,
   std::filesystem::path const& path_file_log)
 {
+  std::vector<std::jthread> threads;
+
   // Parent: setup writer/reader threads (or skip if std::cin/cout/cerr)
   if (pid > 0)
   {
-    pipes_parent(pid, true, pipestdin, stdin, path_file_log);
-    pipes_parent(pid, false, pipestdout, stdout, path_file_log);
-    pipes_parent(pid, false, pipestderr, stderr, path_file_log);
+    if (auto t = pipes_parent(pid, true, pipestdin, stdin, path_file_log))
+    {
+      threads.push_back(std::move(*t));
+    }
+    if (auto t = pipes_parent(pid, false, pipestdout, stdout, path_file_log))
+    {
+      threads.push_back(std::move(*t));
+    }
+    if (auto t = pipes_parent(pid, false, pipestderr, stderr, path_file_log))
+    {
+      threads.push_back(std::move(*t));
+    }
   }
   // Child: redirect stdin/stdout/stderr (or skip if std::cin/cout/cerr)
   else if (pid == 0)
@@ -259,6 +274,8 @@ inline void setup(
   {
     logger("E::Invalid negative pid for pipe setup");
   }
+
+  return threads;
 }
 
 } // namespace ns_pipe

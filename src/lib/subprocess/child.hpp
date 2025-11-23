@@ -16,6 +16,8 @@
 #include <optional>
 #include <utility>
 #include <memory>
+#include <thread>
+#include <vector>
 
 #include "../../macro.hpp"
 #include "../../std/expected.hpp"
@@ -53,6 +55,7 @@ class Child
   private:
     pid_t m_pid;
     std::string m_description;
+    std::vector<std::jthread> m_pipe_threads;
 
     friend class Subprocess;
 
@@ -62,9 +65,10 @@ class Child
      * @param pid The process ID of the child
      * @param description Description of the process (typically the program name)
      */
-    Child(pid_t pid, std::string description)
+    Child(pid_t pid, std::string description, std::vector<std::jthread> threads)
       : m_pid(pid)
       , m_description(std::move(description))
+      , m_pipe_threads(std::move(threads))
     {}
 
     /**
@@ -72,11 +76,12 @@ class Child
      *
      * @param pid The process ID of the child
      * @param description Description of the process (typically the program name)
+     * @param threads Pipe threads to be owned by this Child instance
      * @return std::unique_ptr<Child> Unique pointer to the created Child instance
      */
-    static std::unique_ptr<Child> create(pid_t pid, std::string const& description)
+    static std::unique_ptr<Child> create(pid_t pid, std::string const& description, std::vector<std::jthread> threads = {})
     {
-      return std::unique_ptr<Child>(new Child(pid, description));
+      return std::unique_ptr<Child>(new Child(pid, description, std::move(threads)));
     }
 
   public:
@@ -150,6 +155,9 @@ class Child
       int status;
       pid_t result = waitpid(m_pid, &status, 0);
       return_if(result < 0, Error("E::waitpid failed on {}: {}", m_description, strerror(errno)));
+
+      // Clear jthreads, auto-join
+      m_pipe_threads.clear();
 
       // Mark pid as invalid to prevent double-wait
       m_pid = -1;
