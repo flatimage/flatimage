@@ -84,6 +84,9 @@ from cli.version.deps import TestFimVersionDeps
 from cli.version.full import TestFimVersionFull
 from cli.version.short import TestFimVersionShort
 
+# Misc tests
+from misc.fim_dir_data import TestFimDirData
+
 def suite():
   suite = unittest.TestSuite()
   # Bindings tests
@@ -148,6 +151,8 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimVersionDeps))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimVersionFull))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimVersionShort))
+  # Misc tests
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimDirData))
   return suite
 
 if __name__ == '__main__':

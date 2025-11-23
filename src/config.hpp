@@ -172,7 +172,8 @@ class Path
       fs::path runtime = fs::path("/tmp/fim/run");
       fs::path runtime_host = runtime / "host";
       fs::path host_home = fs::path{ns_env::get_expected("HOME").value()}.relative_path();
-      fs::path host_data = self / std::format(".{}.data", path_bin_self.filename().string());
+      fs::path host_data = getenv("FIM_DIR_DATA")?:
+        self / std::format(".{}.data", path_bin_self.filename().string());
       fs::path host_data_tmp = host_data / "tmp";
       // Side effect: create directories
       Pop(ns_fs::create_directories(host_data_tmp));
@@ -640,7 +641,7 @@ struct FlatImage
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
   ns_env::set("FIM_DIR_RUNTIME", path.dir.runtime, ns_env::Replace::Y);
   ns_env::set("FIM_DIR_RUNTIME_HOST", path.dir.runtime_host, ns_env::Replace::Y);
-  ns_env::set("FIM_DIR_CONFIG", path.dir.host_data, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_DATA", path.dir.host_data, ns_env::Replace::Y);
 
   // Create FlatImage object
   return std::shared_ptr<FlatImage>(new FlatImage{
