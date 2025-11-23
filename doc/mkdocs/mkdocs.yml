@@ -68,5 +68,5 @@ plugins:
         - ".d2"
       exclude_selectors:
         - "img"
-site_url: https://flatimage.github.io
+site_url: https://flatimage.github.io/docs
 repo_url: https://github.com/flatimage/flatimage
