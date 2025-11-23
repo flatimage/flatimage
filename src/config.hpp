@@ -541,7 +541,7 @@ struct FlatImage
         : variables.contains("HOME")? variables.at("HOME")
         : ns_env::get_expected("HOME").value_or(pw->pw_dir),
       .path_file_shell = variables.contains("SHELL")? fs::path{variables.at("SHELL")}
-        : "/bin/sh",
+        : path.bin.bash,
       .path_file_bashrc = path.file.bashrc,
       .path_file_passwd = path.file.passwd,
     });
