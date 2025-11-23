@@ -181,16 +181,33 @@ constexpr auto __expected_fn = [](auto&& e) { return e; };
  * int val2 = Pop(get_value(), "Failed to get value for processing");
  * @endcode
  */
-#define Pop(expr,...)                                                         \
-({                                                                            \
-  auto __expected_ret = (expr);                                               \
-  if (!__expected_ret)                                                        \
-  {                                                                           \
-    NOPT(logger("D::{}", __expected_ret.error()) __VA_OPT__(,) __VA_ARGS__);  \
-    __VA_OPT__(logger(__VA_ARGS__));                                          \
-    return __expected_fn(std::unexpected(std::move(__expected_ret).error())); \
-  }                                                                           \
-  std::move(__expected_ret).value();                                          \
+#define Pop(expr, ...)                                                  \
+({                                                                      \
+  auto __expected_ret = (expr);                                         \
+  if (!__expected_ret)                                                  \
+  {                                                                     \
+    std::string error = std::move(__expected_ret).error();              \
+    /* Log expected error at DEBUG level */                             \
+    logger("D::{}", error);                                             \
+    /* If a custom error was provided, log and propagate it instead */  \
+    __VA_OPT__(                                                         \
+      logger(__VA_ARGS__);                                              \
+      error = [&](auto &&fmt, auto &&...args)                           \
+      {                                                                 \
+        if constexpr (sizeof...(args) > 0)                              \
+        {                                                               \
+          return ns_log::vformat(std::string_view(fmt).substr(3),       \
+            ns_string::to_string(args)...);                             \
+        }                                                               \
+        else                                                            \
+        {                                                               \
+          return std::string_view(fmt).substr(3);                       \
+        }                                                               \
+      }(__VA_ARGS__);                                                   \
+    )                                                                   \
+    return __expected_fn(std::unexpected(error));                       \
+  }                                                                     \
+  std::move(__expected_ret).value();                                    \
 })
 
 /**
