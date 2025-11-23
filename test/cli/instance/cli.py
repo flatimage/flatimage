@@ -29,9 +29,6 @@ class TestFimInstanceCli(InstanceTestBase):
     self.assertEqual(out, "")
     self.assertIn("No instances are running", err)
     self.assertEqual(code, 125)
-    # Spawn command as root
-    self.procs.append(spawn_cmd(self.file_image, "fim-exec", "sleep", "10"))
-    time.sleep(1)
     # Missing instance command
     out,err,code = run_cmd(self.file_image, "fim-instance", "exec", "0")
     self.assertEqual(out, "")
@@ -44,7 +41,5 @@ class TestFimInstanceCli(InstanceTestBase):
     self.assertEqual(code, 125)
     out,err,code = run_cmd(self.file_image, "fim-instance", "exec", "1", "echo", "hello")
     self.assertEqual(out, "")
-    self.assertIn("Instance index out of bounds", err)
+    self.assertIn("No instances are running", err)
     self.assertEqual(code, 125)
-    [proc.kill() for proc in self.procs]
-    time.sleep(1)

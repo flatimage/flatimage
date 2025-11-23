@@ -11,11 +11,13 @@ class TestFimInstanceExec(InstanceTestBase):
 
   def test_instances_exec(self):
     """Test executing commands in specific instances"""
+    procs = []
+    os.environ["FIM_OVERLAY"] = "unionfs"
     # Spawn command as root
-    self.procs.append(spawn_cmd(self.file_image, "fim-root", "sleep", "10"))
+    procs.append(spawn_cmd(self.file_image, "fim-root", "sleep", "5"))
     time.sleep(1)
     # Spawn command as regular user
-    self.procs.append(spawn_cmd(self.file_image, "fim-exec", "sleep", "10"))
+    procs.append(spawn_cmd(self.file_image, "fim-exec", "sleep", "5"))
     time.sleep(1)
     # Test root id
     out,err,code = run_cmd(self.file_image, "fim-instance", "exec", "0", "id", "-u")
@@ -24,8 +26,9 @@ class TestFimInstanceExec(InstanceTestBase):
     self.assertEqual(code, 0)
     # Test regular user id
     out,err,code = run_cmd(self.file_image, "fim-instance", "exec", "1", "id", "-u")
+    self.assertEqual(out, str(os.getuid()))
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
-    self.assertEqual(out, str(os.getuid()))
-    [proc.kill() for proc in self.procs]
+    [proc.kill() for proc in procs]
     time.sleep(1)
+    del os.environ["FIM_OVERLAY"]

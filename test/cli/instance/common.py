@@ -1,5 +1,6 @@
 #!/bin/python3
 
+import time
 from cli.test_base import TestBase
 
 class InstanceTestBase(TestBase):
@@ -9,7 +10,6 @@ class InstanceTestBase(TestBase):
   @classmethod
   def setUpClass(cls):
     super().setUpClass()
-    cls.procs = []
 
   def setUp(self):
     super().setUp()
