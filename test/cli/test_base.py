@@ -53,6 +53,6 @@ class TestBase(unittest.TestCase):
     file_image_temp = Path(self.file_image).parent / "temp.flatimage"
     if file_image_temp.exists():
       os.unlink(file_image_temp)
-    image_dir = Path(self.file_image).parent / ".temp.flatimage.config"
+    image_dir = Path(self.file_image).parent / ".temp.flatimage.data"
     if image_dir.exists():
       shutil.rmtree(image_dir)

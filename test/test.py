@@ -113,10 +113,10 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimEnvIdentity))
   # Exec tests
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimExec))
-  # # Instance tests
-  # suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimInstanceCli))
-  # suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimInstanceExec))
-  # suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimInstanceList))
+  # Instance tests
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimInstanceCli))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimInstanceExec))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimInstanceList))
   # Layer tests
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimLayerCommit))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimLayerCreate))
@@ -149,7 +149,7 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimVersionFull))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimVersionShort))
   return suite
-  
+
 if __name__ == '__main__':
   # Resolve script directory
   DIR_SCRIPT = Path(os.path.dirname(__file__))
@@ -160,6 +160,6 @@ if __name__ == '__main__':
   os.environ["FILE_IMAGE_SRC"] = sys.argv[1]
   os.environ["DIR_DATA"] = str(DIR_SCRIPT / "data")
   os.environ["FILE_IMAGE"] = str(DIR_SCRIPT / "data" / "app.flatimage")
-  os.environ["DIR_IMAGE"] = str(DIR_SCRIPT / "data" / ".app.flatimage.config")
+  os.environ["DIR_IMAGE"] = str(DIR_SCRIPT / "data" / ".app.flatimage.data")
   runner = unittest.TextTestRunner(verbosity=2)
   runner.run(suite())
