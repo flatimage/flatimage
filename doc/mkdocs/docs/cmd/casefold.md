@@ -141,7 +141,7 @@ FlatImage uses [ciopfs](https://www.brain-dump.org/projects/ciopfs) (Case-Insens
 
 1. When case folding is enabled, the configuration is written to the FlatImage binary
 2. On startup, FlatImage checks if case folding is enabled
-3. If enabled and a FUSE overlay is in use, ciopfs mounts the filesystem to `$FIM_DIR_CONFIG/casefold`
+3. If enabled and a FUSE overlay is in use, ciopfs mounts the filesystem to `$FIM_DIR_DATA/casefold`
 4. This case-insensitive mount becomes the root filesystem for [bubblewrap](https://github.com/containers/bubblewrap)
 5. All filesystem operations inside the container are case-insensitive
 

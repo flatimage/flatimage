@@ -17,6 +17,7 @@ These variables can be set before executing a FlatImage to control its behavior:
 | Variable | Type | Description | Default |
 |----------|------|-------------|---------|
 | `FIM_DEBUG` | Integer (0/1) | Enable debug logging. | `0` (disabled) |
+| `FIM_ROOT` | Integer (0/1) | Perform operations as root. | `0` (disabled) |
 | `FIM_MAIN_OFFSET` | Flag | If set, prints the filesystem offset in the binary and exits. | Not set |
 | `FIM_OVERLAY` | String | Override overlay filesystem type. Valid values: `bwrap`, `overlayfs`, `unionfs`. | From binary config |
 | `FIM_CASEFOLD` | Integer (0/1) | Enable case-insensitive filesystem (CIOPFS layer). | From binary config |
@@ -63,7 +64,7 @@ These variables are automatically set by FlatImage during initialization and sho
 | `FIM_DIR_INSTANCE` | `$FIM_DIR_APP/instance/{PID}` | Instance-specific directory (unique per process) |
 | `FIM_DIR_RUNTIME` | `/tmp/fim/run` | Runtime directory |
 | `FIM_DIR_RUNTIME_HOST` | `/tmp/fim/run/host` | Read-only host filesystem access (container-only) |
-| `FIM_DIR_CONFIG` | `{BINARY_DIR}/.{BINARY_NAME}.data` | Host-side data directory (persistent storage) |
+| `FIM_DIR_DATA` | `{BINARY_DIR}/.{BINARY_NAME}.data` | Host-side data directory (persistent storage) |
 
 **Example Values:**
 ```bash
@@ -71,7 +72,7 @@ FIM_DIR_GLOBAL=/tmp/fim
 FIM_DIR_APP=/tmp/fim/app/119216d_20241019145954
 FIM_DIR_APP_BIN=/tmp/fim/app/119216d_20241019145954/bin
 FIM_DIR_INSTANCE=/tmp/fim/app/119216d_20241019145954/instance/12345
-FIM_DIR_CONFIG=/home/user/.firefox.flatimage.data
+FIM_DIR_DATA=/home/user/.firefox.flatimage.data
 ```
 
 ### Binary Path Variables

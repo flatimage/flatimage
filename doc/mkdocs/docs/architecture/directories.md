@@ -64,7 +64,7 @@ The following shows the complete directory structure with corresponding environm
     └── host/                                [FIM_DIR_RUNTIME_HOST]
 
 {BINARY_DIR}/                                (directory containing the binary)
-└── .{BINARY_NAME}.data/                     [FIM_DIR_CONFIG]
+└── .{BINARY_NAME}.data/                     [FIM_DIR_DATA]
     ├── tmp/                                 (temporary files)
     ├── work/
     │   └── {PID}/                           (overlay work directory)
@@ -185,7 +185,7 @@ FlatImage creates a `.{BINARY_NAME}.data/` directory alongside the binary for pe
 
 **Example:** If your binary is named `firefox.flatimage`, the data directory is `.firefox.flatimage.data/`
 
-Referenced by: `FIM_DIR_CONFIG`
+Referenced by: `FIM_DIR_DATA`
 
 ### Data Directory Structure
 
@@ -231,4 +231,4 @@ This ensures:
 | `FIM_DIR_INSTANCE` | `{FIM_DIR_APP}/instance/{PID}` | Instance directory |
 | `FIM_DIR_RUNTIME` | `/tmp/fim/run` | Runtime directory |
 | `FIM_DIR_RUNTIME_HOST` | `/tmp/fim/run/host` | Host filesystem access |
-| `FIM_DIR_CONFIG` | `{BINARY_DIR}/.{BINARY_NAME}.data` | Host-side data directory |
+| `FIM_DIR_DATA` | `{BINARY_DIR}/.{BINARY_NAME}.data` | Host-side data directory |
