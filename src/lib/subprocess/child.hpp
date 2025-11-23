@@ -158,7 +158,7 @@ class Child
       {
         if (errno == ECHILD)
         {
-          return Error("E::Cannot wait on daemon process {}", m_pid);
+          return Error("D::Skipping wait on daemon process {}", m_pid);
         }
         return Error("E::waitpid failed on {}: {}", m_description, strerror(errno));
       }
