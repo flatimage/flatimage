@@ -434,7 +434,7 @@ struct Location
  * @return std::string The formatted string
  */
 template<typename... Ts>
-std::string vformat(std::string fmt, Ts&&... ts)
+std::string vformat(std::string_view fmt, Ts&&... ts)
 {
   return std::vformat(fmt, std::make_format_args(ts...));
 }
