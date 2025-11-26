@@ -17,13 +17,21 @@ Usage: fim-layer <create> <in-dir> <out-file>
 Usage: fim-layer <add> <in-file>
   <add> : Includes the novel layer <in-file> in the image in the top of the layer stack
   <in-file> : Path to the layer file to include in the FlatImage
-Usage: fim-layer <commit>
-  <commit> : Compresses current changes and inserts them into the FlatImage
+Usage: fim-layer <commit> <binary|layer|file> [path]
+  <commit> : Compresses current changes into a layer
+  <binary> : Appends the layer to the FlatImage binary
+  <layer> : Saves the layer to $FIM_DIR_DATA/layers with auto-increment naming
+  <file> : Saves the layer to the specified file path
+  <path> : File path (required when using 'file' mode)
 ```
 
 ### Commit Changes into a New Layer
 
-The `fim-layer commit` command is the quickest way to save your changes. It compresses the current filesystem modifications into a new layer and appends it to the FlatImage binary.
+The `fim-layer commit` command compresses your current filesystem modifications into a new layer. You can choose where to save it using three distinct modes:
+
+#### Mode 1: Binary - Append to the Binary
+
+Appends the layer directly to the FlatImage binary, making changes permanent and portable.
 
 **Example: Installing and committing Firefox**
 
@@ -35,11 +43,53 @@ The `fim-layer commit` command is the quickest way to save your changes. It comp
 ./app.flatimage fim-root pacman -Syu
 ./app.flatimage fim-root pacman -S firefox
 
-# Compress Firefox and its dependencies into a new layer
-./app.flatimage fim-layer commit
+# Compress and append Firefox to the binary
+./app.flatimage fim-layer commit binary
 ```
 
-After committing, the Firefox installation is permanently saved in your FlatImage. The changes persist across restarts without needing to reinstall.
+After committing, the Firefox installation is permanently embedded in your FlatImage.
+
+**Use cases:**
+- Permanent installations that should always be available
+- Creating self-contained portable binaries
+- Simple deployments where everything is in one file
+
+#### Mode 2: Layer - Save to Managed Directory
+
+Saves the layer to `$FIM_DIR_DATA/layers/` with auto-increment naming (`layer-001.dwarfs`, `layer-002.dwarfs`, etc.).
+
+```bash
+# Install development tools
+./app.flatimage fim-root pacman -S vim git gcc
+
+# Save to the managed layers directory
+./app.flatimage fim-layer commit layer
+```
+
+The layer is saved as `.app.flatimage.data/layers/layer-001.dwarfs` and can be added later using `fim-layer add`.
+
+**Use cases:**
+- Organizing layers in a standard location
+- Building modular layer collections
+- Easy layer management without manual naming
+
+#### Mode 3: File - Save to Custom Path
+
+Saves the layer to a specific file path you provide.
+
+```bash
+# Install packages
+./app.flatimage fim-root pacman -S nodejs npm
+
+# Save to a custom location
+./app.flatimage fim-layer commit file ./layers/nodejs-layer.dwarfs
+```
+
+**Use cases:**
+- Creating reusable layer packages for distribution
+- Sharing layers with other users or systems
+- Version control of individual layers
+- Custom organization schemes
 
 ---
 

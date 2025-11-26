@@ -156,6 +156,7 @@ class Path
     fs::path const host_home;       ///< Relative path to user's home directory
     fs::path const host_data;       ///< Data directory next to binary
     fs::path const host_data_tmp;   ///< Temporary files in data directory
+    fs::path const host_data_layers; ///< Layers directory in data directory
 
     static Value<Dir> create()
     {
@@ -175,8 +176,10 @@ class Path
       fs::path host_data = getenv("FIM_DIR_DATA")?:
         self / std::format(".{}.data", path_bin_self.filename().string());
       fs::path host_data_tmp = host_data / "tmp";
+      fs::path host_data_layers = host_data / "layers";
       // Side effect: create directories
       Pop(ns_fs::create_directories(host_data_tmp));
+      Pop(ns_fs::create_directories(host_data_layers));
       // Aggregate initialization with const members
       return Dir
       {
@@ -191,7 +194,8 @@ class Path
         .runtime_host = std::move(runtime_host),
         .host_home = std::move(host_home),
         .host_data = std::move(host_data),
-        .host_data_tmp = std::move(host_data_tmp)
+        .host_data_tmp = std::move(host_data_tmp),
+        .host_data_layers = std::move(host_data_layers)
       };
     }
   } dir;

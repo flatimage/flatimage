@@ -182,6 +182,7 @@ struct CmdRecipe
 };
 
 ENUM(CmdLayerOp,ADD,COMMIT,CREATE);
+ENUM(CmdLayerCommitOp,BINARY,LAYER,FILE);
 struct CmdLayer
 {
   struct Add
@@ -190,6 +191,17 @@ struct CmdLayer
   };
   struct Commit
   {
+    struct Binary
+    {
+    };
+    struct Layer
+    {
+    };
+    struct File
+    {
+      fs::path path_file_dst;
+    };
+    std::variant<Binary,Layer,File> sub_cmd;
   };
   struct Create
   {

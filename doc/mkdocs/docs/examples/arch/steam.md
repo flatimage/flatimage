@@ -54,7 +54,7 @@ Configure Steam as the default application:
 Commit all changes to a compressed read-only layer:
 
 ```bash
-./steam.flatimage fim-layer commit
+./steam.flatimage fim-layer commit binary
 ```
 
 ---
@@ -132,7 +132,7 @@ Configure Steam as the default application:
 Commit all changes to a compressed read-only layer:
 
 ```bash
-./steam.flatimage fim-layer commit
+./steam.flatimage fim-layer commit binary
 ```
 
 ## Optional Additional Configuration

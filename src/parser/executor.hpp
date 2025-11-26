@@ -271,15 +271,38 @@ using namespace ns_parser::ns_interface;
     {
       Pop(ns_layers::add(fim.path.bin.self, cmd_add->path_file_src), "E::Failed to add layer");
     }
-    else if(std::get_if<CmdLayer::Commit>(&(cmd->sub_cmd)))
+    else if(auto cmd_commit = std::get_if<CmdLayer::Commit>(&(cmd->sub_cmd)))
     {
+      // Determine commit mode and optional file path
+      ns_layers::CommitMode mode;
+      std::optional<fs::path> path_file_dst;
+      if(std::get_if<CmdLayer::Commit::Binary>(&(cmd_commit->sub_cmd)))
+      {
+        mode = ns_layers::CommitMode::BINARY;
+      }
+      else if(std::get_if<CmdLayer::Commit::Layer>(&(cmd_commit->sub_cmd)))
+      {
+        mode = ns_layers::CommitMode::LAYER;
+        path_file_dst = fim.path.dir.host_data_layers;
+      }
+      else if(auto cmd_file = std::get_if<CmdLayer::Commit::File>(&(cmd_commit->sub_cmd)))
+      {
+        mode = ns_layers::CommitMode::FILE;
+        path_file_dst = cmd_file->path_file_dst;
+      }
+      else
+      {
+        return Error("E::Invalid commit sub-command");
+      }
+      // Call commit with the mode
       Pop(ns_layers::commit(fim.path.bin.self
         , fuse.path_dir_upper
         , fim.path.dir.host_data_tmp / "layer.tmp"
         , fim.path.dir.host_data_tmp / "compression.list"
         , fuse.compression_level
+        , mode
+        , path_file_dst
       ), "E::Failed to commit layer");
-      logger("I::Filesystem appended without errors");
     }
     else if(auto cmd_create = std::get_if<CmdLayer::Create>(&(cmd->sub_cmd)))
     {

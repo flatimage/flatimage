@@ -2,7 +2,7 @@
  * @file parser.hpp
  * @author Ruan Formigoni
  * @brief Parses FlatImage commands
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -439,7 +439,34 @@ class VecArgs
         break;
         case CmdLayerOp::COMMIT:
         {
-          cmd.sub_cmd = CmdLayer::Commit{};
+          CmdLayerCommitOp commit_op = Pop(
+              CmdLayerCommitOp::from_string(Pop(args.pop_front<"C::Missing op for 'commit' (binary,layer,file)">()))
+            , "C::Invalid commit operation"
+          );
+          CmdLayer::Commit cmd_commit;
+          switch(commit_op)
+          {
+            case CmdLayerCommitOp::BINARY:
+            {
+              cmd_commit.sub_cmd = CmdLayer::Commit::Binary{};
+            }
+            break;
+            case CmdLayerCommitOp::LAYER:
+            {
+              cmd_commit.sub_cmd = CmdLayer::Commit::Layer{};
+            }
+            break;
+            case CmdLayerCommitOp::FILE:
+            {
+              cmd_commit.sub_cmd = CmdLayer::Commit::File{
+                .path_file_dst = Pop(args.pop_front<"C::Missing path for 'file' operation">())
+              };
+            }
+            break;
+            case CmdLayerCommitOp::NONE: return Error("C::Invalid commit operation");
+          }
+          return_if(not args.empty(), Error("C::Trailing arguments for fim-layer commit: {}", args.data()));
+          cmd.sub_cmd = cmd_commit;
         }
         break;
         case CmdLayerOp::NONE: return Error("C::Invalid layer operation");

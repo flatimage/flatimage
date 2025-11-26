@@ -163,7 +163,7 @@ This is what the container sees as its root `/`.
 Contains mount points for individual DwarFS compressed layers:
 
 - **Layer 0**: Base filesystem (always present)
-- **Layer 1-N**: Committed layers created with `fim-layer commit`
+- **Layer 1-N**: Committed layers created with `fim-layer commit binary`
 
 Layers are stacked in order, with higher numbers taking precedence.
 

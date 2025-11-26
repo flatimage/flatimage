@@ -27,9 +27,9 @@ The complete filesystem stack (from top to bottom):
 ├─────────────────────────────────────┤
 │  DwarFS Layer N (external)          │ ← FIM_FILES_LAYER
 ├─────────────────────────────────────┤
-│  DwarFS Layer 2 (committed)         │ ← fim-layer commit
+│  DwarFS Layer 2 (committed)         │ ← fim-layer commit binary
 ├─────────────────────────────────────┤
-│  DwarFS Layer 1 (committed)         │ ← fim-layer commit
+│  DwarFS Layer 1 (committed)         │ ← fim-layer commit binary
 ├─────────────────────────────────────┤
 │  DwarFS Layer 0 (base)              │ ← Built-in base filesystem
 └─────────────────────────────────────┘
@@ -74,7 +74,7 @@ The mounting code scans the binary for these magic bytes to locate each filesyst
 
 1. **Embedded layers:** Stored in binary after reserved space
     - Offset: `FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE`
-    - Created during build or with `fim-layer commit`
+    - Created during build or with `fim-layer commit binary`
 
 2. **External directory layers:** `FIM_DIRS_LAYER` environment variable
     - Scans directories for `.dwarfs` files
@@ -234,10 +234,14 @@ FIM_COMPRESSION_LEVEL=9 ./app.flatimage fim-layer create /path layer.dwarfs
 
 ### Committing Changes
 
-Persist overlay changes to a new embedded layer:
+FlatImage provides three distinct modes for committing overlay changes to layers, each suited to different workflows:
+
+#### Mode 1: Binary - Embed in Executable
+
+Append the layer directly to the FlatImage binary for a self-contained deployment:
 
 ```bash
-./app.flatimage fim-layer commit
+./app.flatimage fim-layer commit binary
 ```
 
 **What happens:**
@@ -247,7 +251,93 @@ Persist overlay changes to a new embedded layer:
 3. Overlay directory is cleared
 4. Next run mounts the new committed layer
 
-**Effect:** Changes become permanent and compressed.
+**Effect:** Changes become permanent and portable within the single executable.
+
+**Use cases:**
+
+- Creating standalone portable applications
+- Distributing self-contained binaries
+- Permanent installations that should always be available
+- Simple deployments where everything is in one file
+
+---
+
+#### Mode 2: Layer - Save to Managed Directory
+
+Save the layer to the managed layers directory (`$FIM_DIR_DATA/layers/`) with automatic naming:
+
+```bash
+./app.flatimage fim-layer commit layer
+```
+
+**What happens:**
+
+1. Overlay directory is compressed to DwarFS
+2. Layer is saved as `layer-XXX.layer` with auto-incremented number (e.g., `layer-001.layer`, `layer-002.layer`)
+3. Layer is stored in `.{BINARY}.data/layers/` directory
+4. Overlay directory is cleared
+
+**Effect:** Creates organized, numbered layers in a standard location.
+
+**Use cases:**
+
+- Building modular layer collections
+- Organizing layers systematically
+- Easy layer management without manual naming
+- Development and testing workflows
+
+**Layer naming:**
+
+- First layer: `layer-000.layer`
+- Second layer: `layer-001.layer`
+- Maximum layers: 1000 (layer-000 through layer-999)
+
+---
+
+#### Mode 3: File - Save to Custom Path
+
+Save the layer to a specific file path for maximum flexibility:
+
+```bash
+./app.flatimage fim-layer commit file ./custom/path/my-layer.dwarfs
+```
+
+**What happens:**
+
+1. Overlay directory is compressed to DwarFS
+2. Layer is saved to the specified path
+3. Overlay directory is cleared
+
+**Effect:** Creates a reusable layer file at your chosen location.
+
+**Use cases:**
+
+- Creating reusable layer packages for distribution
+- Sharing layers with other users or systems
+- Version control of individual layers
+- Custom organization schemes
+
+**Example workflow:**
+```bash
+# Install packages
+./app.flatimage fim-root pacman -S nodejs npm
+
+# Save to custom location
+./app.flatimage fim-layer commit file ./layers/nodejs-v20.dwarfs
+
+# Later, load this layer in another FlatImage
+FIM_FILES_LAYER=./layers/nodejs-v20.dwarfs ./another-app.flatimage
+```
+
+---
+
+#### Comparison Table
+
+| Mode | Location | Naming | Portability | Best For |
+|------|----------|--------|-------------|----------|
+| **binary** | Inside executable | N/A (embedded) | ✅ Self-contained | Distribution, standalone apps |
+| **layer** | `.data/layers/` | Auto-increment | ⚠️ External file | Development, modular builds |
+| **file** | Custom path | User-defined | ⚠️ External file | Sharing, reusable packages |
 
 ### Loading External Layers
 
@@ -256,11 +346,11 @@ Persist overlay changes to a new embedded layer:
 FIM_DIRS_LAYER=/path/to/layers ./app.flatimage
 ```
 
-All `.dwarfs` files in `/path/to/layers/` are mounted.
+All `.layer` files in `/path/to/layers/` are mounted.
 
 #### Load specific files:
 ```bash
-FIM_FILES_LAYER=/path/to/layer1.dwarfs:/path/to/layer2.dwarfs ./app.flatimage
+FIM_FILES_LAYER=/path/to/layer1.layer:/path/to/layer2.layer ./app.flatimage
 ```
 
 Layers are mounted in the order specified.

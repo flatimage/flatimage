@@ -2,13 +2,15 @@
  * @file layers.hpp
  * @author Ruan Formigoni
  * @brief Manages filesystem layers in FlatImage
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
 #pragma once
 
+#include <algorithm>
 #include <filesystem>
+#include <regex>
 #include <unistd.h>
 
 #include "../../lib/subprocess.hpp"
@@ -35,7 +37,7 @@ namespace ns_layers
 
 /**
  * @brief Creates a layer (filesystem) from a source directory
- * 
+ *
  * @param path_dir_src Path to the source directory
  * @param path_file_dst Path to the output filesystem file
  * @param path_file_list Path to a temporary file to store the list of files to compress
@@ -72,7 +74,7 @@ namespace ns_layers
     {
       file_list
         << path_entry.lexically_relative(path_dir_src).string()
-        << '\n';      
+        << '\n';
     }
     // Is a directory
     else if(entry->is_directory())
@@ -89,7 +91,7 @@ namespace ns_layers
       {
         file_list
           << path_entry.lexically_relative(path_dir_src).string()
-          << '\n';      
+          << '\n';
       }
     }
     // Unsupported for compression
@@ -114,7 +116,7 @@ namespace ns_layers
 
 /**
  * @brief Includes a filesystem in the target FlatImage
- * 
+ *
  * @param path_file_binary Path to the target FlatImage in which to include the filesystem
  * @param path_file_layer Path to the filesystem to include in the FlatImage
  * @return Value<void> Nothing on success, or the respective error
@@ -141,21 +143,56 @@ namespace ns_layers
 }
 
 /**
- * @brief Commit changes into a novel layer and appends it to the FlatImage
- * 
- * @param path_file_binary
- * @param path_dir_src
- * @param path_file_layer_tmp
- * @param path_file_list_tmp
- * @param layer_compression_level
+ * @brief Finds the next available layer number in the layers directory
+ *
+ * @param path_dir_layers Path to the layers directory
+ * @return uint64_t Next available layer number (0-indexed)
+ */
+[[nodiscard]] inline Value<uint64_t> find_next_layer_number(fs::path const& path_dir_layers)
+{
+  // Check if layers directory is accessible
+  if (not Try(fs::exists(path_dir_layers)) or not Try(fs::is_directory(path_dir_layers)))
+  {
+    return Error("E::Layers directory is missing or not a directory");
+  }
+  // Get current layers
+  std::regex regex_layer(R"(layer-[0-9]+\.layer)");
+  auto vec = Try(fs::directory_iterator(path_dir_layers)
+    | std::views::filter([](auto&& e){ return e.is_regular_file(); })
+    | std::views::transform([](auto&& e){ return e.path().filename().string(); })
+    | std::views::filter([&](auto&& e){ return std::regex_search(e, regex_layer); })
+    | std::views::transform([](auto&& e){ return std::stoi(e.substr(6, e.substr(6).find('.'))); })
+    | std::ranges::to<std::vector<int>>()
+  );
+  // Get max layer number
+  int next = (vec.empty())? 0 : *std::ranges::max_element(vec) + 1;
+  return_if(next > 999, Error("E::Maximum number of layers exceeded"));
+  return next;
+}
+
+/**
+ * @brief Commit changes into a novel layer (binary/layer/file modes)
+ *
+ * @param path_file_binary Path to the FlatImage binary
+ * @param path_dir_src Source directory with overlay changes
+ * @param path_file_layer_tmp Temporary layer file path
+ * @param path_file_list_tmp Temporary file list path
+ * @param layer_compression_level Compression level for the layer
+ * @param path_dir_layers Path to the layers directory (for layer mode)
+ * @param mode Commit mode (binary, layer, or file)
+ * @param path_file_dst Destination path (only for file mode)
  * @return Value<void> Nothing on success, or the respective error
  */
+enum class CommitMode { BINARY, LAYER, FILE };
+
 [[nodiscard]] inline Value<void> commit(
     fs::path const& path_file_binary
   , fs::path const& path_dir_src
   , fs::path const& path_file_layer_tmp
   , fs::path const& path_file_list_tmp
-  , uint32_t layer_compression_level)
+  , uint32_t layer_compression_level
+  , CommitMode mode
+  , std::optional<fs::path> const& path_dst = std::nullopt)
 {
   // Create filesystem based on the contents of src
   Pop(ns_layers::create(path_dir_src
@@ -163,12 +200,45 @@ namespace ns_layers
     , path_file_list_tmp
     , layer_compression_level
   ));
-  // Include filesystem in the image
-  Pop(add(path_file_binary, path_file_layer_tmp));
-  // Remove layer file
-  if(not Try(fs::remove(path_file_layer_tmp)))
+
+  // Handle the layer based on the commit mode
+  switch(mode)
   {
-    logger("E::Could not erase layer file '{}'", path_file_layer_tmp.string());
+    case CommitMode::BINARY:
+    {
+      // Include filesystem in the image
+      Pop(add(path_file_binary, path_file_layer_tmp));
+      // Remove layer file
+      if(not Try(fs::remove(path_file_layer_tmp)))
+      {
+        logger("E::Could not erase layer file '{}'", path_file_layer_tmp.string());
+      }
+      logger("I::Filesystem appended to binary without errors");
+    }
+    break;
+    case CommitMode::LAYER:
+    {
+      return_if(not path_dst.has_value(), Error("E::Layer mode requires a destination directory"));
+      return_if(not Try(fs::is_directory(path_dst.value())), Error("E::Destination should be a directory"));
+      // Find next available layer number
+      uint64_t layer_num = Pop(find_next_layer_number(path_dst.value()));
+      fs::path layer_path = path_dst.value() / std::format("layer-{:03d}.layer", layer_num);
+      logger("I::Layer number: {}", layer_num);
+      logger("I::Layer path: {}", layer_path);
+      // Move layer file to layers directory
+      Try(fs::rename(path_file_layer_tmp, layer_path));
+      logger("I::Layer saved to '{}'", layer_path.string());
+    }
+    break;
+    case CommitMode::FILE:
+    {
+      return_if(not path_dst.has_value(), Error("E::File mode requires a destination path"));
+      return_if(Try(fs::exists(path_dst.value())), Error("E::Destination file already exists"));
+      // Move layer file to destination
+      Try(fs::rename(path_file_layer_tmp, path_dst.value()));
+      logger("I::Layer saved to '{}'", path_dst.value().string());
+    }
+    break;
   }
   // Remove files from the compression list
   std::ifstream file_list(path_file_list_tmp);

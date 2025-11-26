@@ -22,13 +22,14 @@ class LayerTestBase(TestBase):
 
   def tearDown(self):
     super().tearDown()
+    shutil.rmtree(self.dir_image, ignore_errors=True)
 
-  def create_script(self, dir_root, content):
+  def create_script(self, content):
     """Create a test script in the specified directory"""
-    shutil.rmtree(dir_root, ignore_errors=True)
-    dir_bin = dir_root / "usr" / "bin"
-    dir_bin.mkdir(parents=True, exist_ok=True)
-    hello_script = dir_bin / "hello-world.sh"
+    shutil.rmtree(self.dir_image / "data", ignore_errors=True)
+    shutil.rmtree(self.dir_image / "tmp", ignore_errors=True)
+    hello_script = self.dir_image / "data" / "usr" / "bin" / "hello-world.sh"
+    hello_script.parent.mkdir(parents=True, exist_ok=False)
     with open(hello_script, "w+") as f:
       f.write('echo "{}"\n'.format(content))
     os.chmod(hello_script, 0o755)

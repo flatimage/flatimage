@@ -370,7 +370,7 @@ flowchart TD
    - `fim-root apk add vim` (run as root)
    - Default boot (no arguments)
 3. **Layer commands**: Manage filesystem layers
-   - `fim-layer commit` (compress overlay to new layer)
+   - `fim-layer commit binary` (compress overlay to new layer)
 4. **Utility commands**: Information and help
    - `fim-version`, `fim-help`
 

@@ -54,7 +54,7 @@ Configure Firefox as the default application:
 Commit all changes to a compressed read-only layer:
 
 ```bash
-./firefox.flatimage fim-layer commit
+./firefox.flatimage fim-layer commit binary
 ```
 
 ---
@@ -158,7 +158,7 @@ Configure Firefox as the default application:
 Commit all changes to a compressed read-only layer:
 
 ```bash
-./firefox.flatimage fim-layer commit
+./firefox.flatimage fim-layer commit binary
 ```
 
 ## Optional Additional Configuration

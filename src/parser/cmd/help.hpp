@@ -253,9 +253,13 @@ inline std::string layer_usage()
       { "add", "Includes the novel layer <in-file> in the image in the top of the layer stack" },
       { "in-file", "Path to the layer file to include in the FlatImage"},
     })
-    .with_usage("fim-layer <commit>")
+    .with_usage("fim-layer <commit> <binary|layer|file> [path]")
     .with_args({
-      { "commit", "Compresses current changes and inserts them into the FlatImage" },
+      { "commit", "Compresses current changes into a layer" },
+      { "binary", "Appends the layer to the FlatImage binary" },
+      { "layer", "Saves the layer to $FIM_DIR_DATA/layers with auto-increment naming" },
+      { "file", "Saves the layer to the specified file path" },
+      { "path", "File path (required when using 'file' mode)" },
     })
     .get();
 }

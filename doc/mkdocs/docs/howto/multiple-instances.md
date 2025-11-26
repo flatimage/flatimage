@@ -28,7 +28,7 @@ chmod +x ./firefox.flatimage
 ./firefox.flatimage fim-perms set wayland,xorg,audio,gpu,network
 ./firefox.flatimage fim-recipe install firefox
 ./firefox.flatimage fim-boot set firefox
-./firefox.flatimage fim-layer commit
+./firefox.flatimage fim-layer commit binary
 
 # Run work instance
 FIM_DIR_DATA=./firefox-configs/work ./firefox.flatimage &

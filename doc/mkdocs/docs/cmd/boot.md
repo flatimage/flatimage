@@ -50,7 +50,7 @@ Configure what runs when you execute the FlatImage:
 ./app.flatimage fim-boot set vim
 
 # Commit and rename
-./app.flatimage fim-layer commit
+./app.flatimage fim-layer commit binary
 mv ./app.flatimage ./vim.flatimage
 
 # Now it works like a portable vim executable

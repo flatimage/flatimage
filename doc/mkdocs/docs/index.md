@@ -8,43 +8,43 @@ FlatImage packages your entire application—code, dependencies, and configurati
 
 ## What Makes FlatImage Different?
 
-🔒 **Sandboxed by Default**  
+🔒 **Sandboxed by Default**
 Granular permissions (network, GPU, home, audio...). Default: zero access, fully isolated.
 
-📦 **Self-Contained**  
+📦 **Self-Contained**
 All config embedded in the ELF binary's reserved space.
 
-⚡ **Fast & Compact**  
+⚡ **Fast & Compact**
 DwarFS compression delivers high ratios with on-the-fly decompression.
 
-✨ **Truly Portable**  
+✨ **Truly Portable**
 Static linking + embedded tools. One file runs on any Linux distro without dependencies.
 
-🔧 **Reconfigurable After Build**  
+🔧 **Reconfigurable After Build**
 Change permissions, environment, boot commands, and bindings post-creation without rebuilding.
 
-🗂️ **Multiple Filesystem Backends**  
+🗂️ **Multiple Filesystem Backends**
 Switch between OverlayFS (fast), UnionFS (compatible), BWRAP (native), or CIOPFS (case-insensitive) at runtime.
 
-🎮 **Case-Insensitive Filesystem**  
+🎮 **Case-Insensitive Filesystem**
 Windows-style case folding for Wine/Proton compatibility. Toggle with `fim-casefold on`.
 
-🔌 **Portal IPC System**  
+🔌 **Portal IPC System**
 Transparent host-guest communication. Execute host commands from containers with full I/O redirection.
 
-🧱 **Layered Architecture**  
+🧱 **Layered Architecture**
 Stack compressed layers with `fim-layer commit`. Copy-on-write, incremental builds, immutable base layers.
 
-📦 **Package Recipes**  
+📦 **Package Recipes**
 Install curated package sets with dependency resolution: `fim-recipe install gpu,audio,xorg`.
 
-🔗 **Runtime Bind Mounts**  
+🔗 **Runtime Bind Mounts**
 Map host paths dynamically without rebuilding: `fim-bind add rw '$HOME/Documents' /Documents`.
 
-🚀 **Multi-Instance Support**  
+🚀 **Multi-Instance Support**
 Run multiple isolated instances simultaneously. Execute in specific instances with `fim-instance`.
 
-🖥️ **Desktop Integration**  
+🖥️ **Desktop Integration**
 Auto-generated menu entries, MIME types, and icons. Paths auto-update on file moves.
 
 ## Try It in 30 Seconds
@@ -133,14 +133,53 @@ $ ./alpine.flatimage
 
 ## Commit Changes
 
-[fim-layer](./cmd/layer.md) is used compress and save the installed applications to inside the image.
+[fim-layer](./cmd/layer.md) compresses and saves your installed applications. FlatImage offers three flexible commit modes:
+
+### Binary Mode - Self-Contained Distribution
+Embed layers directly in the executable for maximum portability:
 
 ```bash
-# Commit changes
-$ ./alpine.flatimage fim-layer commit
-# Rename application
+# Install Firefox
+$ ./alpine.flatimage fim-root apk add firefox
+# Commit to binary
+$ ./alpine.flatimage fim-layer commit binary
+# Rename and share as a single file
 $ mv ./alpine.flatimage ./firefox.flatimage
 ```
+
+**Perfect for:** Distributing portable apps, creating standalone executables
+
+### Layer Mode - Modular Development
+Save layers to a managed directory with auto-increment naming:
+
+```bash
+# Install development tools
+$ ./alpine.flatimage fim-root apk add vim git gcc
+# Save as layer-000.layer
+$ ./alpine.flatimage fim-layer commit layer
+# Install more tools
+$ ./alpine.flatimage fim-root apk add nodejs npm
+# Save as layer-001.layer
+$ ./alpine.flatimage fim-layer commit layer
+```
+
+Layers are stored in `.alpine.flatimage.data/layers/` and can be selectively loaded or added to other FlatImages.
+
+**Perfect for:** Development workflows, organizing modular packages, testing configurations
+
+### File Mode - Reusable Packages
+Create shareable layer files with custom names:
+
+```bash
+# Build a GPU layer
+$ ./alpine.flatimage fim-root apk add mesa vulkan-loader
+$ ./alpine.flatimage fim-layer commit file ./shared/gpu-support.dwarfs
+
+# Share with others or use in multiple images
+$ FIM_FILES_LAYER=./shared/gpu-support.dwarfs ./another-app.flatimage
+```
+
+**Perfect for:** Sharing layers between projects and version control.
 
 ## Case-Insensitive File System
 

@@ -298,7 +298,7 @@ Environment variables work seamlessly with other FlatImage features:
 ./app.flatimage fim-perms add home,network
 
 # Commit everything
-./app.flatimage fim-layer commit
+./app.flatimage fim-layer commit binary
 ```
 
 ## How it Works
