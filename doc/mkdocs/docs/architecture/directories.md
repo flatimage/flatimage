@@ -68,7 +68,7 @@ The following shows the complete directory structure with corresponding environm
     ├── tmp/                                 (temporary files)
     ├── work/
     │   └── {PID}/                           (overlay work directory)
-    ├── data/                                (overlay upper/data layer)
+    ├── root/                                (overlay upper/data layer)
     ├── casefold/                            (case-insensitive mount point)
     └── recipes/                             (package recipe definitions)
 ```
@@ -193,7 +193,7 @@ Referenced by: `FIM_DIR_DATA`
 .{BINARY_NAME}.data/
 ├── tmp/           - Temporary files
 ├── work/{PID}/    - Overlay work directory (per-instance)
-├── data/          - Overlay upper layer (persistent changes)
+├── root/          - Overlay upper layer (persistent changes)
 ├── casefold/      - Case-insensitive mount point
 └── recipes/       - Package recipe JSON files
 ```
@@ -202,7 +202,7 @@ Referenced by: `FIM_DIR_DATA`
 
 - **`tmp/`**: Temporary files that can be safely deleted
 - **`work/`**: Required by bwrap/overlayfs for metadata (deleted on exit)
-- **`data/`**: Writable layer for persistent changes before `fim-layer commit`
+- **`root/`**: Writable layer for persistent changes before `fim-layer commit`
 - **`casefold/`**: Mount point when case-insensitivity is enabled
 - **`recipes/`**: Downloaded package recipe definitions
 

@@ -246,7 +246,7 @@ Append the layer directly to the FlatImage binary for a self-contained deploymen
 
 **What happens:**
 
-1. Overlay directory (`.{BINARY}.data/data/`) is compressed to DwarFS
+1. Overlay directory (`.{BINARY}.data/root/`) is compressed to DwarFS
 2. DwarFS layer is appended to the binary
 3. Overlay directory is cleared
 4. Next run mounts the new committed layer

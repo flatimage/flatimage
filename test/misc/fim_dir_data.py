@@ -194,7 +194,7 @@ class TestFimDirData(unittest.TestCase):
                     f"Default data directory should exist at {default_data_dir}")
 
     # Verify the upper layer (data/) exists
-    upper_dir = default_data_dir / "data"
+    upper_dir = default_data_dir / "root"
     self.assertTrue(upper_dir.exists(),
                     f"Upper layer directory should exist at {upper_dir}")
 
@@ -239,8 +239,8 @@ class TestFimDirData(unittest.TestCase):
     self.assertEqual(code2, 0, f"Failed to write file in instance 2: {err2}")
 
     # Check physical host directories
-    upper_dir_1 = self.dir_data_1 / "data" / "host_check"
-    upper_dir_2 = self.dir_data_2 / "data" / "host_check"
+    upper_dir_1 = self.dir_data_1 / "root" / "host_check"
+    upper_dir_2 = self.dir_data_2 / "root" / "host_check"
 
     # Both should exist
     self.assertTrue(upper_dir_1.exists(),

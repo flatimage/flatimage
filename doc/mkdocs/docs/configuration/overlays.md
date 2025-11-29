@@ -133,7 +133,7 @@ FlatImage stacks multiple filesystem layers to create a unified view:
 
 ```
 ┌──────────────────────────────────────┐
-│  Upper Directory (writable)          │  ← {BINARY_DIR}/.{BINARY_NAME}.data/data/
+│  Upper Directory (writable)          │  ← {BINARY_DIR}/.{BINARY_NAME}.data/root/
 │  - New files and modifications       │  ← Persists across runs
 │  - Per-instance changes              │
 ├──────────────────────────────────────┤
@@ -151,7 +151,7 @@ FlatImage stacks multiple filesystem layers to create a unified view:
 
 ### Layer Locations
 
-- **Upper Directory (writable):** `{BINARY_DIR}/.{BINARY_NAME}.data/data/`
+- **Upper Directory (writable):** `{BINARY_DIR}/.{BINARY_NAME}.data/root/`
   - Stores all modifications
   - Persists across multiple runs
   - Can be committed to create new read-only layers

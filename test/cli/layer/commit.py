@@ -61,7 +61,7 @@ class TestFimLayerCommit(LayerTestBase):
     self.assertIn("Layer saved to", out)
     self.assertEqual(code, 0)
     # Remove overlay directory
-    shutil.rmtree(self.dir_image / "data", ignore_errors=False)
+    shutil.rmtree(self.dir_image / "root", ignore_errors=False)
     # Verify script is NOT in the binary (layer wasn't appended)
     self.script_exec(None, None, 127)
     # Now add the layer file to the binary
@@ -69,7 +69,7 @@ class TestFimLayerCommit(LayerTestBase):
     self.assertEqual(code, 0)
     self.assertIn("Included novel layer from file", out)
     # Remove directory from host again
-    shutil.rmtree(self.dir_image / "data", ignore_errors=False)
+    shutil.rmtree(self.dir_image / "root", ignore_errors=False)
     # The script should work
     self.script_exec("saved to file", None, 0)
     # Clean up layer file

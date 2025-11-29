@@ -27,7 +27,7 @@ class LayerTestBase(TestBase):
   def create_script(self, content, dir_root=None):
     """Create a test script in the image directory"""
     if not dir_root:
-      dir_root = self.dir_image / "data"
+      dir_root = self.dir_image / "root"
     shutil.rmtree(dir_root, ignore_errors=True)
     hello_script = dir_root / "usr" / "bin" / "hello-world.sh"
     hello_script.parent.mkdir(parents=True, exist_ok=False)

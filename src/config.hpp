@@ -131,7 +131,7 @@ namespace fs = std::filesystem;
  * └── .{BINARY_NAME}.data/                    (host_data)
  *     ├── tmp/                                (host_data_tmp)
  *     ├── work/<PID>/                         (fuse work)
- *     ├── data/
+ *     ├── root/
  *     ├── casefold/
  *     └── recipes/
  * @endcode
@@ -388,7 +388,7 @@ struct Config
     // Compute paths first
     auto path_dir_mount = path_dir_instance / "mount";
     auto path_dir_work = path_dir_host_data / "work" / std::to_string(getpid());
-    auto path_dir_upper = path_dir_host_data / "data";
+    auto path_dir_upper = path_dir_host_data / "root";
     auto path_dir_layers = path_dir_instance / "layers";
     auto path_dir_ciopfs = path_dir_host_data / "casefold";
 
