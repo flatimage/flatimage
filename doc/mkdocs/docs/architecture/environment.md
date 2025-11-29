@@ -80,6 +80,7 @@ FIM_DIR_DATA=/home/user/.firefox.flatimage.data
 | Variable | Path | Description |
 |----------|------|-------------|
 | `FIM_BIN_SELF` | String | Full path to the FlatImage binary executable |
+| `FIM_DIR_SELF` | String | Full path to the FlatImage binary directory |
 | `FIM_OFFSET` | Integer | Byte offset of first DwarFS filesystem in binary |
 
 ## Internal Variables

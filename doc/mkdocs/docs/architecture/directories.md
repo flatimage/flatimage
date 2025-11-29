@@ -224,6 +224,8 @@ This ensures:
 
 | Environment Variable | Path | Description |
 |---------------------|------|-------------|
+| `FIM_BIN_SELF` | `/absolute/path/to/app.flatimage` | Absolute path to the FlatImage binary |
+| `FIM_DIR_SELF` | `/absolute/path/to` | Directory containing the FlatImage binary |
 | `FIM_DIR_GLOBAL` | `/tmp/fim` | Global temporary directory |
 | `FIM_DIR_APP` | `/tmp/fim/app/{COMMIT}_{TIMESTAMP}` | Application directory |
 | `FIM_DIR_APP_BIN` | `{FIM_DIR_APP}/bin` | Application binaries |

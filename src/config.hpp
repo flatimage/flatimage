@@ -636,6 +636,7 @@ struct FlatImage
 
   // Set environment variables
   Pop(ns_env::get_expected("FIM_BIN_SELF"), "C::Path to self is not defined");
+  ns_env::set("FIM_DIR_SELF", path.dir.self, ns_env::Replace::Y);
   ns_env::set("FIM_DIR_GLOBAL", path.dir.global, ns_env::Replace::Y);
   ns_env::set("FIM_DIR_APP", path.dir.app, ns_env::Replace::Y);
   ns_env::set("FIM_DIR_APP_BIN", path.dir.app_bin, ns_env::Replace::Y);
