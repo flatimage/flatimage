@@ -71,11 +71,9 @@ chmod +x firefox-work.sh firefox-personal.sh
 ./firefox-personal.sh &
 ```
 
-## Summary
+## Learn More
 
-Multiple instance support in FlatImage enables:
-
-- **Isolation**: Each instance has its own data directory
-- **Easy Management**: Simple file-based organization
-- **True Portability**: Move entire configurations by moving a directory
-- **Resource Efficiency**: Share the same base image across instances
+- [fim-instance](../cmd/instance.md) - Manage and interact with running instances
+- [fim-perms](../cmd/perms.md) - Configure permissions for instances
+- [Environment Variables](environment-variables.md) - Use FIM_DIR_DATA and other environment variables
+- [Architecture: Directories](../architecture/directories.md) - Directory structure and data storage

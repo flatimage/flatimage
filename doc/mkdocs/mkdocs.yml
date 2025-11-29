@@ -1,8 +1,24 @@
-site_name: FlatImage Documentation
+site_name: FlatImage User Documentation
 site_dir: 'site'
 nav:
-  - FlatImage:
-    - Getting Started: index.md
+  - FlatImage: index.md
+  - How To:
+    - Getting Started:
+      - Download and Run: howto/getting-started/download-and-run.md
+      - Install Applications: howto/getting-started/install-applications.md
+      - Commit Changes: howto/getting-started/commit-changes.md
+      - Run Applications: howto/getting-started/run-application.md
+      - Desktop Integration: howto/getting-started/desktop-integration.md
+    - Configuration:
+      - Environment: howto/configuration/environment.md
+      - Bindings: howto/configuration/bindings.md
+    - Instances:
+      - Multiple Instances: howto/instances/multiple-instances.md
+    - Layers:
+      - External Layer Files: howto/layers/layer-files.md
+      - External Layer Directories: howto/layers/layer-directories.md
+    - Portal:
+      - Commands: howto/portal/commands.md
   - Examples:
     - Alpine:
       - Firefox: examples/alpine/firefox.md
@@ -11,8 +27,6 @@ nav:
       - Steam: examples/arch/steam.md
     - Blueprint:
       - Batocera: examples/blueprint/batocera.md
-  - How To:
-    - Multiple Instances: howto/multiple-instances.md
   - Commands:
     - fim-bind: cmd/bind.md
     - fim-boot: cmd/boot.md
@@ -29,13 +43,11 @@ nav:
     - fim-remote: cmd/remote.md
     - fim-root: cmd/root.md
     - fim-version: cmd/version.md
-  - Portal:
-    - Commands: portal/commands.md
   - Configuration:
     - User Identity: configuration/user-identity.md
     - Prompt: configuration/prompt.md
     - Compression: configuration/compression.md
-    - Binding: configuration/binding.md
+    - Overlays: configuration/overlays.md
   - Architecture:
     - Overview: architecture/overview.md
     - Boot Sequence: architecture/boot-sequence.md
@@ -46,7 +58,14 @@ nav:
     - Portal: architecture/portal.md
     - Process: architecture/process.md
     - Reserved Space: architecture/reserved-space.md
-# theme: readthedocs
+markdown_extensions:
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+         # alternative from pymdonwx
+          #format: !!python/name:pymdownx.superfences.fence_code_format
+          format: !!python/name:mermaid2.fence_mermaid
 theme:
   logo: icon.svg
   name: material

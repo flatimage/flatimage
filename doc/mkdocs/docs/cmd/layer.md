@@ -50,6 +50,7 @@ Appends the layer directly to the FlatImage binary, making changes permanent and
 After committing, the Firefox installation is permanently embedded in your FlatImage.
 
 **Use cases:**
+
 - Permanent installations that should always be available
 - Creating self-contained portable binaries
 - Simple deployments where everything is in one file
@@ -69,6 +70,7 @@ Saves the layer to `$FIM_DIR_DATA/layers/` with auto-increment naming (`layer-00
 The layer is saved as `.app.flatimage.data/layers/layer-001.dwarfs` and can be added later using `fim-layer add`.
 
 **Use cases:**
+
 - Organizing layers in a standard location
 - Building modular layer collections
 - Easy layer management without manual naming
@@ -86,6 +88,7 @@ Saves the layer to a specific file path you provide.
 ```
 
 **Use cases:**
+
 - Creating reusable layer packages for distribution
 - Sharing layers with other users or systems
 - Version control of individual layers
