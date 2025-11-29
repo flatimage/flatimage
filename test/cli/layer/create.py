@@ -21,7 +21,7 @@ class TestFimLayerCreate(LayerTestBase):
       os.unlink(self.file_layer)
 
   def create_and_add_layer(self, content):
-    self.create_script(self.dir_root, content)
+    self.create_script(content, self.dir_root)
     # Create layer
     out,err,code = run_cmd(self.file_image, "fim-layer", "create", str(self.dir_root), str(self.file_layer))
     self.assertIn("Filesystem created without errors", out)
@@ -34,7 +34,7 @@ class TestFimLayerCreate(LayerTestBase):
     # Remove directory from host
     shutil.rmtree(self.dir_root, ignore_errors=True)
     # Execute hello-world script which is compressed in the container
-    out,_,code = run_cmd(self.file_image, "fim-exec", "sh", "-c", "hello-world.sh")
+    out,err,code = run_cmd(self.file_image, "fim-exec", "sh", "-c", "hello-world.sh")
     self.assertIn(content, out)
     self.assertEqual(code, 0)
     os.environ["FIM_DEBUG"] = "1"
