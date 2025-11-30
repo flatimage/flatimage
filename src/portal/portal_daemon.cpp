@@ -22,12 +22,12 @@
 #include "../std/expected.hpp"
 #include "../lib/log.hpp"
 #include "../lib/env.hpp"
-#include "../macro.hpp"
+#include "../lib/linux/fifo.hpp"
 #include "../db/portal/message.hpp"
 #include "../db/portal/daemon.hpp"
+#include "../macro.hpp"
 #include "config.hpp"
 #include "child.hpp"
-#include "fifo.hpp"
 
 extern char** environ;
 
@@ -48,7 +48,7 @@ volatile std::sig_atomic_t G_CONTINUE = 1;
  *
  * @param sig Signal number (unused)
  */
-void cleanup(int sig)
+void cleanup([[maybe_unused]] int sig)
 {
   G_CONTINUE = 0;
 }
@@ -82,7 +82,7 @@ int main()
   logger("D::Initialized portal daemon in {} mode", args_cfg.get_mode().lower());
 
   // Create a fifo to receive commands from
-  fs::path path_fifo_in = Pop(ns_portal::ns_fifo::create(args_cfg.get_path_fifo_listen()));
+  fs::path path_fifo_in = Pop(ns_linux::ns_fifo::create(args_cfg.get_path_fifo_listen()));
   int fd_fifo = ::open(path_fifo_in.c_str(), O_RDONLY | O_NONBLOCK);
   return_if(fd_fifo < 0
     , EXIT_FAILURE

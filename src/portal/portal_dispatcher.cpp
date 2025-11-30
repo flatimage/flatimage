@@ -24,9 +24,10 @@
 #include "../lib/env.hpp"
 #include "../lib/log.hpp"
 #include "../lib/linux.hpp"
+#include "../lib/linux/fifo.hpp"
+#include "../lib/linux/fd.hpp"
 #include "../db/portal/message.hpp"
 #include "../db/portal/dispatcher.hpp"
-#include "fifo.hpp"
 #include "config.hpp"
 
 namespace fs = std::filesystem;
@@ -81,11 +82,11 @@ void register_signals()
  */
 [[nodiscard]] Value<void> fifo_create(ns_message::Message const& msg)
 {
-  Pop(ns_portal::ns_fifo::create(msg.get_stdin()));
-  Pop(ns_portal::ns_fifo::create(msg.get_stdout()));
-  Pop(ns_portal::ns_fifo::create(msg.get_stderr()));
-  Pop(ns_portal::ns_fifo::create(msg.get_exit()));
-  Pop(ns_portal::ns_fifo::create(msg.get_pid()));
+  Pop(ns_linux::ns_fifo::create(msg.get_stdin()));
+  Pop(ns_linux::ns_fifo::create(msg.get_stdout()));
+  Pop(ns_linux::ns_fifo::create(msg.get_stderr()));
+  Pop(ns_linux::ns_fifo::create(msg.get_exit()));
+  Pop(ns_linux::ns_fifo::create(msg.get_pid()));
   return {};
 }
 
@@ -133,15 +134,13 @@ void register_signals()
   // Forward signal to pid
   opt_child = pid_child;
   logger("D::Child pid: {}", pid_child);
-  // Connect to stdin, stdout, and stderr with fifos
-  pid_t const pid_stdin = ns_portal::ns_fifo::redirect_fd_to_fifo(pid_child, STDIN_FILENO, message.get_stdin());
-  pid_t const pid_stdout = ns_portal::ns_fifo::redirect_fifo_to_fd(pid_child, message.get_stdout(), STDOUT_FILENO);
-  pid_t const pid_stderr = ns_portal::ns_fifo::redirect_fifo_to_fd(pid_child, message.get_stderr(), STDERR_FILENO);
-  logger("D::Connected to stdin/stdout/stderr fifos");
-  // Wait for processes to exit
-  waitpid(pid_stdin, nullptr, 0);
-  waitpid(pid_stdout, nullptr, 0);
-  waitpid(pid_stderr, nullptr, 0);
+  // Connect to stdin, stdout, and stderr with fifos and wait for them to exit
+  {
+    std::jthread thread_stdin = ns_linux::ns_fd::redirect_fd_to_file(pid_child, STDIN_FILENO, message.get_stdin());
+    std::jthread thread_stdout = ns_linux::ns_fd::redirect_file_to_fd(pid_child, message.get_stdout(), STDOUT_FILENO);
+    std::jthread thread_stderr = ns_linux::ns_fd::redirect_file_to_fd(pid_child, message.get_stderr(), STDERR_FILENO);
+    logger("D::Connected to stdin/stdout/stderr fifos");
+  }
   // Open exit code fifo and retrieve the exit code of the requested process
   int code_exit{};
   int bytes_exit = ns_linux::open_read_with_timeout(message.get_exit().c_str()

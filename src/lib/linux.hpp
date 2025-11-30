@@ -12,16 +12,17 @@
 #include <csignal>
 #include <cstring>
 #include <fcntl.h>
+#include <poll.h>
 #include <string>
 #include <filesystem>
-#include <optional>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <cassert>
+#include <thread>
 
 #include "../macro.hpp"
 #include "../std/expected.hpp"
-#include "log.hpp"
 
 /**
  * @namespace ns_linux
@@ -34,139 +35,43 @@
 namespace ns_linux
 {
 
-/**
- * @brief Signal handler for SIGALRM used by InterruptTimer
- *
- * This is a no-op handler that simply acknowledges the SIGALRM signal.
- * It's designed to interrupt blocking system calls when the timer expires,
- * allowing the InterruptTimer class to implement timeout behavior.
- *
- * @param sig Signal number (SIGALRM)
- */
-extern "C" inline void alarm_handler(int sig) { /* no-op */ }
 namespace
 {
 
 namespace fs = std::filesystem;
 
+}
+
 /**
- * @brief RAII wrapper for POSIX interval timers with SIGALRM
+ * @brief Waits for a file descriptor to be ready for I/O with a timeout
  *
- * @warning NOT THREAD-SAFE: Uses process-wide resources (SIGALRM, ITIMER_REAL).
- *          Multiple instances or concurrent use will cause race conditions.
- *          Only use in single-threaded contexts or with external synchronization.
- *
- * @note Signal behavior:
- *       - Replaces existing SIGALRM handler (preserved and restored in destructor)
- *       - Sets sa_flags = 0 (no SA_RESTART, syscalls will be interrupted)
- *       - Uses empty signal mask (sigemptyset)
- *       - Old handler and timer are restored in destructor
+ * @param fd The file descriptor to poll
+ * @param events Poll events (POLLIN for read, POLLOUT for write)
+ * @param timeout The timeout in std::chrono::milliseconds
+ * @return bool True if ready, false on timeout or error (errno set appropriately)
  */
-class InterruptTimer
+[[nodiscard]] inline bool poll_with_timeout(int fd, short events, std::chrono::milliseconds const& timeout)
 {
-  private:
-    std::optional<struct sigaction>  m_old_sa;
-    std::optional<struct itimerval>  m_old_timer;
+  struct pollfd pfd;
+  pfd.fd = fd;
+  pfd.events = events;
 
-  public:
-    InterruptTimer()
-      : m_old_sa()
-      , m_old_timer()
-    {}
+  int poll_result = ::poll(&pfd, 1, timeout.count());
 
-    ~InterruptTimer()
-    {
-      clean();
-    }
+  if (poll_result < 0)
+  {
+    // poll() error - errno already set
+    return false;
+  }
+  else if (poll_result == 0)
+  {
+    // Timeout
+    errno = ETIMEDOUT;
+    return false;
+  }
 
-    Value<void> start(std::chrono::milliseconds const& timeout)
-    {
-      // Validate timeout range
-      if (timeout.count() <= 0)
-      {
-        return Error("E::Timeout must be positive (zero timeout disarms the timer)");
-      }
-      // Check for overflow on 32-bit systems (time_t might be 32-bit)
-      // Convert to seconds first to avoid overflow in multiplication
-      auto const timeout_seconds = timeout.count() / 1000;
-      if (timeout_seconds > std::numeric_limits<time_t>::max())
-      {
-        return Error("E::Timeout too large: {} ms (max: {} seconds)"
-          , timeout.count()
-          , std::numeric_limits<time_t>::max()
-        );
-      }
-
-      struct sigaction  old_sa;
-      struct itimerval  old_timer;
-      // save old handler
-      if (sigaction(SIGALRM, nullptr, &old_sa) < 0)
-      {
-        return Error("E::Failed to save action: {}", strerror(errno));
-      }
-      else
-      {
-        m_old_sa = old_sa;
-      }
-      // save old timer
-      if (getitimer(ITIMER_REAL, &old_timer) < 0)
-      {
-        return Error("E::Failed to save timer: {}", strerror(errno));
-      }
-      else
-      {
-        m_old_timer = old_timer;
-      }
-
-      // Set mask for novel action
-      struct sigaction sa{};
-      sa.sa_handler = alarm_handler;
-      if (sigemptyset(&sa.sa_mask) < 0)
-      {
-        return Error("E::Failed to set mask: {}", strerror(errno));
-      }
-      // Install novel action
-      sa.sa_flags = 0;
-      if (sigaction(SIGALRM, &sa, nullptr) < 0)
-      {
-        return Error("E::Failed to set action: {}", strerror(errno));
-      }
-      // Arm new timer
-      struct itimerval tm{};
-      tm.it_value.tv_sec  = timeout.count()/1000; // Convert ms to seconds (e.g., 1500ms -> 1s)
-      tm.it_value.tv_usec = (timeout.count()%1000)*1000; // Remainder as μs (e.g., 1500ms -> 500ms -> 500000μs)
-      tm.it_interval.tv_sec = 0;  // One-shot timer: no repeat interval
-      tm.it_interval.tv_usec = 0;
-      if (setitimer(ITIMER_REAL, &tm, nullptr) < 0)
-      {
-        return Error("E::Could not arm timer: {}", strerror(errno));
-      }
-      return {};
-    }
-
-    void clean()
-    {
-      // restore old handler
-      if(m_old_sa)
-      {
-        if (sigaction(SIGALRM, &m_old_sa.value(), nullptr) < 0)
-        {
-          logger("E::Failed to restore SIGALRM handler: {}", strerror(errno));
-        }
-        m_old_sa.reset();
-      }
-      // restore old timer
-      if(m_old_timer)
-      {
-        if (setitimer(ITIMER_REAL, &m_old_timer.value(), nullptr) < 0)
-        {
-          logger("E::Failed to restore timer: {}", strerror(errno));
-        }
-        m_old_timer.reset();
-      }
-    }
-};
-
+  // Ready for I/O
+  return true;
 }
 
 /**
@@ -176,10 +81,9 @@ class InterruptTimer
  * @param fd The file descriptor
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer in which to store the read data
- * @return ssize_t The number of read bytes or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard read() error codes).
+ * @return ssize_t The number of read bytes or -1 on error. On error, errno is set appropriately (ETIMEDOUT if timeout expires, or standard read() error codes).
  *
- * @note If timeout expires, read() is interrupted and returns -1 with errno = EINTR
- * @todo Make this return Value due to timer
+ * @note If timeout expires, returns -1 with errno = ETIMEDOUT. Thread-safe using poll().
  */
 template<typename Data>
 [[nodiscard]] inline ssize_t read_with_timeout(int fd
@@ -187,12 +91,12 @@ template<typename Data>
   , std::span<Data> buf)
 {
   using Element = typename std::decay_t<typename decltype(buf)::value_type>;
-  InterruptTimer interrupt;
-  if(auto ret = interrupt.start(timeout); not ret)
+
+  if (!poll_with_timeout(fd, POLLIN, timeout))
   {
-    logger("E::{}", ret.error());
     return -1;
   }
+
   return ::read(fd, buf.data(), buf.size() * sizeof(Element));
 }
 
@@ -203,10 +107,9 @@ template<typename Data>
  * @param fd The file descriptor
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer with the data to write
- * @return ssize_t The number of written bytes or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard write() error codes).
+ * @return ssize_t The number of written bytes or -1 on error. On error, errno is set appropriately (ETIMEDOUT if timeout expires, or standard write() error codes).
  *
- * @note If timeout expires, write() is interrupted and returns -1 with errno = EINTR
- * @todo Make this return Value due to timer
+ * @note If timeout expires, returns -1 with errno = ETIMEDOUT. Thread-safe using poll().
  */
 template<typename Data>
 [[nodiscard]] inline ssize_t write_with_timeout(int fd
@@ -214,12 +117,12 @@ template<typename Data>
   , std::span<Data> buf)
 {
   using Element = typename std::decay_t<typename decltype(buf)::value_type>;
-  InterruptTimer interrupt;
-  if(auto ret = interrupt.start(timeout); not ret)
+
+  if (!poll_with_timeout(fd, POLLOUT, timeout))
   {
-    logger("E::{}", ret.error());
     return -1;
   }
+
   return ::write(fd, buf.data(), buf.size() * sizeof(Element));
 }
 
@@ -229,23 +132,64 @@ template<typename Data>
  * @param path_file_src Path for the file to open
  * @param timeout The timeout in std::chrono::milliseconds
  * @param oflag The open flags O_*
- * @return int The file descriptor or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard open() error codes).
+ * @return int The file descriptor or -1 on error. On error, errno is set appropriately (ETIMEDOUT on timeout).
  *
- * @note If timeout expires, open() is interrupted and returns -1 with errno = EINTR
- * @todo Make this return Value due to timer
+ * @note Thread-safe implementation using O_NONBLOCK and retry logic.
+ *       For FIFOs: Opens with O_NONBLOCK. For writes (O_WRONLY), retries until reader connects or timeout.
+ *       For reads (O_RDONLY), succeeds immediately but may not have a writer yet.
+ *       This approach is simpler than pthread_cancel and avoids blocking syscalls entirely.
+ *       For regular files: opens normally without timeout.
  */
 [[nodiscard]] inline int open_with_timeout(
   fs::path const&            path_file_src,
   std::chrono::milliseconds  timeout,
   int                         oflag)
 {
-  InterruptTimer interrupt;
-  if(auto ret = interrupt.start(timeout); not ret)
+  if(struct stat st; ::stat(path_file_src.c_str(), &st) != 0)
   {
-    logger("E::{}", ret.error());
     return -1;
   }
-  return ::open(path_file_src.c_str(), oflag);
+  // Check if this is a FIFO first
+  else if (not S_ISFIFO(st.st_mode))
+  {
+    // For regular files, open normally
+    return ::open(path_file_src.c_str(), oflag);
+  }
+  // For FIFOs: use O_NONBLOCK to avoid blocking
+  // For O_WRONLY: open() fails with ENXIO if no reader, so we retry
+  // For O_RDONLY: open() succeeds immediately
+  for(auto start = std::chrono::steady_clock::now();;)
+  {
+    if (int fd = ::open(path_file_src.c_str(), oflag | O_NONBLOCK); fd >= 0)
+    {
+      // Successfully opened - remove O_NONBLOCK if not requested
+      if (!(oflag & O_NONBLOCK))
+      {
+        int flags = ::fcntl(fd, F_GETFL);
+        if (flags >= 0)
+        {
+          ::fcntl(fd, F_SETFL, flags & ~O_NONBLOCK);
+        }
+      }
+      return fd;
+    }
+    // Check if this is a retry-able error (ENXIO for O_WRONLY means no reader yet)
+    if (errno == ENXIO and (oflag & O_WRONLY))
+    {
+      // Check timeout
+      auto elapsed = std::chrono::steady_clock::now() - start;
+      if (elapsed >= timeout)
+      {
+        errno = ETIMEDOUT;
+        return -1;
+      }
+      // Retry after a short delay
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      continue;
+    }
+    // Other errors - return immediately
+    return -1;
+  }
 }
 
 /**
@@ -255,7 +199,7 @@ template<typename Data>
  * @param path_file_src Path to the file to open and read
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer in which to store the read data
- * @return ssize_t The number of bytes read or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard open()/read() error codes).
+ * @return ssize_t The number of bytes read or -1 on error. On error, errno is set appropriately (ETIMEDOUT if timeout expires, or standard open()/read() error codes).
  */
 template<typename Data>
 [[nodiscard]] inline ssize_t open_read_with_timeout(fs::path const& path_file_src
@@ -276,7 +220,7 @@ template<typename Data>
  * @param path_file_src Path to the file to open and write
  * @param timeout The timeout in std::chrono::milliseconds
  * @param buf The buffer with the data to write
- * @return ssize_t The number of bytes written or -1 on error. On error, errno is set appropriately (EINTR if timeout expires, or standard open()/write() error codes).
+ * @return ssize_t The number of bytes written or -1 on error. On error, errno is set appropriately (ETIMEDOUT if timeout expires, or standard open()/write() error codes).
  */
 template<typename Data>
 [[nodiscard]] inline ssize_t open_write_with_timeout(fs::path const& path_file_src
@@ -292,7 +236,7 @@ template<typename Data>
 
 /**
  * @brief Checks if the linux kernel has a module loaded that matches the input name
- * 
+ *
  * @param str_name Name of the module to check for
  * @return Value<bool> The boolean result, or the respective internal error
  */
