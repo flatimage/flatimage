@@ -136,9 +136,18 @@ void register_signals()
   logger("D::Child pid: {}", pid_child);
   // Connect to stdin, stdout, and stderr with fifos and wait for them to exit
   {
-    std::jthread thread_stdin = ns_linux::ns_fd::redirect_fd_to_file(pid_child, STDIN_FILENO, message.get_stdin());
-    std::jthread thread_stdout = ns_linux::ns_fd::redirect_file_to_fd(pid_child, message.get_stdout(), STDOUT_FILENO);
-    std::jthread thread_stderr = ns_linux::ns_fd::redirect_file_to_fd(pid_child, message.get_stderr(), STDERR_FILENO);
+    std::jthread thread_stdin([pid_child, message]
+    {
+      ns_linux::ns_fd::redirect_fd_to_file(pid_child, STDIN_FILENO, message.get_stdin()).discard();
+    });
+    std::jthread thread_stdout([pid_child, message]
+    {
+      ns_linux::ns_fd::redirect_file_to_fd(pid_child, message.get_stdout(), STDOUT_FILENO).discard();
+    });
+    std::jthread thread_stderr([pid_child, message]
+    {
+      ns_linux::ns_fd::redirect_file_to_fd(pid_child, message.get_stderr(), STDERR_FILENO).discard();
+    });
     logger("D::Connected to stdin/stdout/stderr fifos");
   }
   // Open exit code fifo and retrieve the exit code of the requested process
