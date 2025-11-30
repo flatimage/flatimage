@@ -11,7 +11,6 @@
 #include <cstring>
 #include <istream>
 #include <thread>
-#include <chrono>
 #include <functional>
 #include <optional>
 #include <vector>
@@ -21,12 +20,11 @@
 #include <string>
 #include <unistd.h>
 #include <sys/types.h>
-#include <ranges>
-#include <format>
 #include <filesystem>
 
 #include "../../macro.hpp"
 #include "../../lib/log.hpp"
+#include "../../lib/linux/fd.hpp"
 
 namespace ns_subprocess
 {
@@ -54,25 +52,7 @@ namespace ns_pipe
  */
 inline void write_pipe(pid_t child_pid, int pipe_fd, std::istream& stream)
 {
-  for (std::string line; kill(child_pid, 0) == 0; )
-  {
-    if (std::getline(stream, line))
-    {
-      line += "\n";
-      ssize_t written = ::write(pipe_fd, line.c_str(), line.length());
-      logger("D::STDIN::{}", line);
-      break_if(written < 0, "E::Failed to write to child stdin: {}", strerror(errno));
-    }
-    else if (stream.eof())
-    {
-      stream.clear();
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    }
-    else
-    {
-      break;
-    }
-  }
+  ns_linux::ns_fd::redirect_stream_to_fd(child_pid, stream, pipe_fd).discard();
   close(pipe_fd);
 }
 
@@ -84,34 +64,20 @@ inline void write_pipe(pid_t child_pid, int pipe_fd, std::istream& stream)
  * Replaces carriage returns with newlines to handle Windows-style line endings
  * and progress updates.
  *
+ * @param child_pid PID of the child process to monitor
  * @param pipe_fd File descriptor of the pipe read end
  * @param stream Output stream to write to
  * @param path_file_log Log file path for logging output
  */
-inline void read_pipe(int pipe_fd, std::ostream& stream, std::filesystem::path const& path_file_log)
+inline void read_pipe(pid_t child_pid, int pipe_fd, std::ostream& stream, std::filesystem::path const& path_file_log)
 {
   ns_log::set_sink_file(path_file_log);
 
-  // Apply handler to incoming data from pipe
-  char buffer[1024];
-  ssize_t count;
-  while ((count = ::read(pipe_fd, buffer, sizeof(buffer))) != 0)
-  {
-    // Failed to read
-    break_if(count == -1, "E::broke parent read loop: {}", strerror(errno));
-    // Split on both newlines and carriage returns, filter empty/whitespace-only lines
-    std::string chunk(buffer, count);
-    // Replace all \r with \n to handle Windows-style line endings and progress updates
-    std::ranges::replace(chunk, '\r', '\n');
-    // Split by newline and process each line
-    std::ranges::for_each(chunk
-        | std::views::split('\n')
-        | std::views::transform([](auto&& e){ return std::string{e.begin(), e.end()}; })
-        | std::views::filter([](auto const& s){ return not s.empty(); })
-        | std::views::filter([](auto const& s){ return not std::ranges::all_of(s, ::isspace); })
-      , [&](auto line) { logger("D::STD(OUT|ERR)::{}", line); stream << line << std::endl << std::flush; }
-    );
-  }
+  ns_linux::ns_fd::redirect_fd_to_stream(child_pid
+    , pipe_fd
+    , stream
+    , [](std::string const& s) { logger("D::STD(OUT|ERR)::{}", s); return s; }
+  ).discard();
   close(pipe_fd);
 }
 
@@ -211,7 +177,7 @@ std::optional<std::jthread> pipes_parent(
   else // std::ostream
   {
     // Output stream: read from child's stdout/stderr pipe and write to Stream
-    return std::jthread(read_pipe, pipe[idx_parent], std::ref(stream), path_file_log);
+    return std::jthread(read_pipe, child_pid, pipe[idx_parent], std::ref(stream), path_file_log);
   }
 }
 
