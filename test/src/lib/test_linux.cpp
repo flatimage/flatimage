@@ -88,7 +88,7 @@ TEST_CASE("ns_linux::open_with_timeout opens file")
 
 TEST_CASE("ns_linux::open_with_timeout returns error for non-existent file")
 {
-  fs::path non_existent = fs::temp_directory_path() / "this_does_not_exist_12345.txt";
+  fs::path non_existent = fs::temp_directory_path() / std::format("this_does_not_exist_{}.txt", getpid());
 
   int fd = ns_linux::open_with_timeout(non_existent, std::chrono::milliseconds(100), O_RDONLY);
 
