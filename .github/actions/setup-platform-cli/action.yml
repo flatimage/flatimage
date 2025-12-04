@@ -1,0 +1,17 @@
+name: 'Setup Platform CLI'
+description: 'Install GitHub CLI (gh) or Gitea CLI (tea) based on platform'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install GitHub CLI
+      if: ${{ contains(github.server_url, 'github.com') }}
+      shell: bash
+      run: |
+        type -p gh >/dev/null || (sudo apt update && sudo apt install -y gh)
+    - name: Install Gitea CLI
+      if: ${{ !contains(github.server_url, 'github.com') }}
+      shell: bash
+      run: |
+        wget https://dl.gitea.com/tea/0.11.1/tea-0.11.1-linux-amd64 -O tea
+        chmod +x tea
+        sudo mv tea /usr/local/bin/tea

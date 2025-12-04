@@ -1,0 +1,33 @@
+name: 'Build FlatImage'
+description: 'Build FlatImage for specified distribution'
+inputs:
+  distribution:
+    description: 'Distribution to build (alpine, arch, etc.)'
+    required: true
+    default: 'alpine'
+  architecture:
+    description: 'Target architecture (x86_64, aarch64, etc.)'
+    required: true
+    default: 'x86_64'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build
+      shell: bash
+      run: |
+        mkdir -p dist
+        sudo ./deploy/flatimage.sh ${{ inputs.distribution }}
+        # Rename the output file to include architecture
+        sudo mv ./build/dist/${{ inputs.distribution }}.flatimage ./build/dist/${{ inputs.distribution }}_${{ inputs.architecture }}.flatimage
+        sudo mv ./build/dist/${{ inputs.distribution }}.flatimage.sha256sum ./build/dist/${{ inputs.distribution }}_${{ inputs.architecture }}.flatimage.sha256sum
+        cp ./build/dist/* ./dist
+
+    - name: Upload flatimage (v4)
+      uses: christopherhx/gitea-upload-artifact@v4
+      with:
+        name: flatimage-${{ inputs.distribution }}-${{ inputs.architecture }}
+        path: dist
+        compression-level: 0
+        if-no-files-found: error
+        overwrite: false

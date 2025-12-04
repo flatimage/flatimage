@@ -1,0 +1,48 @@
+name: UnitTest
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        dist: [alpine,arch]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install build tools
+        uses: ./.github/actions/install-build-tools
+
+      - name: Build FlatImage
+        uses: ./.github/actions/build-flatimage
+        with:
+          distribution: ${{ matrix.dist }}
+          artifact-version: v4
+
+  unittest:
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      matrix:
+        dist: [alpine,arch]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download built artifact
+        uses: christopherhx/gitea-download-artifact@v4
+        with:
+          name: flatimage-${{ matrix.dist }}
+          path: dist
+
+      - name: Run UnitTest
+        uses: ./.github/actions/test-unittest
+        with:
+          flatimage: dist/${{ matrix.dist }}.flatimage

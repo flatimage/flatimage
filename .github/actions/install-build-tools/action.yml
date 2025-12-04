@@ -1,0 +1,10 @@
+name: 'Install Build Tools'
+description: 'Install required build tools for FlatImage compilation'
+runs:
+  using: 'composite'
+  steps:
+    - name: Install tools
+      shell: bash
+      run: |
+        sudo apt update
+        sudo env DEBIAN_FRONTEND=noninteractive apt install -y tar xz-utils coreutils bc jo upx

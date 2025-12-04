@@ -13,47 +13,85 @@ jobs:
     if: ${{ !contains(github.server_url, 'github.com') }}
     strategy:
       matrix:
-        dist: [alpine]
+        dist: [alpine,arch]
+        arch: [x86_64]
     runs-on: ubuntu-latest
     steps:
-      - name: Install tools
-        run: |
-          sudo apt update
-          sudo env DEBIAN_FRONTEND=noninteractive apt install -y tar xz-utils coreutils bc jo upx
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Build
-        run: |
-          mkdir -p dist
-          sudo ./deploy/flatimage.sh ${{ matrix.dist }}
-          cp ./build/dist/* ./dist
-      - name: Upload flatimage
-        uses: actions/upload-artifact@v3
+
+      - name: Install build tools
+        uses: ./.github/actions/install-build-tools
+
+      - name: Build FlatImage
+        uses: ./.github/actions/build-flatimage
         with:
-          name: flatimage
+          distribution: ${{ matrix.dist }}
+          architecture: ${{ matrix.arch }}
+          artifact-version: v3
+
+  #
+  # Test
+  #
+  test-doctest:
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run DocTest
+        uses: ./.github/actions/test-doctest
+
+  test-unittest:
+    runs-on: ubuntu-latest
+    needs: [build]
+    strategy:
+      matrix:
+        dist: [alpine,arch]
+        arch: [x86_64]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download built artifact
+        uses: christopherhx/gitea-download-artifact@v4
+        with:
+          name: flatimage-${{ matrix.dist }}-${{ matrix.arch }}
           path: dist
+
+      - name: Run UnitTest
+        uses: ./.github/actions/test-unittest
+        with:
+          flatimage: dist/${{ matrix.dist }}_${{ matrix.arch }}.flatimage
 
   #
   # Release
   #
   release:
     runs-on: ubuntu-latest
-    needs: [build]
+    needs: [build, test-doctest, test-unittest]
     permissions:
       contents: write
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: christopherhx/gitea-download-artifact@v4
         with:
-          name: flatimage
+          pattern: flatimage-*
+          merge-multiple: true
           path: dist
 
-      - name: Install Gitea CLI (tea)
-        run: |
-          wget -O tea https://gitea.com/gitea/tea/releases/download/v0.11.1/tea-0.11.1-linux-amd64
-          chmod +x tea
-          sudo mv tea /usr/local/bin/
+      - name: Setup platform CLI
+        uses: ./.github/actions/setup-platform-cli
 
       - name: Upload assets to Gitea Release
         run: |

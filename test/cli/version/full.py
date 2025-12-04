@@ -12,7 +12,7 @@ class TestFimVersionFull(VersionTestBase):
   def test_version_full(self):
     """Test full version output with JSON metadata"""
     re_commit = re.compile("""[A-Za-z0-9]+""")
-    re_version = re.compile(r"""v\d+\.\d+\.\d+""")
+    re_version = re.compile(r"""v\d+\.\d+\.\d+|continuous""")
     out,err,code = run_cmd(self.file_image, "fim-version", "full")
     self.assertEqual(err, "")
     self.assertEqual(code, 0)

@@ -1,0 +1,76 @@
+name: 'Run DocTest'
+description: 'Run doctest test suite via Docker'
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Get current user UID and GID
+      shell: bash
+      id: user_info
+      run: |
+        echo "uid=$(id -u)" >> $GITHUB_OUTPUT
+        echo "gid=$(id -g)" >> $GITHUB_OUTPUT
+
+    - name: Build DocTest image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./docker/Dockerfile.doctest
+        push: false
+        tags: flatimage-doctest:latest
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        load: true
+        build-args: |
+          USER_UID=${{ steps.user_info.outputs.uid }}
+          USER_GID=${{ steps.user_info.outputs.gid }}
+
+    - name: Run doctest (Github)
+      if: ${{ contains(github.server_url, 'github.com') }}
+      shell: bash
+      run: |
+        # Get container ID for volumes-from (for gitea act_runner compatibility)
+        CONTAINER_ID=$(hostname)
+        echo "Running in GitHub Actions, using direct volume mount"
+        2>&1 docker run \
+          --privileged \
+          --rm \
+          --device /dev/fuse \
+          -v "$GITHUB_WORKSPACE":/workspace/flatimage/flatimage \
+          flatimage-doctest:latest \
+        | tee test_doctest.log
+        # Check for errors
+        ! grep "The following tests FAILED" test_doctest.log
+
+    - name: Run doctest (Gitea)
+      if: ${{ !contains(github.server_url, 'github.com') }}
+      shell: bash
+      run: |
+        # Get container ID for volumes-from (for gitea act_runner compatibility)
+        CONTAINER_ID=$(hostname)
+        # Check if we can use volumes-from (act_runner scenario)
+        echo "Running in containerized environment (act_runner), using --volumes-from"
+        # Set permissions to docker regular user
+        chown -R ${{ steps.user_info.outputs.uid }}:${{ steps.user_info.outputs.gid }} /workspace/flatimage/flatimage
+        # Run docker with current volumes
+        2>&1 docker run \
+          --rm \
+          --privileged \
+          --device /dev/fuse \
+          --volumes-from "$CONTAINER_ID" \
+          -w "$GITHUB_WORKSPACE" \
+          flatimage-doctest:latest \
+        | tee test_doctest.log
+        # Check for errors
+        ! grep "The following tests FAILED" test_doctest.log
+
+    - name: Upload DocTest logs
+      uses: christopherhx/gitea-upload-artifact@v4
+      with:
+        name: logs_doctest
+        path: test_doctest.log
+        compression-level: 9
+        if-no-files-found: error
+        overwrite: false
