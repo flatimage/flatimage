@@ -380,7 +380,7 @@ inline void Bwrap::overlay(ns_proxy::Overlay const& overlay)
  */
 inline void Bwrap::set_xdg_runtime_dir()
 {
-  m_path_dir_xdg_runtime = ns_env::get_expected("XDG_RUNTIME_DIR").value_or(std::format("/run/user/{}", getuid()));
+  m_path_dir_xdg_runtime = ns_env::get_expected<"W">("XDG_RUNTIME_DIR").value_or(std::format("/run/user/{}", getuid()));
   logger("I::XDG_RUNTIME_DIR: {}", m_path_dir_xdg_runtime);
   m_program_env.push_back(std::format("XDG_RUNTIME_DIR={}", m_path_dir_xdg_runtime.string()));
   ns_vector::push_back(m_args, "--setenv", "XDG_RUNTIME_DIR", m_path_dir_xdg_runtime);
