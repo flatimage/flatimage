@@ -94,7 +94,7 @@ inline Value<void> Dwarfs::mount()
   // Spawn command
   m_child = ns_subprocess::Subprocess(path_file_dwarfs)
     .with_args(m_path_file_image, m_path_dir_mount)
-    .with_args("-f", "-o", std::format("auto_unmount,offset={},imagesize={}", m_offset, m_size_image))
+    .with_args("-f", "-o", std::format("uid={},gid={},auto_unmount,offset={},imagesize={}", getuid(), getgid(), m_offset, m_size_image))
     .with_die_on_pid(m_pid_to_die_for)
     .with_stdio(ns_subprocess::Stream::Pipe)
     .with_log_file(m_path_file_log)
