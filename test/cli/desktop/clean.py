@@ -92,6 +92,7 @@ class TestFimDesktopClean(DesktopTestBase):
       shutil.rmtree(path_dir_xdg)
       # Reset image
       shutil.copy(os.environ["FILE_IMAGE_SRC"], os.environ["FILE_IMAGE"])
+      os.chmod(self.file_image, 0o755)
     # Check for png and svg
     clean('png')
     clean('svg')
