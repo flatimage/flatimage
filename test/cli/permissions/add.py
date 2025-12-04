@@ -1,6 +1,6 @@
 #!/bin/python3
 
-import unittest
+import os
 import shutil
 from .common import PermsTestBase
 from cli.test_runner import run_cmd
@@ -23,6 +23,7 @@ class TestFimPermsAdd(PermsTestBase):
     self.home_custom.mkdir(parents=True, exist_ok=True)
     with open(self.home_custom / "file", "w") as f:
       f.write("secret\n")
+    os.environ["HOME"] = str(self.home_custom)
     run_cmd(self.file_image, "fim-perms", "add", "home")
     out, err, code = run_cmd(self.file_image, "fim-exec", "cat", str(self.home_custom / "file"))
     self.assertEqual(out.strip(), "secret")
