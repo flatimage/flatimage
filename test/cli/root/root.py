@@ -26,10 +26,10 @@ class TestFimRoot(RootTestBase):
     out, err, code = run_cmd(self.file_image, "fim-version", "full")
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
-    
+
     # Set network permission for package installation
     run_cmd(self.file_image, "fim-perms", "set", "network")
-    
+
     if "ALPINE" in out:
       print("Distribution is alpine")
       out, err, code = run_cmd(self.file_image, "fim-root", "apk", "add", "curl")
@@ -37,7 +37,7 @@ class TestFimRoot(RootTestBase):
     elif "ARCH" in out:
       print("Distribution is arch")
       out, err, code = run_cmd(self.file_image, "fim-root", "pacman", "-Sy", "--noconfirm", "curl")
-      self.assertIn("Overriding the desktop file MIME type cache...", out)
+      self.assertIn("Cleaning up downloaded files...", out)
     elif "BLUEPRINT" in out:
       print("Distribution is blueprint")
       # Blueprint has no package manager, skip test
