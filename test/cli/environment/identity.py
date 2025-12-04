@@ -286,7 +286,8 @@ class TestFimEnvIdentity(EnvTestBase):
       "UID=4500",
       "GID=4500",
       "HOME=/home/custom",
-      "USER=testuser")
+      "USER=testuser",
+      "SHELL=/bin/sh")
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
     # Verify passwd file exists and is readable
@@ -306,7 +307,7 @@ class TestFimEnvIdentity(EnvTestBase):
     self.assertEqual(fields[3], "4500")           # GID
     self.assertEqual(fields[4], "testuser")       # GECOS
     self.assertEqual(fields[5], "/home/custom")   # HOME
-    self.assertRegex(fields[6], "/tmp/fim/app.*/bin/bash")   # SHELL
+    self.assertRegex(fields[6], "/bin/sh")        # SHELL
 
   def test_passwd_file_generation_default(self):
     """Test that /etc/passwd is properly generated with default user info"""
@@ -327,7 +328,7 @@ class TestFimEnvIdentity(EnvTestBase):
     self.assertEqual(fields[3], str(user_info.pw_gid))   # GID
     # [4] GECOS
     self.assertEqual(fields[5], user_info.pw_dir)        # HOME
-    self.assertRegex(fields[6], user_info.pw_shell)      # SHELL
+    self.assertRegex(fields[6], "/tmp/fim/app.*/bin/bash")   # SHELL
 
   def test_combined_user_and_ps1(self):
     """Test that USER and PS1 work together"""
