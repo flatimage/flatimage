@@ -154,14 +154,11 @@ Set up the user environment and home directory:
 Set up desktop menu integration and icon:
 
 ```bash
-# Download Steam icon
-wget -O steam.svg https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg
-
 # Create desktop integration configuration
 tee steam.json <<-'EOF'
 {
   "name": "steam",
-  "icon": "./steam.svg",
+  "icon": "https://upload.wikimedia.org/wikipedia/commons/8/83/Steam_icon_logo.svg",
   "categories": ["Game"],
   "integrations": ["ENTRY", "MIMETYPE", "ICON"]
 }

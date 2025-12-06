@@ -10,6 +10,7 @@
 
 #include <filesystem>
 #include <print>
+#include <sstream>
 
 #include "../../std/expected.hpp"
 #include "../../db/desktop.hpp"
@@ -510,6 +511,49 @@ namespace fs = std::filesystem;
 }
 
 /**
+ * @brief Resolves icon path or URL to a local file path
+ *
+ * If the icon is a URL (http:// or https://), downloads it using wget.
+ * Otherwise, returns the path as-is.
+ *
+ * @param fim FlatImage object
+ * @param icon_path_or_url Path to local icon file or URL to download from
+ * @return Value<fs::path> Path to the icon file (downloaded or original), or error
+ */
+[[nodiscard]] inline Value<fs::path> setup_resolve_icon(std::string_view icon_path_or_url)
+{
+  std::string icon_str{icon_path_or_url};
+  bool is_url = icon_str.starts_with("http://") or icon_str.starts_with("https://");
+  // Check if is a local path
+  return_if (not is_url, fs::path{icon_str}, "D::Icon is a local file at '{}'", icon_str);
+  // Download remote icon
+  logger("I::Icon is an URL: {}", icon_str);
+  // Resolve extension from URL (after last dot)
+  std::string extension = ({
+    auto pos = icon_str.find_last_of('.');
+    return_if(pos == std::string::npos, Error("E::Could not get icon file extension from url"));
+    icon_str.substr(pos);
+  });
+  logger("D::Resolved extension from URL: '{}'", extension);
+  // Find wget binary
+  fs::path path_bin_wget = Pop(ns_env::search_path("wget"));
+  // Create temporary file path for downloaded icon
+  fs::path path_file_icon_downloaded = fs::temp_directory_path() / ("icon" + extension);
+  // Download the icon using wget
+  auto child = ns_subprocess::Subprocess(path_bin_wget)
+    .with_args(icon_str, "-O", path_file_icon_downloaded)
+    .with_stdio(ns_subprocess::Stream::Inherit)
+    .spawn();
+  return_if(not child, Error("E::Failed to spawn wget process"));
+  // Check return code
+  return_if (int exit_code = child->wait().value_or(-1); exit_code != 0
+    , Error("E::wget failed with exit code: {} for URL: {}", exit_code, icon_str);
+  );
+  logger("I::Successfully downloaded icon to: {}", path_file_icon_downloaded);
+  return path_file_icon_downloaded;
+}
+
+/**
  * @brief Setup desktop integration in FlatImage
  *
  * @param fim FlatImage object
@@ -527,7 +571,8 @@ namespace fs = std::filesystem;
   auto desktop = Pop(ns_db::ns_desktop::deserialize(file_json_src), "E::Failed to deserialize json");
   return_if(desktop.get_name().contains('/'), Error("E::Application name cannot contain the '/' character"));
   // Validate icon
-  fs::path path_file_icon = Pop(desktop.get_path_file_icon(), "E::Could not retrieve icon path field from json");
+  auto icon_path_or_url = Pop(desktop.get_path_file_icon(), "E::Could not retrieve icon path field from json");
+  fs::path path_file_icon = Pop(setup_resolve_icon(icon_path_or_url.string()), "E::Failed to resolve icon path or URL");
   std::string str_ext = (path_file_icon.extension() == ".svg")? "svg"
     : (path_file_icon.extension() == ".png")? "png"
     : (path_file_icon.extension() == ".jpg" or path_file_icon.extension() == ".jpeg")? "jpg"

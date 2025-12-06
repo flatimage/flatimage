@@ -13,15 +13,15 @@ Create `desktop.json`:
   "name": "MyApp",
   "icon": "./icon.png",
   "categories": ["Network", "WebBrowser"],
-  // This field is optional, it does the same as the 'enable' command
-  // "integrations": ["ENTRY", "MIMETYPE", "ICON"]
 }
 ```
+
+The field `integrations` is optional, it does the same as the 'enable' command, e.g., `"integrations": ["ENTRY", "MIMETYPE", "ICON"]`.
 
 **Fields:**
 
 - `name` - Application name shown in menus
-- `icon` - Path to icon file (JPG, PNG, or SVG)
+- `icon` - Path or URL to icon file (JPG, PNG, or SVG)
 - `categories` - Desktop menu categories
 - `integrations` - Which integrations to enable
 
@@ -109,14 +109,11 @@ chmod +x alpine.flatimage
 # Set boot command
 ./alpine.flatimage fim-boot set firefox
 
-# Get icon
-wget -O firefox.svg https://upload.wikimedia.org/wikipedia/commons/a/a0/Firefox_logo%2C_2019.svg
-
 # Create desktop configuration
 cat > desktop.json << 'EOF'
 {
   "name": "Firefox for Work",
-  "icon": "firefox.svg",
+  "icon": "https://upload.wikimedia.org/wikipedia/commons/a/a0/Firefox_logo%2C_2019.svg",
   "categories": ["Network", "WebBrowser"]
 }
 EOF

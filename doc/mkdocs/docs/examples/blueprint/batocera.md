@@ -144,14 +144,11 @@ Configure Batocera's startup command as `emulationstation`:
 Create desktop integration for launching Batocera:
 
 ```bash
-# Download Batocera logo using the toolbox
-./toolbox.flatimage wget -O batocera.png "https://upload.wikimedia.org/wikipedia/commons/e/ef/Batocera-logo-art.png"
-
 # Create desktop integration configuration
 tee batocera.json <<-'EOF'
 {
   "name": "batocera",
-  "icon": "./batocera.png",
+  "icon": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Batocera-logo-art.png",
   "categories": ["Game"],
   "integrations": ["ENTRY", "ICON", "MIMETYPE"]
 }
@@ -240,12 +237,10 @@ echo "Setting boot command..."
 
 # Step 8 - Desktop Integration (Optional)
 echo "Setting up desktop integration..."
-./toolbox.flatimage wget -O batocera.png "https://upload.wikimedia.org/wikipedia/commons/e/ef/Batocera-logo-art.png"
-
 tee batocera.json <<-'EOF'
 {
   "name": "batocera",
-  "icon": "./batocera.png",
+  "icon": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Batocera-logo-art.png",
   "categories": ["Game"],
   "integrations": ["ENTRY", "ICON", "MIMETYPE"]
 }

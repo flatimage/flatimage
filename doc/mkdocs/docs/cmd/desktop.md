@@ -50,6 +50,19 @@ Usage: fim-desktop <dump> <entry|mimetype>
 
 Create a JSON file defining your desktop integration settings:
 
+**Using a remote icon**: Downloaded during the setup process.
+
+```json
+{
+  "name": "MyApp",
+  "icon": "https://upload.wikimedia.org/wikipedia/commons/a/a0/Firefox_logo%2C_2019.svg",
+  "categories": ["System", "Audio"],
+  "integrations": ["ENTRY", "MIMETYPE", "ICON"]
+}
+```
+
+**Using a local icon**: Read from a local file.
+
 ```json
 {
   "name": "MyApp",
@@ -62,7 +75,7 @@ Create a JSON file defining your desktop integration settings:
 **Configuration Fields:**
 
 - **name** - Application name (shown in menus and file managers)
-- **icon** - Path to icon file (PNG or SVG, relative to JSON file location)
+- **icon** - Path or URL to icon file (PNG or SVG, relative to JSON file location)
 - **categories** - Desktop menu categories (see [valid categories](https://specifications.freedesktop.org/menu-spec/latest/category-registry.html))
 - **integrations** - Which integrations to enable (ENTRY, MIMETYPE, ICON)
 
@@ -251,7 +264,7 @@ When `icon` is enabled, FlatImage installs icon files for:
 - Application launchers (apps directory)
 - File type associations (mimetypes directory)
 
-**SVG icons:** Installed to `scalable/` directory  
+**SVG icons:** Installed to `scalable/` directory
 **PNG icons:** Automatically scaled and installed to multiple size directories (16×16 through 256×256)
 
 **Path Auto-Update:**

@@ -180,14 +180,11 @@ Set up the user environment and home directory:
 Set up desktop menu integration and icon:
 
 ```bash
-# Download Firefox icon
-wget -O firefox.svg "https://upload.wikimedia.org/wikipedia/commons/a/a0/Firefox_logo%2C_2019.svg"
-
 # Create desktop integration configuration
 tee firefox.json <<-'EOF'
 {
   "name": "firefox",
-  "icon": "./firefox.svg",
+  "icon": "https://upload.wikimedia.org/wikipedia/commons/a/a0/Firefox_logo%2C_2019.svg",
   "categories": ["Network", "WebBrowser"],
   "integrations": ["ENTRY", "MIMETYPE", "ICON"]
 }
