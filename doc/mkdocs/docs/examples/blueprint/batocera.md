@@ -67,6 +67,7 @@ Use the Alpine toolbox to fetch the latest Batocera Linux image:
 # Download Batocera (x86_64 version) using the toolbox
 ./toolbox.flatimage wget -O boot.tar.xz https://mirrors.o2switch.fr/batocera/x86_64/stable/last/boot.tar.xz
 ```
+
 ---
 
 ## Step 3 - Extract Batocera Root Filesystem

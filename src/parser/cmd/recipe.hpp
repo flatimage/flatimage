@@ -19,6 +19,7 @@
 #include "../../std/filesystem.hpp"
 #include "../../db/recipe.hpp"
 #include "../../config.hpp"
+#include "desktop.hpp"
 
 namespace
 {
@@ -262,6 +263,7 @@ namespace ns_recipe
  * @brief Installs packages from recipes using the appropriate package manager
  *
  * @tparam F Callable type for executing commands (signature: F(std::string, std::vector<std::string>&))
+ * @param fim FlatImage configuration object
  * @param distribution Name of the current linux distribution (e.g., "arch", "alpine")
  * @param path_dir_download Directory where recipes are cached
  * @param recipes Vector of recipe names to install packages from
@@ -270,14 +272,16 @@ namespace ns_recipe
  */
 template<typename F>
 requires std::invocable<F,std::string,std::vector<std::string>&>
-[[nodiscard]] inline Value<int> install(ns_config::Distribution const& distribution
+[[nodiscard]] inline Value<int> install(ns_config::FlatImage const& fim
+  , ns_config::Distribution const& distribution
   , fs::path const& path_dir_download
   , std::vector<std::string> const& recipes
   , F&& callback)
 {
 
-  // Get packages from recipes
+  // Get packages from recipes and find desktop integration data
   std::vector<std::string> packages;
+  Value<ns_db::ns_desktop::Desktop> desktop = std::unexpected("No desktop integration found");
   for(auto&& recipe : recipes)
   {
     // Load recipe
@@ -285,6 +289,12 @@ requires std::invocable<F,std::string,std::vector<std::string>&>
     // Extract and collect packages
     auto const& recipe_packages = recipe_obj.get_packages();
     std::ranges::copy(recipe_packages, std::back_inserter(packages));
+    // Check for desktop integration data (use last one found)
+    if(recipe_obj.get_desktop())
+    {
+      desktop = recipe_obj.get_desktop();
+      logger("I::Found desktop integration in recipe '{}'", recipe);
+    }
   }
   // Determine package manager command based on distribution
   std::string program;
@@ -316,7 +326,31 @@ requires std::invocable<F,std::string,std::vector<std::string>&>
   // Copy packages to arguments
   std::ranges::copy(packages, std::back_inserter(args));
   // Execute package manager using the provided callback
-  return callback(program, args);
+  int exit_code = Pop(callback(program, args));
+  // Setup desktop integration if found
+  if(desktop)
+  {
+    logger("I::Setting up desktop integration from recipe");
+    // Serialize desktop object to JSON and write to temporary file
+    std::string desktop_json = Pop(ns_db::ns_desktop::serialize(Pop(desktop)));
+    fs::path path_file_desktop_json = Try(fs::temp_directory_path()) / "recipe_desktop.json";
+    std::ofstream file_desktop(path_file_desktop_json, std::ios::out | std::ios::trunc);
+    return_if(not file_desktop.is_open(), Error("E::Could not create temporary desktop JSON file"));
+    file_desktop << desktop_json;
+    file_desktop.close();
+    // Setup desktop integration using the temporary JSON file
+    if(auto ret = ns_desktop::setup(fim, path_file_desktop_json); not ret)
+    {
+      logger("W::Failed to setup desktop integration: {}", ret.error());
+    }
+    else
+    {
+      logger("I::Desktop integration setup successful");
+    }
+    // Clean up temporary file
+    Try(fs::remove(path_file_desktop_json));
+  }
+  return exit_code;
 }
 
 } // namespace ns_recipe

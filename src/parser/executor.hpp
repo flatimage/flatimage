@@ -451,7 +451,7 @@ using namespace ns_parser::ns_interface;
       }
       fim.flags.is_root = 1;
       // Install all packages and dependencies
-      return ns_recipe::install(fim.distribution, fim.path.dir.host_data, all_recipes, f_bwrap);
+      return ns_recipe::install(fim, fim.distribution, fim.path.dir.host_data, all_recipes, f_bwrap);
     }
     else
     {

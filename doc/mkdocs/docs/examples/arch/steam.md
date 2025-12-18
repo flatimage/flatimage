@@ -41,7 +41,15 @@ Install Steam and dependencies using pre-configured recipes:
 ./steam.flatimage fim-recipe install steam
 ```
 
-### Step 5 - Set Boot Command
+### Step 5 (Optional) - Enable Desktop Integration
+
+Enable the desktop integration that was set up during recipe installation:
+
+```bash
+./steam.flatimage fim-desktop enable entry,icon,mimetype
+```
+
+### Step 6 - Set Boot Command
 
 Configure Steam as the default application:
 
@@ -49,7 +57,7 @@ Configure Steam as the default application:
 ./steam.flatimage fim-boot set steam
 ```
 
-### Step 6 - Compress the Image
+### Step 7 - Compress the Image
 
 Commit all changes to a compressed read-only layer:
 

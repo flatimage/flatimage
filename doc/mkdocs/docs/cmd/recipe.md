@@ -131,7 +131,18 @@ Download recipes (if needed) and install all their packages:
 # 1. Use cached recipes if available, or fetch them if not
 # 2. Extract all package names from the recipes
 # 3. Install all packages using your distribution's package manager
+# 4. If the recipe includes desktop integration data, configure it automatically
 ```
+
+**Desktop Integration:**
+
+Some recipes (like `firefox`, `steam`, `supertuxkart`) include desktop integration data such as application name, icon URL, and categories. When you install these recipes, the desktop integration is automatically configured. To enable it, run:
+
+```bash
+./app.flatimage fim-desktop enable entry,icon,mimetype
+```
+
+This will create desktop menu entries, install icons at multiple resolutions, and set up MIME type associations.
 
 **Installation Details:**
 
@@ -183,7 +194,12 @@ Recipes are stored as JSON files with the following structure:
 {
     "description": "Karts. Nitro. Action! SuperTuxKart is a 3D open-source arcade racer with a variety of characters, tracks, and modes to play",
     "packages": ["supertuxkart"],
-    "dependencies": ["xorg","gpu","audio"]
+    "dependencies": ["xorg","gpu","audio"],
+    "desktop": {
+        "name": "SuperTuxKart (FlatImage)",
+        "icon": "https://upload.wikimedia.org/wikipedia/commons/3/37/Logo_de_SuperTuxKart.png",
+        "categories": ["Game"]
+    }
 }
 ```
 
@@ -192,6 +208,10 @@ Recipes are stored as JSON files with the following structure:
 - `description` (string, optional): Human-readable description of the recipe
 - `dependencies` (array of strings, optional): List of other recipe names that this recipe depends on
 - `packages` (array of strings, required): List of package names to install
+- `desktop` (object, optional): Desktop integration configuration
+  - `name` (string, required): Application name for desktop entries
+  - `icon` (string, required): URL or path to application icon (PNG, JPG, or SVG)
+  - `categories` (array of strings, required): FreeDesktop categories (e.g., "Game", "Network", "WebBrowser")
 
 **Storage Locations:**
 

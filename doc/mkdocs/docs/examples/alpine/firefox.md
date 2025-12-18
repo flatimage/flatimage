@@ -35,13 +35,21 @@ Grant Firefox access to necessary system resources:
 
 ### Step 4 - Install the Firefox Recipe
 
-Install Xorg and other dependencies using pre-configured recipes:
+Install Firefox and other dependencies using pre-configured recipes:
 
 ```bash
 ./firefox.flatimage fim-recipe install firefox
 ```
 
-### Step 5 - Set Boot Command
+### Step 5 (Optional) - Enable Desktop Integration
+
+Enable the desktop integration that was set up during recipe installation:
+
+```bash
+./firefox.flatimage fim-desktop enable entry,icon,mimetype
+```
+
+### Step 6 - Set Boot Command
 
 Configure Firefox as the default application:
 
@@ -49,7 +57,7 @@ Configure Firefox as the default application:
 ./firefox.flatimage fim-boot set firefox
 ```
 
-### Step 6 - Compress the Image
+### Step 7 - Compress the Image
 
 Commit all changes to a compressed read-only layer:
 

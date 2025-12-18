@@ -13,6 +13,7 @@
 
 #include "../std/expected.hpp"
 #include "db.hpp"
+#include "desktop.hpp"
 
 /**
  * @namespace ns_db::ns_recipe
@@ -32,14 +33,17 @@ class Recipe
     std::string m_description;
     std::vector<std::string> m_packages;
     std::vector<std::string> m_dependencies;
+    Value<ns_desktop::Desktop> m_desktop;
   public:
     Recipe();
     [[maybe_unused]] std::string const& get_description() const { return m_description; }
     [[maybe_unused]] std::vector<std::string> const& get_packages() const { return m_packages; }
     [[maybe_unused]] std::vector<std::string> const& get_dependencies() const { return m_dependencies; }
+    [[maybe_unused]] Value<ns_desktop::Desktop> const& get_desktop() const { return m_desktop; }
     [[maybe_unused]] void set_description(std::string_view str_description) { m_description = str_description; }
     [[maybe_unused]] void set_packages(std::vector<std::string> const& vec_packages) { m_packages = vec_packages; }
     [[maybe_unused]] void set_dependencies(std::vector<std::string> const& vec_dependencies) { m_dependencies = vec_dependencies; }
+    [[maybe_unused]] void set_desktop(Value<ns_desktop::Desktop> const& desktop) { m_desktop = desktop; }
   friend Value<Recipe> deserialize(std::string_view raw_json) noexcept;
   friend Value<std::string> serialize(Recipe const& recipe) noexcept;
 }; // Recipe
@@ -51,6 +55,7 @@ inline Recipe::Recipe()
   : m_description()
   , m_packages()
   , m_dependencies()
+  , m_desktop(std::unexpected("m_desktop is undefined"))
 {}
 
 /**
@@ -71,6 +76,11 @@ inline Recipe::Recipe()
   recipe.m_packages = Pop(db("packages").value<std::vector<std::string>>(), "E::Missing 'packages' field");
   // Parse dependencies (optional, defaults to empty vector)
   recipe.m_dependencies = db("dependencies").value<std::vector<std::string>>().or_default();
+  // Parse desktop integration (optional)
+  if(auto desktop_json = db("desktop").dump(); desktop_json)
+  {
+    recipe.m_desktop = ns_desktop::deserialize(Pop(desktop_json));
+  }
   return recipe;
 }
 
@@ -88,6 +98,12 @@ inline Recipe::Recipe()
   if (!recipe.m_dependencies.empty())
   {
     db("dependencies") = recipe.m_dependencies;
+  }
+  if (recipe.m_desktop)
+  {
+    auto desktop_json_str = Pop(ns_desktop::serialize(Pop(recipe.m_desktop)));
+    auto desktop_db = Pop(ns_db::from_string(desktop_json_str));
+    db("desktop") = desktop_db.data();
   }
   return db.dump();
 }
