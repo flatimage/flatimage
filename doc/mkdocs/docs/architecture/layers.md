@@ -25,7 +25,7 @@ The complete filesystem stack (from top to bottom):
 │  Overlay Layer                      │ ← Writable layer
 │  (UnionFS / OverlayFS / BWRAP)      │ ← Selected by fim-overlay
 ├─────────────────────────────────────┤
-│  DwarFS Layer N (external)          │ ← FIM_FILES_LAYER
+│  DwarFS Layer N (external)          │ ← FIM_LAYERS
 ├─────────────────────────────────────┤
 │  DwarFS Layer 2 (committed)         │ ← fim-layer commit binary
 ├─────────────────────────────────────┤
@@ -76,13 +76,10 @@ The mounting code scans the binary for these magic bytes to locate each filesyst
     - Offset: `FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE`
     - Created during build or with `fim-layer commit binary`
 
-2. **External directory layers:** `FIM_DIRS_LAYER` environment variable
-    - Scans directories for `.dwarfs` files
-    - Mounted in alphabetical order
-
-3. **External file layers:** `FIM_FILES_LAYER` environment variable
-    - Mounts specific `.dwarfs` files
-    - Precise control over layer order
+2. **External layers:** `FIM_LAYERS` environment variable
+    - Accepts both directories and specific files (colon-separated)
+    - Directories are scanned for layer files (alphabetical order)
+    - Files are mounted in the exact order specified
 
 ### 2. Overlay Filesystems
 
@@ -225,7 +222,7 @@ Create a standalone DwarFS layer:
 **Compression level** (0-10) can be controlled via `FIM_COMPRESSION_LEVEL`:
 
 ```bash
-FIM_COMPRESSION_LEVEL=9 ./app.flatimage fim-layer create /path layer.dwarfs
+FIM_COMPRESSION_LEVEL=9 ./app.flatimage fim-layer create /path/to/file.layer
 ```
 
 - **Lower (0-3):** Faster compression, larger files
@@ -323,10 +320,10 @@ Save the layer to a specific file path for maximum flexibility:
 ./app.flatimage fim-root pacman -S nodejs npm
 
 # Save to custom location
-./app.flatimage fim-layer commit file ./layers/nodejs-v20.dwarfs
+./app.flatimage fim-layer commit file ./layers/nodejs-v20.layer
 
 # Later, load this layer in another FlatImage
-FIM_FILES_LAYER=./layers/nodejs-v20.dwarfs ./another-app.flatimage
+FIM_LAYERS=./layers/nodejs-v20.layer ./another-app.flatimage
 ```
 
 ---
@@ -343,17 +340,24 @@ FIM_FILES_LAYER=./layers/nodejs-v20.dwarfs ./another-app.flatimage
 
 #### Load from directory:
 ```bash
-FIM_DIRS_LAYER=/path/to/layers ./app.flatimage
+FIM_LAYERS=/path/to/layers ./app.flatimage
 ```
 
-All `.layer` files in `/path/to/layers/` are mounted.
+All layer files in `/path/to/layers/` are mounted.
 
 #### Load specific files:
 ```bash
-FIM_FILES_LAYER=/path/to/layer1.layer:/path/to/layer2.layer ./app.flatimage
+FIM_LAYERS=/path/to/layer1.layer:/path/to/layer2.layer ./app.flatimage
 ```
 
 Layers are mounted in the order specified.
+
+#### Mix directories and files:
+```bash
+FIM_LAYERS=/path/to/base-layers:/path/to/specific.layer:/another/dir ./app.flatimage
+```
+
+Directories and files can be freely mixed in any order.
 
 **Use cases:**
 

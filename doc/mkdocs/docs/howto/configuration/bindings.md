@@ -106,8 +106,6 @@ Use these variables in bind paths:
 
 ## Learn More
 
-- [fim-bind](../cmd/bind.md) - Complete bind mount command documentation
-- [fim-perms](../cmd/perms.md) - Configure container permissions
-- [Configuration: Binding](../configuration/binding.md) - Advanced binding configuration
-- [Multiple Instances](multiple-instances.md) - Use binds with multiple instances
-- [Architecture: Directories](../architecture/directories.md) - Directory structure details
+- [fim-bind](../../cmd/bind.md) - Complete bind mount command documentation
+- [fim-perms](../../cmd/perms.md) - Configure container permissions
+- [Architecture: Directories](../../architecture/directories.md) - Directory structure details

@@ -199,7 +199,7 @@ flowchart LR
 1. **Reserved space** (3-4 MB embedded in binary)
    - Permissions, boot command, environment, binds, desktop integration
 2. **Environment variables** (can override reserved space)
-   - `FIM_OVERLAY`, `FIM_CASEFOLD`, `FIM_FILES_LAYER`, etc.
+   - `FIM_OVERLAY`, `FIM_CASEFOLD`, `FIM_LAYERS`, etc.
 3. **Compiled defaults** (fallback values)
 
 **Directory structure created:**
@@ -220,7 +220,7 @@ flowchart LR
     subgraph LayerMount["DwarFS Layer Mounting"]
         direction TB
         L1[Mount DwarFS<br/>Compressed Layers]
-        L2["Layer 0<br/>Base Filesystem<br/>━━━━━━━━━━━━━━<br/>Layer 1..N<br/>Committed Layers<br/>━━━━━━━━━━━━━━<br/>External Layers<br/>via FIM_FILES_LAYER"]
+        L2["Layer 0<br/>Base Filesystem<br/>━━━━━━━━━━━━━━<br/>Layer 1..N<br/>Committed Layers<br/>━━━━━━━━━━━━━━<br/>External Layers<br/>via FIM_LAYERS"]
 
         L1 --> L2
     end

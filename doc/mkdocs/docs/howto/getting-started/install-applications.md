@@ -67,8 +67,8 @@ Run the installed application:
 
 ## Learn More
 
-- [fim-root](../cmd/root.md) for root permissions in the container.
-- [fim-exec](../cmd/exec.md) to execute commands as a regular user.
-- [fim-perms](../cmd/perms.md) to configure permissions.
-- [fim-remote](../cmd/remote.md) to setup a remote to pull recipes from.
-- [fim-recipe](../cmd/recipe.md) to fetch and install recipes.
+- [fim-root](../../cmd/root.md) for root permissions in the container.
+- [fim-exec](../../cmd/exec.md) to execute commands as a regular user.
+- [fim-perms](../../cmd/perms.md) to configure permissions.
+- [fim-remote](../../cmd/remote.md) to setup a remote to pull recipes from.
+- [fim-recipe](../../cmd/recipe.md) to fetch and install recipes.

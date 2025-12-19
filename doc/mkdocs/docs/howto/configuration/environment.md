@@ -244,6 +244,6 @@ Execute commands during variable expansion:
 
 ## Learn More
 
-- [fim-env](../cmd/env.md) - Complete fim-env command documentation
-- [fim-exec](../cmd/exec.md) - Execute commands with environment variables
-- [Configuration](../configuration/user-identity.md) - User identity and environment setup
+- [fim-env](../../cmd/env.md) - Complete fim-env command documentation
+- [fim-exec](../../cmd/exec.md) - Execute commands with environment variables
+- [Configuration](../../configuration/user-identity.md) - User identity and environment setup

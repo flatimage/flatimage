@@ -171,7 +171,7 @@ Desktop integration creates files in `~/.local/share/`:
 
 ## Learn More
 
-See [fim-desktop](../cmd/desktop.md) for complete documentation including:
+See [fim-desktop](../../cmd/desktop.md) for complete documentation including:
 
 - MIME type associations
 - Auto-updating paths

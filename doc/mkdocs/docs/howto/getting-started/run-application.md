@@ -95,7 +95,7 @@ mv alpine.flatimage firefox.flatimage
 
 ## Learn More
 
-- [fim-perms](../cmd/perms.md) for all available permissions.
-- [fim-exec](../cmd/exec.md) - Execute commands as regular user
-- [fim-root](../cmd/root.md) - Execute commands as root
-- [fim-boot](../cmd/boot.md) - Configure default boot command
+- [fim-perms](../../cmd/perms.md) for all available permissions.
+- [fim-exec](../../cmd/exec.md) - Execute commands as regular user
+- [fim-root](../../cmd/root.md) - Execute commands as root
+- [fim-boot](../../cmd/boot.md) - Configure default boot command

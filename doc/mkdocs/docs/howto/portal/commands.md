@@ -197,7 +197,7 @@ echo $?
 ## Learn More
 
 - [Portal: Commands](../portal/commands.md) - Complete portal documentation
-- [Architecture: Portal](../architecture/portal.md) - Technical details of portal system
-- [fim-instance](../cmd/instance.md) - Complete instance management documentation
-- [fim-exec](../cmd/exec.md) - Execute commands as user inside container
-- [fim-root](../cmd/root.md) - Execute commands as root inside container
+- [Architecture: Portal](../../architecture/portal.md) - Technical details of portal system
+- [fim-instance](../../cmd/instance.md) - Complete instance management documentation
+- [fim-exec](../../cmd/exec.md) - Execute commands as user inside container
+- [fim-root](../../cmd/root.md) - Execute commands as root inside container

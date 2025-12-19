@@ -376,6 +376,7 @@ struct Config
    * @return Value<Config> Initialized configuration or error
    */
   static Value<Config> create(
+    ns_filesystems::ns_controller::Layers const& layers,
     bool const is_casefold,
     fs::path const& path_dir_instance,
     fs::path const& path_dir_host_data,
@@ -432,6 +433,7 @@ struct Config
       .path_dir_ciopfs = std::move(path_dir_ciopfs),
       .path_bin_janitor = path_bin_janitor,
       .path_bin_self = path_bin_self,
+      .layers = layers,
     };
 
     auto daemon = Daemon
@@ -594,8 +596,14 @@ struct FlatImage
   // Log files
   Logs logs = Try(Logs(path.dir.instance / "logs"));
 
+  // Gather layers
+  ns_filesystems::ns_controller::Layers layers;
+  layers.push_from_var("FIM_LAYERS").discard("W::Failed to setup FIM_LAYERS");
+  layers.push(path.dir.host_data_layers).discard("W::Failed to setup host_data_layers");
+
   // Module configuration
   Config config = Pop(Config::create(
+    layers,
     flags.is_casefold,
     path.dir.instance,
     path.dir.host_data,

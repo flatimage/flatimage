@@ -36,4 +36,4 @@ The commit captures all changes in the writable layer:
 
 ## Learn More
 
-- [fim-layer](../cmd/layer.md) for advanced layer management.
+- [fim-layer](../../cmd/layer.md) for advanced layer management.

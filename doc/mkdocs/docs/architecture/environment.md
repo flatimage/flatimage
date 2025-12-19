@@ -29,15 +29,13 @@ Source: `environment.md` header, behavior verified in `filesystems/controller.hp
 | Variable | Type | Description | Example |
 |----------|------|-------------|---------|
 | `FIM_COMPRESSION_LEVEL` | Integer (0-10) | DwarFS compression level for `fim-layer commit` and `fim-layer create`. | `7` (default) |
-| `FIM_DIRS_LAYER` | Colon-separated paths | Directories containing layer files to mount. | `/path/to/layers1:/path/to/layers2` |
-| `FIM_FILES_LAYER` | Colon-separated paths | Specific layer file paths to mount. | `/path/to/layer1.dwarfs:/path/to/custom.dwarfs` |
+| `FIM_LAYERS` | Colon-separated paths | Directories and/or layer files to mount. Directories are scanned for layer files; files are mounted directly. | `/path/to/layers:/path/to/layer.layer` |
 
 **Layer Loading Priority:**
 
 1. Embedded layers in binary (base layer)
 2. Committed layers in binary
-3. External directories (`FIM_DIRS_LAYER`)
-4. External files (`FIM_FILES_LAYER`)
+3. External layers (`FIM_LAYERS`)
 
 ## System-Set Variables
 
@@ -125,5 +123,5 @@ FIM_OVERLAY=unionfs ./app.flatimage
 FIM_CASEFOLD=1 ./app.flatimage
 
 # Load external layers
-FIM_FILES_LAYER=/path/to/extra.dwarfs ./app.flatimage
+FIM_LAYERS=/path/to/extra.layer ./app.flatimage
 ```

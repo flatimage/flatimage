@@ -86,6 +86,7 @@ from cli.version.short import TestFimVersionShort
 
 # Misc tests
 from misc.fim_dir_data import TestFimDirData
+from misc.fim_layers import TestFimLayers
 
 def suite():
   suite = unittest.TestSuite()
@@ -153,6 +154,7 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimVersionShort))
   # Misc tests
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimDirData))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimLayers))
   return suite
 
 if __name__ == '__main__':

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <filesystem>
 #include <memory>
 #include <fcntl.h>
 
@@ -53,6 +54,146 @@ struct Logs
   fs::path const path_file_janitor;
 };
 
+/**
+ * @class Layers
+ * @brief Manages external DwarFS layer files and directories for the filesystem controller
+ *
+ * Provides a unified interface for collecting layer files from both individual file paths
+ * and directories. Supports the FIM_LAYERS environment variable which accepts a colon-separated
+ * list of paths that can be files or directories.
+ *
+ * **Directory Scanning:**
+ * - Non-recursive (only scans direct children)
+ * - Alphabetical order within each directory
+ * - Validates files as DwarFS filesystems
+ *
+ * **File Processing:**
+ * - Direct file paths are validated and added immediately
+ * - Invalid files are skipped with a warning
+ *
+ * @example
+ * @code
+ * Layers layers;
+ * layers.push_from_var("FIM_LAYERS");  // Process FIM_LAYERS env var
+ * layers.push("/path/to/layers");       // Add directory or file
+ * auto const& paths = layers.get_layers();  // Retrieve all layer paths
+ * @endcode
+ */
+class Layers
+{
+  private:
+    std::vector<fs::path> layers;  ///< Collection of validated layer file paths
+
+    /**
+     * @brief Validates and appends a single layer file
+     *
+     * Checks if the file is a valid DwarFS filesystem by examining magic bytes.
+     * Invalid files are skipped with a warning.
+     *
+     * @param path Path to the layer file to validate and add
+     */
+    [[nodiscard]] Value<void> append_file(fs::path const& path)
+    {
+      return_if(not ns_dwarfs::is_dwarfs(path), Error("W::Skipping invalid dwarfs filesystem '{}'", path));
+      layers.push_back(path);
+      return {};
+    }
+
+    /**
+     * @brief Scans a directory for layer files and appends them
+     *
+     * Performs non-recursive directory scanning to collect regular files.
+     * Sorts files lexicographically
+     * Each file is validated via append_file() before being added.
+     *
+     * @param path Path to directory to scan
+     */
+    [[nodiscard]] Value<void> append_directory(fs::path const& path)
+    {
+      // Get all regular files from the directory
+      auto result = Pop(ns_fs::regular_files(path));
+      // Sort layers files
+      std::ranges::sort(result);
+      // Process each file
+      for(auto&& file : result)
+      {
+        append_file(file).discard("W::Failed to append layer from directory");
+      }
+      return {};
+    }
+
+  public:
+    /**
+     * @brief Adds a layer from a file or directory path
+     *
+     * Automatically detects whether the path is a file or directory and processes accordingly:
+     * - **File:** Validates and adds directly
+     * - **Directory:** Scans for layer files and adds them alphabetically
+     *
+     * @param path Filesystem path (file or directory)
+     * @return Value<void> Success or error
+     */
+    [[nodiscard]] Value<void> push(fs::path const& path)
+    {
+      if(Try(fs::is_regular_file(path)))
+      {
+        append_file(path).discard("W::Failed to append layer from regular file");
+      }
+      else if(Try(fs::is_directory(path)))
+      {
+        append_directory(path).discard("W::Failed to append layer from directory");
+      }
+      return {};
+    }
+
+    /**
+     * @brief Loads layers from a colon-separated environment variable
+     *
+     * Processes environment variables like FIM_LAYERS which contain colon-separated
+     * paths. Each path can be either a file or directory. Performs shell expansion
+     * on variable values before processing.
+     *
+     * **Processing Steps:**
+     * 1. Retrieves environment variable value
+     * 2. Performs word expansion (variables, subshells)
+     * 3. Splits on ':' delimiter
+     * 4. Processes each path via push()
+     *
+     * @param var Name of environment variable to read (e.g., "FIM_LAYERS")
+     * @return Value<void> Success or error
+     */
+    [[nodiscard]] Value<void> push_from_var(std::string_view var)
+    {
+      for(fs::path const& path : ns_env::get_expected<"Q">(var)
+        // Perform word expansions (variables, run subshells...)
+        .transform([](auto&& e){ return ns_env::expand(e).value_or(std::string{e}); })
+        // Get value or default to empty
+        .value_or(std::string{})
+        // Split values variable on ':'
+        | std::views::split(':')
+        // Create a path
+        | std::views::transform([](auto&& e){ return fs::path(e.begin(), e.end()); })
+      )
+      {
+        Pop(push(path));
+      }
+      return {};
+    }
+
+    /**
+     * @brief Retrieves the collected layer file paths
+     *
+     * Returns the final list of validated layer files in the order they were added.
+     * This is used by the filesystem controller to mount layers sequentially.
+     *
+     * @return const reference to vector of layer file paths
+     */
+    std::vector<fs::path> const& get_layers() const
+    {
+      return layers;
+    }
+};
+
 struct Config
 {
   // Filesystem configuration
@@ -69,6 +210,8 @@ struct Config
   fs::path const path_dir_ciopfs;
   fs::path const path_bin_janitor;
   fs::path const path_bin_self;
+  // Extra layers to mount
+  Layers const layers;
 };
 
 class Controller
@@ -78,9 +221,10 @@ class Controller
     fs::path m_path_dir_mount;
     fs::path m_path_dir_work;
     std::vector<fs::path> m_vec_path_dir_mountpoints;
-    std::vector<std::unique_ptr<ns_dwarfs::Dwarfs>> m_layers;
+    std::vector<std::unique_ptr<ns_dwarfs::Dwarfs>> m_dwarfs;
     std::vector<std::unique_ptr<ns_filesystem::Filesystem>> m_filesystems;
     std::unique_ptr<ns_subprocess::Child> m_child_janitor;
+    Layers const m_layers;
 
     [[nodiscard]] uint64_t mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_bin_self, uint64_t offset);
     void mount_ciopfs(fs::path const& path_dir_lower, fs::path const& path_dir_upper);
@@ -115,12 +259,16 @@ inline Controller::Controller(Logs const& logs , Config const& config)
   , m_path_dir_mount(config.path_dir_mount)
   , m_path_dir_work(config.path_dir_work)
   , m_vec_path_dir_mountpoints()
-  , m_layers()
+  , m_dwarfs()
   , m_filesystems()
   , m_child_janitor(nullptr)
+  , m_layers(config.layers)
 {
   // Mount compressed layers
-  [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_layers, config.path_bin_self, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
+  [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_layers
+    , config.path_bin_self
+    , FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE
+  );
   // Use unionfs-fuse
   if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::UNIONFS )
   {
@@ -235,7 +383,7 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     Try(fs::create_directories(path_dir_mount_index));
     // Configure and mount the filesystem
     // Keep the object alive in the filesystems vector
-    this->m_layers.emplace_back(
+    this->m_dwarfs.emplace_back(
       std::make_unique<ns_dwarfs::Dwarfs>(getpid()
         , path_dir_mount_index
         , _path_file_binary
@@ -280,36 +428,8 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
   } // while
   file_binary.close();
 
-  // Get layers from layer directories
-  std::vector<fs::path> vec_path_file_layer = ns_env::get_expected<"D">("FIM_DIRS_LAYER")
-    // Expand variable, allow expansion to fail to be non-fatal
-    .transform([](auto&& e){ return ns_env::expand(e).value_or(std::string{e}); })
-    // Split directories by the char ':'
-    .transform([](auto&& e){ return ns_vector::from_string(e, ':'); })
-    // Get all files from each directory into a single vector
-    .transform([](auto&& e)
-    {
-      return e
-        // Each directory expands to a file list
-        | std::views::transform([](auto&& f){ return ns_fs::regular_files(f); })
-        // Filter and transform into a vector of vectors
-        | std::views::filter([](auto&& f){ return f.has_value(); })
-        | std::views::transform([](auto&& f){ return f.value(); })
-        // Joins into a single vector
-        | std::views::join
-        // Collect
-        | std::ranges::to<std::vector<fs::path>>();
-    }).value_or(std::vector<fs::path>{});
-  // Get layers from file paths
-  ns_vector::append_range(vec_path_file_layer, ns_env::get_expected<"D">("FIM_FILES_LAYER")
-    // Expand variable, allow expansion to fail to be non-fatal
-    .transform([](auto&& e){ return ns_env::expand(e).value_or(std::string{e}); })
-    // Split files by the char ':'
-    .transform([](auto&& e){ return ns_vector::from_string(e, ':') | std::ranges::to<std::vector<fs::path>>(); })
-    .value_or(std::vector<fs::path>{})
-  );
   // Mount external filesystems
-  for (fs::path const& path_file_layer : vec_path_file_layer)
+  for (fs::path const& path_file_layer : m_layers.get_layers())
   {
     // Check if filesystem is of type 'DWARFS'
     continue_if(not ns_dwarfs::is_dwarfs(path_file_layer, 0)

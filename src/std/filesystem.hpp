@@ -60,15 +60,10 @@ using perm_options = fs::perm_options;
  */
 [[nodiscard]] inline Value<std::vector<fs::path>> regular_files(fs::path const& path_dir_src)
 {
-  std::error_code ec;
-  std::vector<fs::path> files = fs::directory_iterator(path_dir_src, ec)
+  std::vector<fs::path> files = Try(fs::directory_iterator(path_dir_src))
     | std::views::transform([](auto&& e){ return e.path(); })
     | std::views::filter([](auto&& e){ return fs::is_regular_file(e); })
     | std::ranges::to<std::vector<fs::path>>();
-  if(ec)
-  {
-    return std::unexpected(ec.message());
-  }
   return files;
 }
 

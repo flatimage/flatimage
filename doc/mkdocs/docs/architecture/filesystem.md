@@ -109,8 +109,8 @@ flowchart LR
 
     subgraph ExternalLayers["🟠 STEP 2: External DwarFS Layers"]
         direction TB
-        X1["Get FIM_DIRS_LAYER and<br/>FIM_FILES_LAYER env vars"]
-        X2["For each directory:<br/>Collect all regular files"]
+        X1["Get FIM_LAYERS env var"]
+        X2["For each path:<br/>If directory, collect files<br/>If file, use directly"]
         X3["For each file:<br/>Check DWARFS header"]
         X4["Get file size"]
         X5["Spawn: dwarfs layer_file mount<br/>-o offset=0,imagesize=size"]

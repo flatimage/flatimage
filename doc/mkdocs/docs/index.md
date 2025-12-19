@@ -173,10 +173,10 @@ Create shareable layer files with custom names:
 ```bash
 # Build a GPU layer
 $ ./alpine.flatimage fim-root apk add mesa vulkan-loader
-$ ./alpine.flatimage fim-layer commit file ./shared/gpu-support.dwarfs
+$ ./alpine.flatimage fim-layer commit file ./shared/gpu-support.layer
 
 # Share with others or use in multiple images
-$ FIM_FILES_LAYER=./shared/gpu-support.dwarfs ./another-app.flatimage
+$ FIM_LAYERS=./shared/gpu-support.layer ./another-app.flatimage
 ```
 
 **Perfect for:** Sharing layers between projects and version control.

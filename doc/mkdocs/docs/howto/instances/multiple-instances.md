@@ -73,7 +73,6 @@ chmod +x firefox-work.sh firefox-personal.sh
 
 ## Learn More
 
-- [fim-instance](../cmd/instance.md) - Manage and interact with running instances
-- [fim-perms](../cmd/perms.md) - Configure permissions for instances
-- [Environment Variables](environment-variables.md) - Use FIM_DIR_DATA and other environment variables
-- [Architecture: Directories](../architecture/directories.md) - Directory structure and data storage
+- [fim-instance](../../cmd/instance.md) - Manage and interact with running instances
+- [fim-perms](../../cmd/perms.md) - Configure permissions for instances
+- [Architecture: Directories](../../architecture/directories.md) - Directory structure and data storage

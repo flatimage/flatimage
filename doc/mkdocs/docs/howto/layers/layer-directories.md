@@ -12,21 +12,21 @@ Layer directories provide a convenient way to load multiple external layers by s
 - **Simplified management**: Organize layers in directories by category or purpose
 - **Automatic discovery**: New layers added to directories are automatically loaded
 
-## FIM_DIRS_LAYER: Automatic Layer Discovery
+## FIM_LAYERS: Automatic Layer Discovery
 
-The `FIM_DIRS_LAYER` environment variable specifies directories containing layer files. FlatImage scans each directory and mounts all regular files it finds.
+The `FIM_LAYERS` environment variable accepts both directories and files. When given a directory, FlatImage scans it and mounts all layer files found within.
 
 ### Basic Usage
 
 ```bash
 # Single directory
-FIM_DIRS_LAYER="./layers" ./app.flatimage
+FIM_LAYERS="./layers" ./app.flatimage
 
 # Multiple directories (colon-separated)
-FIM_DIRS_LAYER="./base-layers:./app-layers" ./app.flatimage
+FIM_LAYERS="./base-layers:./app-layers" ./app.flatimage
 
 # Absolute paths
-FIM_DIRS_LAYER="/opt/shared-layers:/home/user/custom-layers" ./app.flatimage
+FIM_LAYERS="/opt/shared-layers:/home/user/custom-layers" ./app.flatimage
 ```
 
 ### How Directory Scanning Works
@@ -111,7 +111,7 @@ Build application layers on top of base:
 
 ```bash
 # Load all base layers automatically
-export FIM_DIRS_LAYER="$PWD/layers/base"
+export FIM_LAYERS="$PWD/layers/base"
 
 # Create Firefox layer
 ./app.flatimage fim-root apk add --no-cache firefox
@@ -148,19 +148,19 @@ Load different combinations by specifying directories:
 # Run Firefox with base + desktop layers
 mkdir -p data/firefox
 FIM_DIR_DATA=$PWD/data/firefox \
-FIM_DIRS_LAYER="$PWD/layers/base:$PWD/layers/desktop" \
+FIM_LAYERS="$PWD/layers/base:$PWD/layers/desktop" \
   ./app.flatimage fim-exec firefox
 
 # Run GIMP with base + desktop layers
 mkdir -p data/gimp
 FIM_DIR_DATA=$PWD/data/gimp \
-FIM_DIRS_LAYER="$PWD/layers/base:$PWD/layers/desktop" \
+FIM_LAYERS="$PWD/layers/base:$PWD/layers/desktop" \
   ./app.flatimage fim-exec gimp
 
 # Run LibreOffice with base + desktop layers
 mkdir -p data/libreoffice
 FIM_DIR_DATA=$PWD/data/libreoffice \
-FIM_DIRS_LAYER="$PWD/layers/base:$PWD/layers/desktop" \
+FIM_LAYERS="$PWD/layers/base:$PWD/layers/desktop" \
   ./app.flatimage fim-exec libreoffice
 ```
 
@@ -198,14 +198,13 @@ layers/base/
 └── 2024-03-05-fonts.layer
 ```
 
-## Combining FIM_DIRS_LAYER with FIM_FILES_LAYER
+## Mixing Directories and Files
 
-You can use both environment variables together. FlatImage processes directories first, then appends files:
+You can freely mix directories and files in `FIM_LAYERS`. They are processed in the order specified:
 
 ```bash
 # Load base layers from directory, then specific override file
-FIM_DIRS_LAYER="$PWD/layers/base" \
-FIM_FILES_LAYER="$PWD/overrides/custom-config.layer" \
+FIM_LAYERS="$PWD/layers/base:$PWD/overrides/custom-config.layer" \
   ./app.flatimage fim-exec bash
 ```
 
@@ -213,9 +212,8 @@ FIM_FILES_LAYER="$PWD/overrides/custom-config.layer" \
 
 1. Base layer (embedded in binary)
 2. Committed layers (embedded in binary)
-3. **FIM_DIRS_LAYER files** (alphabetical within each directory)
-4. **FIM_FILES_LAYER files** (exact order specified)
-5. Overlay layer (writable)
+3. **FIM_LAYERS** (directories and files, processed left-to-right)
+4. Overlay layer (writable)
 
 This allows precise control: use directories for common layers, then files for specific overrides.
 
@@ -231,7 +229,7 @@ Create `firefox.sh`:
 #!/bin/sh
 DIR_SCRIPT="$(cd "$(dirname "$0")" && pwd)"
 export FIM_DIR_DATA="$DIR_SCRIPT/data/firefox"
-export FIM_DIRS_LAYER="$DIR_SCRIPT/layers/base:$DIR_SCRIPT/layers/desktop"
+export FIM_LAYERS="$DIR_SCRIPT/layers/base:$DIR_SCRIPT/layers/desktop"
 "$DIR_SCRIPT/app.flatimage" fim-exec firefox "$@"
 ```
 
@@ -243,7 +241,7 @@ Create `gimp.sh`:
 #!/bin/sh
 DIR_SCRIPT="$(cd "$(dirname "$0")" && pwd)"
 export FIM_DIR_DATA="$DIR_SCRIPT/data/gimp"
-export FIM_DIRS_LAYER="$DIR_SCRIPT/layers/base:$DIR_SCRIPT/layers/desktop"
+export FIM_LAYERS="$DIR_SCRIPT/layers/base:$DIR_SCRIPT/layers/desktop"
 "$DIR_SCRIPT/app.flatimage" fim-exec gimp "$@"
 ```
 
@@ -255,7 +253,7 @@ Create `libreoffice.sh`:
 #!/bin/sh
 DIR_SCRIPT="$(cd "$(dirname "$0")" && pwd)"
 export FIM_DIR_DATA="$DIR_SCRIPT/data/libreoffice"
-export FIM_DIRS_LAYER="$DIR_SCRIPT/layers/base:$DIR_SCRIPT/layers/desktop"
+export FIM_LAYERS="$DIR_SCRIPT/layers/base:$DIR_SCRIPT/layers/desktop"
 "$DIR_SCRIPT/app.flatimage" fim-exec libreoffice "$@"
 ```
 
@@ -273,7 +271,7 @@ chmod +x firefox.sh gimp.sh libreoffice.sh
 
 ## Learn More
 
-- [External Layer Files](layer-files.md) - Using FIM_FILES_LAYER for precise control
+- [External Layer Files](layer-files.md) - Using specific files in FIM_LAYERS
 - [fim-layer](../../cmd/layer.md) - Complete layer management documentation
 - [Commit Changes](../getting-started/commit-changes.md) - Different commit modes explained
 - [Architecture: Layers](../../architecture/layers.md) - Technical details of layered filesystem
