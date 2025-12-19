@@ -273,8 +273,9 @@ Save the layer to the managed layers directory (`$FIM_DIR_DATA/layers/`) with au
 2. Layer is saved as `layer-XXX.layer` with auto-incremented number (e.g., `layer-001.layer`, `layer-002.layer`)
 3. Layer is stored in `.{BINARY}.data/layers/` directory
 4. Overlay directory is cleared
+5. Layers in this directory are **automatically mounted** on every run
 
-**Effect:** Creates organized, numbered layers in a standard location.
+**Effect:** Creates organized, numbered layers in a standard location that are always available.
 
 **Use cases:**
 
@@ -288,6 +289,12 @@ Save the layer to the managed layers directory (`$FIM_DIR_DATA/layers/`) with au
 - First layer: `layer-000.layer`
 - Second layer: `layer-001.layer`
 - Maximum layers: 1000 (layer-000 through layer-999)
+
+**Automatic mounting:**
+
+- All layers in `.{BINARY}.data/layers/` are automatically loaded on every run
+- No need to specify them in `FIM_LAYERS`
+- Available via `FIM_DIR_LAYERS` environment variable
 
 ---
 

@@ -650,6 +650,7 @@ struct FlatImage
   ns_env::set("FIM_DIR_APP_BIN", path.dir.app_bin, ns_env::Replace::Y);
   ns_env::set("FIM_DIR_APP_SBIN", path.dir.app_sbin, ns_env::Replace::Y);
   ns_env::set("FIM_DIR_INSTANCE", path.dir.instance, ns_env::Replace::Y);
+  ns_env::set("FIM_DIR_LAYERS", path.dir.host_data_layers, ns_env::Replace::Y);
   ns_env::set("FIM_PID", pid, ns_env::Replace::Y);
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
   ns_env::set("FIM_DIR_RUNTIME", path.dir.runtime, ns_env::Replace::Y);

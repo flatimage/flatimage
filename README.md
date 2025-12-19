@@ -1,4 +1,3 @@
-
 <p align="center">
   <img src="https://raw.githubusercontent.com/flatimage/docs/master/docs/image/icon.png" width=150px/>
 </p>
@@ -9,43 +8,43 @@ FlatImage packages your entire application—code, dependencies, and configurati
 
 ## What Makes FlatImage Different?
 
-🔒 **Sandboxed by Default**  
+🔒 **Sandboxed by Default**
 Granular permissions (network, GPU, home, audio...). Default: zero access, fully isolated.
 
-📦 **Self-Contained**  
+📦 **Self-Contained**
 All config embedded in the ELF binary's reserved space.
 
-⚡ **Fast & Compact**  
+⚡ **Fast & Compact**
 DwarFS compression delivers high ratios with on-the-fly decompression.
 
-✨ **Truly Portable**  
+✨ **Truly Portable**
 Static linking + embedded tools. One file runs on any Linux distro without dependencies.
 
-🔧 **Reconfigurable After Build**  
+🔧 **Reconfigurable After Build**
 Change permissions, environment, boot commands, and bindings post-creation without rebuilding.
 
-🗂️ **Multiple Filesystem Backends**  
+🗂️ **Multiple Filesystem Backends**
 Switch between OverlayFS (fast), UnionFS (compatible), BWRAP (native), or CIOPFS (case-insensitive) at runtime.
 
-🎮 **Case-Insensitive Filesystem**  
+🎮 **Case-Insensitive Filesystem**
 Windows-style case folding for Wine/Proton compatibility. Toggle with `fim-casefold on`.
 
-🔌 **Portal IPC System**  
+🔌 **Portal IPC System**
 Transparent host-guest communication. Execute host commands from containers with full I/O redirection.
 
-🧱 **Layered Architecture**  
+🧱 **Layered Architecture**
 Stack compressed layers with `fim-layer commit`. Copy-on-write, incremental builds, immutable base layers.
 
-📦 **Package Recipes**  
+📦 **Package Recipes**
 Install curated package sets with dependency resolution: `fim-recipe install gpu,audio,xorg`.
 
-🔗 **Runtime Bind Mounts**  
+🔗 **Runtime Bind Mounts**
 Map host paths dynamically without rebuilding: `fim-bind add rw '$HOME/Documents' /Documents`.
 
-🚀 **Multi-Instance Support**  
+🚀 **Multi-Instance Support**
 Run multiple isolated instances simultaneously. Execute in specific instances with `fim-instance`.
 
-🖥️ **Desktop Integration**  
+🖥️ **Desktop Integration**
 Auto-generated menu entries, MIME types, and icons. Paths auto-update on file moves.
 
 ## Try It in 30 Seconds
@@ -93,7 +92,7 @@ To exit the container, just press `CTRL+D`.
 
 ## Configure Permissions
 
-By default, no permissions are set for the container. To allow one or more permissions use the fim-perms command.
+By default, no permissions are set for the container. To allow one or more permissions use the `fim-perms` command.
 
 ```bash
 $ ./alpine.flatimage fim-perms add xorg,wayland,network
@@ -105,7 +104,7 @@ The permissions `xorg` and `wayland` allow applications to create novel windows 
 
 To execute commands without entering the container, use `fim-exec` and `fim-root`. These commands bring up the container, execute your command, and bring down the container after the command is finished.
 
-fim-root executes the command as the root user.
+`fim-root` executes the command as the root user.
 
 ```bash
 # Allow network access
@@ -114,7 +113,7 @@ $ ./alpine.flatimage fim-perms add xorg,wayland,network,audio
 $ ./alpine.flatimage fim-root apk add firefox
 ```
 
-fim-exec executes the command as a regular user.
+`fim-exec` executes the command as a regular user.
 
 ```bash
 # Using 'fim-exec' to run firefox as a regular user
@@ -123,7 +122,7 @@ $ ./alpine.flatimage fim-exec firefox font-noto
 
 ## Configure the Default Boot Command
 
-fim-boot configures the default boot command, by default it is `bash`.
+`fim-boot` configures the default boot command, by default it is `bash`.
 
 ```bash
 # Configure the boot command
@@ -134,18 +133,57 @@ $ ./alpine.flatimage
 
 ## Commit Changes
 
-fim-layer is used compress and save the installed applications to inside the image.
+`fim-layer` compresses and saves your installed applications. FlatImage offers three flexible commit modes:
+
+### Binary Mode - Self-Contained Distribution
+Embed layers directly in the executable for maximum portability:
 
 ```bash
-# Commit changes
-$ ./alpine.flatimage fim-layer commit
-# Rename application
+# Install Firefox
+$ ./alpine.flatimage fim-root apk add firefox
+# Commit to binary
+$ ./alpine.flatimage fim-layer commit binary
+# Rename and share as a single file
 $ mv ./alpine.flatimage ./firefox.flatimage
 ```
 
+**Perfect for:** Distributing portable apps, creating standalone executables
+
+### Layer Mode - Modular Development
+Save layers to a managed directory with auto-increment naming:
+
+```bash
+# Install development tools
+$ ./alpine.flatimage fim-root apk add vim git gcc
+# Save as layer-000.layer
+$ ./alpine.flatimage fim-layer commit layer
+# Install more tools
+$ ./alpine.flatimage fim-root apk add nodejs npm
+# Save as layer-001.layer
+$ ./alpine.flatimage fim-layer commit layer
+```
+
+Layers are stored in `.alpine.flatimage.data/layers/` and are **automatically mounted** on every run.
+
+**Perfect for:** Development workflows, organizing modular packages, testing configurations
+
+### File Mode - Reusable Packages
+Create shareable layer files with custom names:
+
+```bash
+# Build a GPU layer
+$ ./alpine.flatimage fim-root apk add mesa vulkan-loader
+$ ./alpine.flatimage fim-layer commit file ./shared/gpu-support.layer
+
+# Share with others or use in multiple images
+$ FIM_LAYERS=./shared/gpu-support.layer ./another-app.flatimage
+```
+
+**Perfect for:** Sharing layers between projects and version control.
+
 ## Case-Insensitive File System
 
-fim-casefold enables filesystem case-insensitivity. **Linux** filesystems are **case-sensitive** by default. This means:
+`fim-casefold` enables filesystem case-insensitivity. **Linux** filesystems are **case-sensitive** by default. This means:
 
 - `file.txt`, `File.txt`, and `FILE.txt` are treated as three completely different files
 - You can have all three in the same directory simultaneously

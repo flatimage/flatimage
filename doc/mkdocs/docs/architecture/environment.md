@@ -35,7 +35,8 @@ Source: `environment.md` header, behavior verified in `filesystems/controller.hp
 
 1. Embedded layers in binary (base layer)
 2. Committed layers in binary
-3. External layers (`FIM_LAYERS`)
+3. External layers from `FIM_LAYERS` environment variable
+4. Managed layers from `FIM_DIR_LAYERS` (automatically mounted)
 
 ## System-Set Variables
 
@@ -63,6 +64,7 @@ These variables are automatically set by FlatImage during initialization and sho
 | `FIM_DIR_RUNTIME` | `/tmp/fim/run` | Runtime directory |
 | `FIM_DIR_RUNTIME_HOST` | `/tmp/fim/run/host` | Read-only host filesystem access (container-only) |
 | `FIM_DIR_DATA` | `{BINARY_DIR}/.{BINARY_NAME}.data` | Host-side data directory (persistent storage) |
+| `FIM_DIR_LAYERS` | `$FIM_DIR_DATA/layers` | Managed layers directory (automatically mounted) |
 
 **Example Values:**
 ```bash
@@ -71,6 +73,7 @@ FIM_DIR_APP=/tmp/fim/app/119216d_20241019145954
 FIM_DIR_APP_BIN=/tmp/fim/app/119216d_20241019145954/bin
 FIM_DIR_INSTANCE=/tmp/fim/app/119216d_20241019145954/instance/12345
 FIM_DIR_DATA=/home/user/.firefox.flatimage.data
+FIM_DIR_LAYERS=/home/user/.firefox.flatimage.data/layers
 ```
 
 ### Binary Path Variables

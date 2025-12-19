@@ -12,9 +12,21 @@ Layer directories provide a convenient way to load multiple external layers by s
 - **Simplified management**: Organize layers in directories by category or purpose
 - **Automatic discovery**: New layers added to directories are automatically loaded
 
-## FIM_LAYERS: Automatic Layer Discovery
+## Managed Layers Directory
 
-The `FIM_LAYERS` environment variable accepts both directories and files. When given a directory, FlatImage scans it and mounts all layer files found within.
+FlatImage automatically maintains a **managed layers directory** at `.{BINARY}.data/layers/` (available via `FIM_DIR_LAYERS`). All layers in this directory are **automatically mounted** on every run without needing to specify them in `FIM_LAYERS`.
+
+**Created by:**
+- `fim-layer commit layer` - Saves layers here with auto-increment naming (layer-000.layer, layer-001.layer, etc.)
+
+**Benefits:**
+- Always available without manual configuration
+- Survives across runs
+- Perfect for building incremental layer stacks
+
+## FIM_LAYERS: Additional Layer Discovery
+
+The `FIM_LAYERS` environment variable accepts both directories and files for loading **additional** external layers beyond the managed directory.
 
 ### Basic Usage
 
