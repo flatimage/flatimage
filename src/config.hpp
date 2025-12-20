@@ -414,10 +414,11 @@ struct Config
       overlay_type = ns_reserved::ns_overlay::OverlayType::UNIONFS;
     }
 
-    // Compression level configuration (goes from 0 to 10, default is 7)
+    // Compression level configuration (clamps from 0 to 9, default is 7)
     uint32_t const compression_level = ({
       std::string str_compression_level = ns_env::get_expected<"D">("FIM_COMPRESSION_LEVEL").value_or("7");
-      Catch(std::stoi(str_compression_level)).value_or(7);
+      uint64_t level = Catch(std::stoull(str_compression_level)).value_or(7);
+      std::clamp(level, uint64_t{0}, uint64_t{9});
     });
 
     // Construct configuration objects

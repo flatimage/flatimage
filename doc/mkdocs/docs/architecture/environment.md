@@ -28,7 +28,7 @@ Source: `environment.md` header, behavior verified in `filesystems/controller.hp
 
 | Variable | Type | Description | Example |
 |----------|------|-------------|---------|
-| `FIM_COMPRESSION_LEVEL` | Integer (0-10) | DwarFS compression level for `fim-layer commit` and `fim-layer create`. | `7` (default) |
+| `FIM_COMPRESSION_LEVEL` | Integer (0-9) | DwarFS compression level for `fim-layer commit` and `fim-layer create`. | `7` (default) |
 | `FIM_LAYERS` | Colon-separated paths | Directories and/or layer files to mount. Directories are scanned for layer files; files are mounted directly. | `/path/to/layers:/path/to/layer.layer` |
 
 **Layer Loading Priority:**

@@ -52,7 +52,7 @@ namespace ns_layers
   // Find mkdwarfs binary
   auto path_file_mkdwarfs = Pop(ns_env::search_path("mkdwarfs"));
   // Compression level
-  compression_level = std::clamp(compression_level, uint64_t{0}, uint64_t{9});
+  return_if(compression_level > 9, Error("E::Out-of-bounds compression level '{}'", compression_level));
   // Search for all viable files to compress
   logger("I::Gathering files to compress...");
   std::ofstream file_list(path_file_list, std::ios::out | std::ios::trunc);

@@ -219,7 +219,7 @@ Create a standalone DwarFS layer:
 ./app.flatimage fim-layer create /path/to/directory layer.dwarfs
 ```
 
-**Compression level** (0-10) can be controlled via `FIM_COMPRESSION_LEVEL`:
+**Compression level** (0-9) can be controlled via `FIM_COMPRESSION_LEVEL`:
 
 ```bash
 FIM_COMPRESSION_LEVEL=9 ./app.flatimage fim-layer create /path/to/file.layer
@@ -227,7 +227,7 @@ FIM_COMPRESSION_LEVEL=9 ./app.flatimage fim-layer create /path/to/file.layer
 
 - **Lower (0-3):** Faster compression, larger files
 - **Medium (4-7):** Balanced (default: 7)
-- **Higher (8-10):** Slower compression, smaller files
+- **Higher (8-9):** Slower compression, smaller files
 
 ### Committing Changes
 
