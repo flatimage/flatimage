@@ -83,7 +83,17 @@ namespace ns_message = ns_db::ns_portal::ns_message;
   using ns_subprocess::ArgsCallbackParent;
   using ns_subprocess::ArgsCallbackChild;
   // Split cmd / args
-  std::string command = Pop(ns_env::search_path(Try(vec_argv.front())));
+  fs::path command = ({
+    auto program = Try(vec_argv.at(0));
+    auto path_bin_program = ns_env::search_path(program);
+    if(not path_bin_program)
+    {
+      write_fifo(-1, message.get_pid()).discard("C::Failed to write pid to fifo");
+      write_fifo(1, message.get_exit()).discard("C::Failed to write exit code to fifo");
+      return Error("E::Could not find program '{}'", program);
+    }
+    path_bin_program.value();
+  });
   std::vector<std::string> args(vec_argv.begin()+1, vec_argv.end());
   // Spawn child with a callback to open and redirect FIFOs
   auto child = ns_subprocess::Subprocess(command)

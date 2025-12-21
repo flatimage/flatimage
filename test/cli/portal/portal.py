@@ -44,3 +44,16 @@ class TestFimPortal(PortalTestBase):
     self.assertEqual(stdout.strip(), "val2")
     self.assertEqual(stderr.strip(), "")
     self.assertEqual(returncode, 0)
+
+  def test_portal_nonexistent_process(self):
+    """Test portal behavior when process name does not exist"""
+    # Try to execute a non-existent command through the portal
+    _, err, code = run_cmd(
+      self.file_image,
+      "fim-exec",
+      "fim_portal",
+      "this_command_definitely_does_not_exist_12345"
+    )
+    # Error message should indicate the program was not found
+    self.assertIn("program not found", err)
+    self.assertEqual(code, 1)

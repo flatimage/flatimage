@@ -131,6 +131,8 @@ void register_signals()
     , std::span<pid_t>(&pid_child, 1)
   );
   return_if(bytes_read != sizeof(pid_child), Error("E::{}", strerror(errno)));
+  // Check if PID is valid
+  return_if(pid_child < 0, Error("E::Could not start PID, program not found?"));
   // Forward signal to pid
   opt_child = pid_child;
   logger("D::Child pid: {}", pid_child);

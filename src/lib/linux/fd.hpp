@@ -35,6 +35,7 @@ constexpr auto const TIMEOUT_RETRY = std::chrono::milliseconds(50);
 [[nodiscard]] inline Value<void> redirect_fd_to_fd(pid_t ppid, int fd_src, int fd_dst)
 {
   // Validate file descriptors
+  return_if (ppid < 0, Error("E::Invalid pid to wait for: {}", ppid));
   return_if (fd_src < 0, Error("E::Invalid source file descriptor: {}", fd_src));
   return_if (fd_dst < 0, Error("E::Invalid destination file descriptor: {}", fd_dst));
   // Read lambda
