@@ -70,6 +70,9 @@ The following shows the complete directory structure with corresponding environm
     │   └── {PID}/                           (overlay work directory)
     ├── root/                                (overlay upper/data layer)
     ├── casefold/                            (case-insensitive mount point)
+    ├── layers/                              [FIM_DIR_LAYERS]
+    │   ├── file1.layer                      (layer file)
+    │   ├── file2.layer                      (layer file)
     └── recipes/                             (package recipe definitions)
 ```
 
@@ -195,6 +198,7 @@ Referenced by: `FIM_DIR_DATA`
 ├── work/{PID}/    - Overlay work directory (per-instance)
 ├── root/          - Overlay upper layer (persistent changes)
 ├── casefold/      - Case-insensitive mount point
+├── layers/        - Managed layers directory (automatically mounted)
 └── recipes/       - Package recipe JSON files
 ```
 
@@ -204,6 +208,7 @@ Referenced by: `FIM_DIR_DATA`
 - **`work/`**: Required by bwrap/overlayfs for metadata (deleted on exit)
 - **`root/`**: Writable layer for persistent changes before `fim-layer commit`
 - **`casefold/`**: Mount point when case-insensitivity is enabled
+- **`layers/`**: Managed layers that are automatically mounted on every run (accessed via `FIM_DIR_LAYERS`)
 - **`recipes/`**: Downloaded package recipe definitions
 
 ## Application ID Format
@@ -234,3 +239,4 @@ This ensures:
 | `FIM_DIR_RUNTIME` | `/tmp/fim/run` | Runtime directory |
 | `FIM_DIR_RUNTIME_HOST` | `/tmp/fim/run/host` | Host filesystem access |
 | `FIM_DIR_DATA` | `{BINARY_DIR}/.{BINARY_NAME}.data` | Host-side data directory |
+| `FIM_DIR_LAYERS` | `{FIM_DIR_DATA}/layers` | Managed layers directory (automatically mounted) |
