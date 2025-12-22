@@ -16,7 +16,6 @@
 #include "../lib/env.hpp"
 #include "../lib/log.hpp"
 #include "../parser/executor.hpp"
-#include "../portal/portal.hpp"
 #include "../config.hpp"
 #include "relocate.hpp"
 
@@ -46,10 +45,6 @@ extern char** environ;
   return_if(fim == nullptr, Error("E::Failed to initialize configuration"));
   // Set log file, permissive
   ns_log::set_sink_file(fim->logs.path_file_boot);
-  // Start host portal, permissive
-  [[maybe_unused]] auto portal = ns_portal::spawn(fim->config.daemon.host
-    , fim->logs.daemon_host
-  ).forward("E::Could not start portal daemon");
   // Execute flatimage command if exists
   return Pop(ns_parser::execute_command(*fim, argc, argv));
 }

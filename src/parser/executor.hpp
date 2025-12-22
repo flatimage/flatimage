@@ -30,6 +30,7 @@
 #include "../bwrap/bwrap.hpp"
 #include "../config.hpp"
 #include "../lib/subprocess.hpp"
+#include "../portal/portal.hpp"
 #include "interface.hpp"
 #include "parser.hpp"
 #include "cmd/layers.hpp"
@@ -122,6 +123,10 @@ using namespace ns_parser::ns_interface;
       , fim.path.dir.app
       , fim.logs.dispatcher.path_dir_log
     );
+    // Start host portal, permissive
+    [[maybe_unused]] auto portal = ns_portal::spawn(fim.config.daemon.host
+      , fim.logs.daemon_host
+    ).forward("E::Could not start portal daemon");
     // Run the portal program with the guest dispatcher configuration
     // Run bwrap
     return bwrap.run(permissions
