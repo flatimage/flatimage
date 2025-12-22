@@ -3,7 +3,7 @@
  * @author Ruan Formigoni
  * @brief Cleans mountpoint after the PID passed as an argument exits,
  * it works as a fallback in case the main process fails to cleanup
- * 
+ *
  * @copyright Copyright (c) 2025 Ruan Formigoni
  */
 
@@ -33,7 +33,7 @@ volatile std::sig_atomic_t G_PARENT_OK = 0;
  *
  * @param sig Signal number (unused)
  */
-void cleanup(int sig)
+void cleanup([[maybe_unused]] int sig)
 {
   G_PARENT_OK = 1;
 }
@@ -41,7 +41,7 @@ void cleanup(int sig)
 
 /**
  * @brief Boots the main janitor program
- * 
+ *
  * @param argc Argument count
  * @param argv Argument vector
  * @return Value<void> Nothing on success or the respective error
