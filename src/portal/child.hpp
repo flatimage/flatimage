@@ -76,8 +76,7 @@ namespace ns_message = ns_db::ns_portal::ns_message;
  *
  * @todo Forward grand child pid to a log file
  */
-[[nodiscard]] inline Value<void> spawn(ns_daemon::ns_log::Logs logs
-  , std::vector<std::string> const& vec_argv
+[[nodiscard]] inline Value<void> spawn(std::vector<std::string> const& vec_argv
   , ns_db::ns_portal::ns_message::Message const& message)
 {
   using ns_subprocess::ArgsCallbackParent;
@@ -168,7 +167,7 @@ namespace ns_message = ns_db::ns_portal::ns_message;
   // Ignore on empty command
   if ( vec_argv.empty() ) { return Error("E::Empty command"); }
   // Perform execve
-  Pop(spawn(logs, vec_argv, message));
+  Pop(spawn(vec_argv, message));
   return {};
 }
 
