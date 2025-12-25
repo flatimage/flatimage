@@ -19,8 +19,8 @@ runs:
         mkdir -p dist
         sudo ./deploy/flatimage.sh ${{ inputs.distribution }}
         # Rename the output file to include architecture
-        sudo mv ./build/dist/${{ inputs.distribution }}.flatimage ./build/dist/${{ inputs.distribution }}_${{ inputs.architecture }}.flatimage
-        sudo mv ./build/dist/${{ inputs.distribution }}.flatimage.sha256sum ./build/dist/${{ inputs.distribution }}_${{ inputs.architecture }}.flatimage.sha256sum
+        sudo mv ./build/dist/${{ inputs.distribution }}.flatimage ./build/dist/${{ inputs.distribution }}-${{ inputs.architecture }}.flatimage
+        sudo mv ./build/dist/${{ inputs.distribution }}.flatimage.sha256sum ./build/dist/${{ inputs.distribution }}-${{ inputs.architecture }}.flatimage.sha256sum
         cp ./build/dist/* ./dist
 
     - name: Upload flatimage (v4)

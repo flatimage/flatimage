@@ -67,7 +67,7 @@ jobs:
       - name: Run UnitTest
         uses: ./.github/actions/test-unittest
         with:
-          flatimage: dist/${{ matrix.dist }}_${{ matrix.arch }}.flatimage
+          flatimage: dist/${{ matrix.dist }}-${{ matrix.arch }}.flatimage
 
   #
   # Release

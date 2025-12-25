@@ -64,7 +64,7 @@ runs:
           flatimage-doctest:latest \
         | tee test_doctest.log
         # Check for errors
-        ! grep "The following tests FAILED" test_doctest.log
+        [ -f test_doctest.log ] && ! grep "The following tests FAILED" test_doctest.log
 
     - name: Upload DocTest logs
       uses: christopherhx/gitea-upload-artifact@v4

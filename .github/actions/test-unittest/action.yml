@@ -58,6 +58,7 @@ runs:
       shell: bash
       run: |
         # Get container ID for volumes-from (for gitea act_runner compatibility)
+        FILE_LOG=test_unittest_${{ steps.dist_name.outputs.dist }}.log
         CONTAINER_ID=$(hostname)
         echo "Running in containerized environment (act_runner), using --volumes-from"
         # Set permissions to docker regular user
@@ -68,9 +69,9 @@ runs:
           --volumes-from "$CONTAINER_ID" \
           -w "$GITHUB_WORKSPACE" \
           --rm flatimage-unittest:latest ${{ inputs.flatimage }} \
-        | tee test_unittest_${{ steps.dist_name.outputs.dist }}.log
+        | tee "$FILE_LOG"
         # Check for errors
-        ! grep -E "FAILED.*failures=[0-9]+" test_unittest.log
+        [ -f "$FILE_LOG" ] && ! grep -E "FAILED.*failures=[0-9]+" "$FILE_LOG"
 
     - name: Upload UnitTest logs
       uses: christopherhx/gitea-upload-artifact@v4
