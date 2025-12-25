@@ -54,7 +54,7 @@ wget -O batocera.flatimage https://github.com/flatimage/flatimage/releases/lates
 # Make it executable
 chmod +x ./batocera.flatimage
 # Set permissions
-./batocera.flatimage fim-perms set media,audio,wayland,xorg,udev,dbus_user,usb,input,gpu,network
+./batocera.flatimage fim-perms set media,audio,wayland,xorg,dev,udev,dbus_user,usb,input,gpu,network
 ```
 
 ---
@@ -91,7 +91,7 @@ Use the Alpine toolbox to remove Nvidia proprietary drivers and other packages. 
 
 ```bash
 # Remote builtin nvidia drivers
-./toolbox.flatimage find root -iname "*nvidia*" -exec rm -rf "{}" \;
+./toolbox.flatimage find root -iname "*nvidia*" -exec rm -rf "{}" \; || true
 # Remote kernel modules
 rm -rf root/lib/modules
 # Remote firmware files
@@ -100,7 +100,16 @@ rm -rf root/lib/firmware
 
 ---
 
-## Step 5 - Create FlatImage Layer from Batocera Root
+## Step 5 - Create required files/directories
+
+```bash
+mkdir -p root/userdata/system/logs
+mkdir -p root/var/run
+```
+
+--
+
+## Step 6 - Create FlatImage Layer from Batocera Root
 
 Create a layer from the root directory and append it to the image.
 
@@ -113,24 +122,23 @@ Create a layer from the root directory and append it to the image.
 
 ---
 
-## Step 6 - Configure Environment
+## Step 7 - Configure Environment
 
 Set up the Batocera environment:
 
 ```bash
-# Create Batocera user home directory
-./batocera.flatimage fim-exec mkdir -p /userdata
 # Set environment variables
 ./batocera.flatimage fim-env add \
   'HOME=/userdata' \
   'USER=batocera' \
-  'XDG_CONFIG_HOME=/userdata/system/.config' \
-  'XDG_DATA_HOME=/userdata/system/.local/share'
+  'XDG_CONFIG_HOME=/userdata/system/configs' \
+  'XDG_CACHE_HOME=/userdata/system/cache' \
+  'XDG_DATA_HOME=/userdata/system/data'
 ```
 
 ---
 
-## Step 7 - Set Boot Command
+## Step 8 - Set Boot Command
 
 Configure Batocera's startup command as `emulationstation`:
 
@@ -140,7 +148,7 @@ Configure Batocera's startup command as `emulationstation`:
 
 ---
 
-## Step 8 - Desktop Integration (Optional)
+## Step 9 - Desktop Integration (Optional)
 
 Create desktop integration for launching Batocera:
 
@@ -151,15 +159,16 @@ tee batocera.json <<-'EOF'
   "name": "batocera",
   "icon": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Batocera-logo-art.png",
   "categories": ["Game"],
-  "integrations": ["ENTRY", "ICON", "MIMETYPE"]
 }
 EOF
 
-# Apply desktop integration
+# Setup desktop integration
 ./batocera.flatimage fim-desktop setup ./batocera.json
+
+# Enable integrations
 ./batocera.flatimage fim-desktop enable icon,entry,mimetype
 
-# Enable startup notifications
+# Enable startup notification
 ./batocera.flatimage fim-notify on
 ```
 
@@ -200,7 +209,7 @@ chmod +x ./toolbox.flatimage
 echo "Downloading Blueprint FlatImage..."
 wget -O batocera.flatimage https://github.com/flatimage/flatimage/releases/latest/download/blueprint.flatimage
 chmod +x ./batocera.flatimage
-./batocera.flatimage fim-perms set media,audio,wayland,xorg,udev,dbus_user,usb,input,gpu,network
+./batocera.flatimage fim-perms set media,audio,wayland,xorg,dev,udev,dbus_user,usb,input,gpu,network
 
 # Step 2 - Download Batocera Image
 echo "Downloading Batocera image..."
@@ -214,36 +223,39 @@ chmod -R 755 root/bin root/usr/bin
 
 # Step 4 - Remove Unused Packages
 echo "Removing unused packages..."
-./toolbox.flatimage find root -iname "*nvidia*" -exec rm -rf "{}" \;
+./toolbox.flatimage find root -iname "*nvidia*" -exec rm -rf "{}" \; || true
 rm -rf root/lib/modules
 rm -rf root/lib/firmware
 
-# Step 5 - Create FlatImage Layer from Batocera Root
+# Step 5 - Create required files/directories
+mkdir -p root/userdata/system/logs
+mkdir -p root/var/run
+
+# Step 6 - Create FlatImage Layer from Batocera Root
 echo "Creating FlatImage layer..."
 ./batocera.flatimage fim-layer create ./root root.layer
 ./batocera.flatimage fim-layer add root.layer
 
-# Step 6 - Configure Environment
+# Step 7 - Configure Environment
 echo "Configuring environment..."
-./batocera.flatimage fim-exec mkdir -p /userdata
 ./batocera.flatimage fim-env add \
   'HOME=/userdata' \
   'USER=batocera' \
-  'XDG_CONFIG_HOME=/userdata/system/.config' \
-  'XDG_DATA_HOME=/userdata/system/.local/share'
+  'XDG_CONFIG_HOME=/userdata/system/configs' \
+  'XDG_CACHE_HOME=/userdata/system/cache' \
+  'XDG_DATA_HOME=/userdata/system/data'
 
-# Step 7 - Set Boot Command
+# Step 8 - Set Boot Command
 echo "Setting boot command..."
 ./batocera.flatimage fim-boot set emulationstation
 
-# Step 8 - Desktop Integration (Optional)
+# Step 9 - Desktop Integration (Optional)
 echo "Setting up desktop integration..."
 tee batocera.json <<-'EOF'
 {
   "name": "batocera",
   "icon": "https://upload.wikimedia.org/wikipedia/commons/e/ef/Batocera-logo-art.png",
   "categories": ["Game"],
-  "integrations": ["ENTRY", "ICON", "MIMETYPE"]
 }
 EOF
 
@@ -257,16 +269,41 @@ echo "Run with: ./batocera.flatimage"
 
 ---
 
-## Advanced Customization
+## Next Steps
 
-### Adding ROMs
+### Setup Bindings
 
-Copy ROM files into the Batocera userdata directory:
+* By default use RO, but for scraping use RW
+* List bindings with `fim-bind list`
+* Erase bindings with `fim-bind del <index>`
 
 ```bash
-# Copy ROMs from host
-# ROMs are stored in the .batocera.flatimage.data directory
-cp -r ~/roms/* ./.batocera.flatimage.data/userdata/roms/
+./batocera.flatimage fim-bind add ro '$FIM_DIR_DATA/batocera/roms' /userdata/roms
+./batocera.flatimage fim-bind add ro '$FIM_DIR_DATA/batocera/bios' /userdata/bios
+```
+
+### Bios and Roms
+
+In the same directory as `batocera.flatimage` create the rom/bios folders.
+
+```bash
+mkdir -p .batocera.flatimage.data/batocera/roms .batocera.flatimage.data/batocera/bios
+```
+
+Now copy the bios files and rom files to these directories, for example:
+
+```txt
+.batocera.flatimage.data
+└── batocera
+    ├── bios
+    │   ├──cph1001.bin
+    │   ├── ...
+    │   ├──cph5502.bin
+    │   └──cph7001.bin
+    └── roms
+        └── psx
+            └── game.chd
+
 ```
 
 ---
