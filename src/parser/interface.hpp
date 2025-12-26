@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "../reserved/permissions.hpp"
+#include "../reserved/unshare.hpp"
 #include "../std/enum.hpp"
 #include "../db/bind.hpp"
 #include "cmd/desktop.hpp"
@@ -269,6 +270,31 @@ struct CmdOverlay
   std::variant<Set,Show> sub_cmd;
 };
 
+ENUM(CmdUnshareOp,ADD,CLEAR,DEL,LIST,SET);
+struct CmdUnshare
+{
+  using Unshare = ns_reserved::ns_unshare::Unshare;
+  struct Add
+  {
+    std::set<Unshare> unshares;
+  };
+  struct Clear
+  {
+  };
+  struct Del
+  {
+    std::set<Unshare> unshares;
+  };
+  struct List
+  {
+  };
+  struct Set
+  {
+    std::set<Unshare> unshares;
+  };
+  std::variant<Add,Clear,Del,List,Set> sub_cmd;
+};
+
 ENUM(CmdVersionOp,SHORT,FULL,DEPS);
 struct CmdVersion
 {
@@ -328,6 +354,7 @@ using CmdType = std::variant<CmdRoot
   , CmdRecipe
   , CmdInstance
   , CmdOverlay
+  , CmdUnshare
   , CmdNone
   , CmdExit
   , CmdVersion

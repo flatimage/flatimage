@@ -77,13 +77,16 @@ struct Reserved
   // remote
   constexpr static uint64_t const fim_reserved_offset_remote_begin = fim_reserved_offset_bindings_end;
   constexpr static uint64_t const fim_reserved_offset_remote_end = fim_reserved_offset_remote_begin + 4_kib;
+  // unshare
+  constexpr static uint64_t const fim_reserved_offset_unshare_begin = fim_reserved_offset_remote_end;
+  constexpr static uint64_t const fim_reserved_offset_unshare_end = fim_reserved_offset_unshare_begin + 2;
 
   /**
    * @brief Validates reserved space layout at compile-time
    */
   constexpr Reserved()
   {
-    static_assert(fim_reserved_offset_remote_end < FIM_RESERVED_SIZE, "Insufficient reserved space");
+    static_assert(fim_reserved_offset_unshare_end < FIM_RESERVED_SIZE, "Insufficient reserved space");
   }
 };
 
@@ -120,6 +123,9 @@ uint64_t const FIM_RESERVED_OFFSET_BINDINGS_END = FIM_RESERVED_OFFSET + reserved
 // Remote
 uint64_t const FIM_RESERVED_OFFSET_REMOTE_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_remote_begin;
 uint64_t const FIM_RESERVED_OFFSET_REMOTE_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_remote_end;
+// Unshare
+uint64_t const FIM_RESERVED_OFFSET_UNSHARE_BEGIN = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_unshare_begin;
+uint64_t const FIM_RESERVED_OFFSET_UNSHARE_END = FIM_RESERVED_OFFSET + reserved.fim_reserved_offset_unshare_end;
 
 
 

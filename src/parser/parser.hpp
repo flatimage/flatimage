@@ -52,6 +52,7 @@ enum class FimCommand
   RECIPE,
   INSTANCE,
   OVERLAY,
+  UNSHARE,
   VERSION,
   HELP
 };
@@ -79,6 +80,7 @@ enum class FimCommand
   if (str == "fim-recipe")   return FimCommand::RECIPE;
   if (str == "fim-remote")   return FimCommand::REMOTE;
   if (str == "fim-root")     return FimCommand::ROOT;
+  if (str == "fim-unshare")  return FimCommand::UNSHARE;
   if (str == "fim-version")  return FimCommand::VERSION;
 
   return Error("C::Unknown command: {}", str);
@@ -724,6 +726,61 @@ class VecArgs
       return CmdType(cmd);
     }
 
+    // Configure unshare namespace options
+    case FimCommand::UNSHARE:
+    {
+      // Get op
+      CmdUnshareOp op = Pop(
+        CmdUnshareOp::from_string(Pop(args.pop_front<"C::Missing op for fim-unshare (add,clear,del,list,set)">())), "C::Invalid unshare operation"
+      );
+      auto f_process_unshares = [&] -> Value<std::set<CmdUnshare::Unshare>>
+      {
+        std::set<CmdUnshare::Unshare> unshares;
+        for(auto arg : ns_vector::from_string(Pop(args.pop_front<"C::No arguments for '{}' command">(op)), ','))
+        {
+          unshares.insert(Pop(CmdUnshare::Unshare::from_string(arg), "C::Invalid unshare option"));
+        }
+        return unshares;
+      };
+      // Process Ops
+      CmdUnshare cmd_unshare;
+      switch(op)
+      {
+        case CmdUnshareOp::SET:
+        {
+          cmd_unshare.sub_cmd = CmdUnshare::Set { .unshares = Pop(f_process_unshares(), "C::Failed to process unshare options") };
+        }
+        break;
+        case CmdUnshareOp::ADD:
+        {
+          cmd_unshare.sub_cmd = CmdUnshare::Add { .unshares = Pop(f_process_unshares(), "C::Failed to process unshare options") };
+        }
+        break;
+        case CmdUnshareOp::DEL:
+        {
+          cmd_unshare.sub_cmd = CmdUnshare::Del { .unshares = Pop(f_process_unshares(), "C::Failed to process unshare options") };
+        }
+        break;
+        case CmdUnshareOp::LIST:
+        {
+          cmd_unshare.sub_cmd = CmdUnshare::List{};
+        }
+        break;
+        case CmdUnshareOp::CLEAR:
+        {
+          cmd_unshare.sub_cmd = CmdUnshare::Clear{};
+        }
+        break;
+        case CmdUnshareOp::NONE:
+        {
+          return Error("C::Invalid operation for unshare");
+        }
+      }
+      // Check for trailing arguments
+      return_if(not args.empty(), Error("C::Trailing arguments for fim-unshare: {}", args.data()));
+      return CmdType{cmd_unshare};
+    }
+
     // Select or show the current overlay filesystem
     case FimCommand::VERSION:
     {
@@ -769,6 +826,7 @@ class VecArgs
       else if (help_topic == "recipe")   { message = ns_cmd::ns_help::recipe_usage(); }
       else if (help_topic == "remote")   { message = ns_cmd::ns_help::remote_usage(); }
       else if (help_topic == "root")     { message = ns_cmd::ns_help::root_usage(); }
+      else if (help_topic == "unshare")  { message = ns_cmd::ns_help::unshare_usage(); }
       else if (help_topic == "version")  { message = ns_cmd::ns_help::version_usage(); }
       else
       {

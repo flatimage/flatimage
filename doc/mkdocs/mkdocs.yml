@@ -42,6 +42,7 @@ nav:
     - fim-recipe: cmd/recipe.md
     - fim-remote: cmd/remote.md
     - fim-root: cmd/root.md
+    - fim-unshare: cmd/unshare.md
     - fim-version: cmd/version.md
   - Configuration:
     - User Identity: configuration/user-identity.md

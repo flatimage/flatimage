@@ -79,6 +79,13 @@ from cli.remote.workflow import TestFimRemoteWorkflow
 # Root tests
 from cli.root.root import TestFimRoot
 
+# Unshare tests
+from cli.unshare.add import TestFimUnshareAdd
+from cli.unshare.set import TestFimUnshareSet
+from cli.unshare.delete import TestFimUnshareDel
+from cli.unshare.clear import TestFimUnshareClear
+from cli.unshare.list import TestFimUnshareList
+
 # Version tests
 from cli.version.deps import TestFimVersionDeps
 from cli.version.full import TestFimVersionFull
@@ -148,6 +155,12 @@ def suite():
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimRemoteWorkflow))
   # Root tests
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimRoot))
+  # Unshare tests
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimUnshareAdd))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimUnshareSet))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimUnshareDel))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimUnshareClear))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimUnshareList))
   # Version tests
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimVersionDeps))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimVersionFull))

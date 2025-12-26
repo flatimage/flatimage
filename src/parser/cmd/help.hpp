@@ -84,7 +84,7 @@ inline std::string help_usage()
     .with_args({
       { "cmd", "Name of the command to display help details" },
     })
-    .with_note("Available commands: fim-{bind,boot,casefold,desktop,env,exec,instance,layer,notify,overlay,perms,recipe,remote,root,version}")
+    .with_note("Available commands: fim-{bind,boot,casefold,desktop,env,exec,instance,layer,notify,overlay,perms,recipe,remote,root,unshare,version}")
     .with_example(R"(fim-help bind)")
     .get();
 }
@@ -379,6 +379,30 @@ inline std::string root_usage()
       { "args...", "Arguments for the executed program" },
     })
     .with_example(R"(fim-root id -u)")
+    .get();
+}
+
+inline std::string unshare_usage()
+{
+  return HelpEntry{"fim-unshare"}
+    .with_description("Configure namespace unsharing options for isolation")
+    .with_note("Unshare options: all,user,ipc,pid,net,uts,cgroup")
+    .with_note("USER and CGROUP use '-try' variants in bubblewrap for permissiveness")
+    .with_usage("fim-unshare <add|del|set> <options...>")
+    .with_args({
+      { "add", "Enable one or more unshare options" },
+      { "del", "Remove one or more unshare options" },
+      { "set", "Replace all unshare options with the specified set" },
+      { "options...", "One or more unshare options (comma-separated)" },
+    })
+    .with_example("fim-unshare add ipc,pid")
+    .with_example("fim-unshare set user,ipc,net")
+    .with_note("The 'all' option enables all available unshare options and cannot be combined with others")
+    .with_usage("fim-unshare <list|clear>")
+    .with_args({
+      { "list", "Lists the current unshare options" },
+      { "clear", "Clears all unshare options" },
+    })
     .get();
 }
 

@@ -19,6 +19,7 @@
 #include "../db/portal/daemon.hpp"
 #include "../db/portal/dispatcher.hpp"
 #include "../reserved/permissions.hpp"
+#include "../reserved/unshare.hpp"
 #include "../std/expected.hpp"
 #include "../std/vector.hpp"
 #include "../lib/log.hpp"
@@ -211,6 +212,8 @@ inline Value<void> bwrap_clean(fs::path const& path_dir_work)
 
 using Permissions = ns_reserved::ns_permissions::Permissions;
 using Permission = ns_reserved::ns_permissions::Permission;
+using Unshares = ns_reserved::ns_unshare::Unshares;
+using Unshare = ns_reserved::ns_unshare::Unshare;
 
 struct bwrap_run_ret_t { int code; int syscall_nr; int errno_nr; };
 
@@ -280,6 +283,7 @@ class Bwrap
     [[maybe_unused]] [[nodiscard]] Bwrap& with_bind_ro(fs::path const& src, fs::path const& dst);
     [[maybe_unused]] void set_overlay(ns_proxy::Overlay const& overlay);
     [[maybe_unused]] [[nodiscard]] Value<bwrap_run_ret_t> run(Permissions const& permissions
+      , Unshares const& unshares
       , fs::path const& path_file_daemon
       , ns_db::ns_portal::ns_dispatcher::Dispatcher const& arg1_dispatcher
       , ns_db::ns_portal::ns_daemon::Daemon const& arg1_daemon
@@ -864,6 +868,7 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
  * @brief Runs the command in the bubblewrap sandbox
  *
  * @param permissions Permissions for the program (HOME, MEDIA, AUDIO, etc.), configured in bubblewrap
+ * @param unshares Unshare namespace options (USER, IPC, PID, NET, UTS, CGROUP)
  * @param path_file_daemon Path to the portal daemon executable
  * @param arg1_dispatcher Dispatcher configuration for the portal communication (controls FIFO communication between host and container)
  * @param arg1_daemon Daemon host configuration for the portal (controls daemon communication settings)
@@ -871,6 +876,7 @@ inline Bwrap& Bwrap::with_bind_gpu(fs::path const& path_dir_root_guest, fs::path
  * @return Value<bwrap_run_ret_t> Return value containing exit code, syscall number, and errno on error
  */
 inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
+  , Unshares const& unshares
   , fs::path const& path_file_daemon
   , ns_db::ns_portal::ns_dispatcher::Dispatcher const& arg1_dispatcher
   , ns_db::ns_portal::ns_daemon::Daemon const& arg1_daemon
@@ -891,6 +897,39 @@ inline Value<bwrap_run_ret_t> Bwrap::run(Permissions const& permissions
   if(permissions.contains(Permission::SHM)){ std::ignore = bind_shm(); };
   if(permissions.contains(Permission::OPTICAL)){ std::ignore = bind_optical(); };
   if(permissions.contains(Permission::DEV)){ std::ignore = bind_dev(); };
+
+  // Configure unshare namespace options
+  // Note: USER and CGROUP use '-try' variants for permissiveness
+  if(unshares.contains(Unshare::USER))
+  {
+    logger("D::UNSHARE(USER)");
+    ns_vector::push_back(m_args, "--unshare-user-try");
+  }
+  if(unshares.contains(Unshare::IPC))
+  {
+    logger("D::UNSHARE(IPC)");
+    ns_vector::push_back(m_args, "--unshare-ipc");
+  }
+  if(unshares.contains(Unshare::PID))
+  {
+    logger("D::UNSHARE(PID)");
+    ns_vector::push_back(m_args, "--unshare-pid");
+  }
+  if(unshares.contains(Unshare::NET))
+  {
+    logger("D::UNSHARE(NET)");
+    ns_vector::push_back(m_args, "--unshare-net");
+  }
+  if(unshares.contains(Unshare::UTS))
+  {
+    logger("D::UNSHARE(UTS)");
+    ns_vector::push_back(m_args, "--unshare-uts");
+  }
+  if(unshares.contains(Unshare::CGROUP))
+  {
+    logger("D::UNSHARE(CGROUP)");
+    ns_vector::push_back(m_args, "--unshare-cgroup-try");
+  }
 
   // Search for bash
   fs::path path_file_bash = Pop(ns_env::search_path("bash"));

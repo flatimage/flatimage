@@ -37,6 +37,7 @@
 #include "cmd/desktop.hpp"
 #include "cmd/bind.hpp"
 #include "cmd/recipe.hpp"
+#include "cmd/unshare.hpp"
 
 namespace ns_parser
 {
@@ -112,6 +113,8 @@ using namespace ns_parser::ns_interface;
       .with_binds(Pop(ns_cmd::ns_bind::db_read(fim.path.bin.self), "E::Failed to configure bindings"));
     // Retrieve permissions
     ns_reserved::ns_permissions::Permissions permissions(fim.path.bin.self);
+    // Retrieve unshare options
+    ns_reserved::ns_unshare::Unshares unshares(fim.path.bin.self);
     // Check if should enable GPU
     if (permissions.contains(ns_reserved::ns_permissions::Permission::GPU))
     {
@@ -130,6 +133,7 @@ using namespace ns_parser::ns_interface;
     // Run the portal program with the guest dispatcher configuration
     // Run bwrap
     return bwrap.run(permissions
+      , unshares
       , fim.path.bin.portal_daemon
       , dispatcher
       , fim.config.daemon.guest
@@ -514,6 +518,33 @@ using namespace ns_parser::ns_interface;
     else
     {
       return Error("C::Invalid operation for fim-overlay");
+    }
+  }
+  else if ( auto cmd = std::get_if<ns_parser::CmdUnshare>(&variant_cmd) )
+  {
+    if(auto cmd_set = std::get_if<CmdUnshare::Set>(&(cmd->sub_cmd)))
+    {
+      Pop(ns_cmd::ns_unshare::set(fim.path.bin.self, cmd_set->unshares), "E::Failed to set unshare options");
+    }
+    else if(auto cmd_add = std::get_if<CmdUnshare::Add>(&(cmd->sub_cmd)))
+    {
+      Pop(ns_cmd::ns_unshare::add(fim.path.bin.self, cmd_add->unshares), "E::Failed to add unshare options");
+    }
+    else if(auto cmd_del = std::get_if<CmdUnshare::Del>(&(cmd->sub_cmd)))
+    {
+      Pop(ns_cmd::ns_unshare::del(fim.path.bin.self, cmd_del->unshares), "E::Failed to delete unshare options");
+    }
+    else if(std::get_if<CmdUnshare::Clear>(&(cmd->sub_cmd)))
+    {
+      Pop(ns_cmd::ns_unshare::clear(fim.path.bin.self), "E::Failed to clear unshare options");
+    }
+    else if(std::get_if<CmdUnshare::List>(&(cmd->sub_cmd)))
+    {
+      Pop(ns_cmd::ns_unshare::list(fim.path.bin.self), "E::Failed to list unshare options");
+    }
+    else
+    {
+      return Error("C::Invalid operation for fim-unshare");
     }
   }
   else if ( auto cmd = std::get_if<ns_parser::CmdVersion>(&variant_cmd) )
