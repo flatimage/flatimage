@@ -223,6 +223,12 @@ Change: 2025-10-11 19:14:21.107484017 +0000
 
 The current implementation is not **case-preserving**, the file names are always created in lower-case. Thus, if disabled with `fim-casefold off`, the file in the previous example will be accessible only as `readme.md` until casefolding is turned back on.
 
+# Standards used by this project
+
+* [Keep a Changelog](https://keepachangelog.com/en/1.0.0)
+* [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
+* [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0)
+
 # Related and Similar Projects
 
 - [RunImage](https://github.com/VHSgunzo/runimage): Portable single-file Linux container in unprivileged user namespaces.
