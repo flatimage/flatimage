@@ -57,20 +57,12 @@ function _system_arch()
   # Enable multilib
   gawk -i inplace '/#\[multilib\]/,/#Include = (.*)/ { sub("#", ""); } 1' "$dir_root"/etc/pacman.conf
   chroot "$dir_root" /bin/bash -c "pacman -Syu --noconfirm"
-  # Required for nvidia
-  chroot "$dir_root" /bin/bash -c "pacman -S --noconfirm libvdpau lib32-libvdpau"
-  # Avoid segfaults on some OpenGL applications
-  chroot "$dir_root" /bin/bash -c "pacman -S --noconfirm libxkbcommon lib32-libxkbcommon"
   # Pacman hooks
   ## Avoid taking too long on 'Arming ConditionNeedsUpdate' and 'Update MIME database'
   cp "$FIM_DIR"/deploy/arch.patch.sh "$dir_root"/patch.sh
   chmod +x "$dir_root"/patch.sh
   chroot "$dir_root" /bin/bash -c /patch.sh
   rm "$dir_root"/patch.sh
-  # Input
-  chroot "$dir_root" /bin/bash -c "pacman -S libusb sdl2 lib32-sdl2 --noconfirm"
-  # fakeroot & fakechroot
-  chroot "$dir_root" /bin/bash -c "pacman -S git fakeroot fakechroot binutils --noconfirm"
   # Clear cache
   chroot "$dir_root" /bin/bash -c "pacman -Scc --noconfirm"
   rm -rf "$dir_root"/var/cache/pacman/pkg/*
