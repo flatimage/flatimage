@@ -11,7 +11,7 @@ jobs:
     if: ${{ !contains(github.server_url, 'github.com') }}
     strategy:
       matrix:
-        dist: [alpine,arch]
+        dist: [alpine,arch,blueprint]
         arch: [x86_64]
     runs-on: ubuntu-latest
     steps:
