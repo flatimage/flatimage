@@ -73,7 +73,7 @@ FIM_LAYERS="/opt/shared-layers:/home/user/custom-layers" ./app.flatimage
 
 ```bash
 # Download Alpine Linux FlatImage
-wget -O app.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O app.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 chmod +x app.flatimage
 
 # Configure permissions

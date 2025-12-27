@@ -70,7 +70,7 @@ Create a portable application launcher:
 
 ```bash
 # Download and setup
-wget https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O alpine.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 chmod +x alpine.flatimage
 
 # Configure permissions

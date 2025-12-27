@@ -6,7 +6,7 @@ Get started with FlatImage in 30 seconds.
 
 ```bash
 # Download a FlatImage distribution
-wget https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O alpine.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 
 # Make it executable
 chmod +x alpine.flatimage
@@ -21,17 +21,17 @@ You're now inside an isolated Alpine Linux environment!
 
 **Alpine Linux** - MUSL-based with apk package manager:
 ```bash
-wget https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O alpine.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 ```
 
 **Arch Linux** - GNU-based with pacman package manager:
 ```bash
-wget https://github.com/flatimage/flatimage/releases/latest/download/arch.flatimage
+wget -O arch.flatimage https://github.com/flatimage/flatimage/releases/latest/download/arch-x86_64.flatimage
 ```
 
 **Blueprint** - Empty template for custom builds:
 ```bash
-wget https://github.com/flatimage/flatimage/releases/latest/download/blueprint.flatimage
+wget -O blueprint.flatimage https://github.com/flatimage/flatimage/releases/latest/download/blueprint-x86_64.flatimage
 ```
 
 ## Exit the Container

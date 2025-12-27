@@ -51,7 +51,7 @@ Auto-generated menu entries, MIME types, and icons. Paths auto-update on file mo
 
 ```bash
 # Download and run a complete Alpine Linux environment
-wget https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O alpine.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 chmod +x alpine.flatimage
 ./alpine.flatimage  # You're now inside an isolated Alpine container!
 ```
@@ -68,11 +68,11 @@ chmod +x alpine.flatimage
 
 Download one of the following distributions of a FlatImage package:
 
-- [Alpine Linux](https://archlinux.org) is a complete `MUSL` subsystem with the `apk` package manager. [Download](https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage)
+- [Alpine Linux](https://archlinux.org) is a complete `MUSL` subsystem with the `apk` package manager. [Download](https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage)
 
-- [Arch Linux](https://archlinux.org) is a complete `GNU` subsystem with the `pacman` package manager. [Download](https://github.com/flatimage/flatimage/releases/latest/download/arch.flatimage)
+- [Arch Linux](https://archlinux.org) is a complete `GNU` subsystem with the `pacman` package manager. [Download](https://github.com/flatimage/flatimage/releases/latest/download/arch-x86_64.flatimage)
 
-- Blueprint is an empty FlatImage so you can build your own Linux sub-system. [Download](https://github.com/flatimage/flatimage/releases/latest/download/blueprint.flatimage)
+- Blueprint is an empty FlatImage so you can build your own Linux sub-system. [Download](https://github.com/flatimage/flatimage/releases/latest/download/blueprint-x86_64.flatimage)
 
 ## Enter the Container
 
@@ -80,7 +80,7 @@ The following commands download and enter the alpine container.
 
 ```bash
 # Download the container
-$ wget -O alpine.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+$ wget -O alpine.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 # Make it executable
 $ chmod +x ./alpine.flatimage
 # Enter the container

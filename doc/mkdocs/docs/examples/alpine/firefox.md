@@ -13,7 +13,7 @@ Recipes provide a simplified way to install common package groups with automatic
 Download the Alpine Linux-based FlatImage:
 
 ```bash
-wget -O firefox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O firefox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 chmod +x ./firefox.flatimage
 ```
 
@@ -76,7 +76,7 @@ This method provides full control over package selection without using recipes.
 Download the Alpine Linux-based FlatImage:
 
 ```bash
-wget -O firefox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O firefox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 chmod +x ./firefox.flatimage
 ```
 

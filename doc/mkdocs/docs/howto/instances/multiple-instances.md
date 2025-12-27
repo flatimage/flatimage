@@ -21,7 +21,7 @@ Each FlatImage binary stores its persistent data in `{BINARY_DIR}/.{BINARY_NAME}
 
 ```bash
 # Download Firefox image
-wget -O firefox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O firefox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 chmod +x ./firefox.flatimage
 
 # Configure Firefox

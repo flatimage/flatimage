@@ -24,7 +24,7 @@ This example demonstrates:
 Download the the Alpine FlatImage to create a toolbox:
 
 ```bash
-wget -O toolbox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O toolbox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 chmod +x ./toolbox.flatimage
 ```
 
@@ -50,7 +50,7 @@ Now the toolbox can be used like a regular command without `fim-exec`!
 The Blueprint image is an empty container with no pre-installed distribution:
 
 ```bash
-wget -O batocera.flatimage https://github.com/flatimage/flatimage/releases/latest/download/blueprint.flatimage
+wget -O batocera.flatimage https://github.com/flatimage/flatimage/releases/latest/download/blueprint-x86_64.flatimage
 # Make it executable
 chmod +x ./batocera.flatimage
 # Set permissions
@@ -196,7 +196,7 @@ set -euo pipefail
 
 # Step 0 - Download and configure Alpine toolbox
 echo "Setting up Alpine toolbox..."
-wget -O toolbox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine.flatimage
+wget -O toolbox.flatimage https://github.com/flatimage/flatimage/releases/latest/download/alpine-x86_64.flatimage
 chmod +x ./toolbox.flatimage
 
 # Configure the toolbox
@@ -207,7 +207,7 @@ chmod +x ./toolbox.flatimage
 
 # Step 1 - Download Blueprint FlatImage
 echo "Downloading Blueprint FlatImage..."
-wget -O batocera.flatimage https://github.com/flatimage/flatimage/releases/latest/download/blueprint.flatimage
+wget -O batocera.flatimage https://github.com/flatimage/flatimage/releases/latest/download/blueprint-x86_64.flatimage
 chmod +x ./batocera.flatimage
 ./batocera.flatimage fim-perms set media,audio,wayland,xorg,dev,udev,dbus_user,usb,input,gpu,network
 
