@@ -22,6 +22,7 @@
 
 #include "bwrap/bwrap.hpp"
 #include "filesystems/controller.hpp"
+#include "filesystems/layers.hpp"
 #include "db/portal/daemon.hpp"
 #include "db/portal/dispatcher.hpp"
 #include "lib/env.hpp"
@@ -69,6 +70,8 @@
 #ifndef FIM_RESERVED_SIZE
   #error "FIM_RESERVED_SIZE is undefined"
 #endif
+
+extern "C" uint32_t FIM_RESERVED_OFFSET;
 
 using DaemonMode = ns_db::ns_portal::ns_daemon::Mode;
 
@@ -376,7 +379,7 @@ struct Config
    * @return Value<Config> Initialized configuration or error
    */
   static Value<Config> create(
-    ns_filesystems::ns_controller::Layers const& layers,
+    ns_filesystems::ns_layers::Layers const& layers,
     bool const is_casefold,
     fs::path const& path_dir_instance,
     fs::path const& path_dir_host_data,
@@ -598,7 +601,8 @@ struct FlatImage
   Logs logs = Try(Logs(path.dir.instance / "logs"));
 
   // Gather layers
-  ns_filesystems::ns_controller::Layers layers;
+  ns_filesystems::ns_layers::Layers layers;
+  layers.push_binary(path.bin.self, FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE);
   layers.push_from_var("FIM_LAYERS").discard("W::Failed to setup FIM_LAYERS");
   layers.push(path.dir.host_data_layers).discard("W::Failed to setup host_data_layers");
 

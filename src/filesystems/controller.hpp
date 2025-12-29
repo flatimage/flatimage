@@ -8,12 +8,12 @@
 
 #pragma once
 
+#include <cstdint>
 #include <filesystem>
 #include <memory>
 #include <fcntl.h>
 
 #include "../std/expected.hpp"
-#include "../std/filesystem.hpp"
 #include "../reserved/overlay.hpp"
 #include "filesystem.hpp"
 #include "overlayfs.hpp"
@@ -21,6 +21,7 @@
 #include "dwarfs.hpp"
 #include "ciopfs.hpp"
 #include "utils.hpp"
+#include "layers.hpp"
 
 /**
  * @namespace ns_filesystems
@@ -43,8 +44,6 @@
 namespace ns_filesystems::ns_controller
 {
 
-extern "C" uint32_t FIM_RESERVED_OFFSET;
-
 struct Logs
 {
   fs::path const path_file_dwarfs;
@@ -52,146 +51,6 @@ struct Logs
   fs::path const path_file_overlayfs;
   fs::path const path_file_unionfs;
   fs::path const path_file_janitor;
-};
-
-/**
- * @class Layers
- * @brief Manages external DwarFS layer files and directories for the filesystem controller
- *
- * Provides a unified interface for collecting layer files from both individual file paths
- * and directories. Supports the FIM_LAYERS environment variable which accepts a colon-separated
- * list of paths that can be files or directories.
- *
- * **Directory Scanning:**
- * - Non-recursive (only scans direct children)
- * - Alphabetical order within each directory
- * - Validates files as DwarFS filesystems
- *
- * **File Processing:**
- * - Direct file paths are validated and added immediately
- * - Invalid files are skipped with a warning
- *
- * @example
- * @code
- * Layers layers;
- * layers.push_from_var("FIM_LAYERS");  // Process FIM_LAYERS env var
- * layers.push("/path/to/layers");       // Add directory or file
- * auto const& paths = layers.get_layers();  // Retrieve all layer paths
- * @endcode
- */
-class Layers
-{
-  private:
-    std::vector<fs::path> layers;  ///< Collection of validated layer file paths
-
-    /**
-     * @brief Validates and appends a single layer file
-     *
-     * Checks if the file is a valid DwarFS filesystem by examining magic bytes.
-     * Invalid files are skipped with a warning.
-     *
-     * @param path Path to the layer file to validate and add
-     */
-    [[nodiscard]] Value<void> append_file(fs::path const& path)
-    {
-      return_if(not ns_dwarfs::is_dwarfs(path), Error("W::Skipping invalid dwarfs filesystem '{}'", path));
-      layers.push_back(path);
-      return {};
-    }
-
-    /**
-     * @brief Scans a directory for layer files and appends them
-     *
-     * Performs non-recursive directory scanning to collect regular files.
-     * Sorts files lexicographically
-     * Each file is validated via append_file() before being added.
-     *
-     * @param path Path to directory to scan
-     */
-    [[nodiscard]] Value<void> append_directory(fs::path const& path)
-    {
-      // Get all regular files from the directory
-      auto result = Pop(ns_fs::regular_files(path));
-      // Sort layers files
-      std::ranges::sort(result);
-      // Process each file
-      for(auto&& file : result)
-      {
-        append_file(file).discard("W::Failed to append layer from directory");
-      }
-      return {};
-    }
-
-  public:
-    /**
-     * @brief Adds a layer from a file or directory path
-     *
-     * Automatically detects whether the path is a file or directory and processes accordingly:
-     * - **File:** Validates and adds directly
-     * - **Directory:** Scans for layer files and adds them alphabetically
-     *
-     * @param path Filesystem path (file or directory)
-     * @return Value<void> Success or error
-     */
-    [[nodiscard]] Value<void> push(fs::path const& path)
-    {
-      if(Try(fs::is_regular_file(path)))
-      {
-        append_file(path).discard("W::Failed to append layer from regular file");
-      }
-      else if(Try(fs::is_directory(path)))
-      {
-        append_directory(path).discard("W::Failed to append layer from directory");
-      }
-      return {};
-    }
-
-    /**
-     * @brief Loads layers from a colon-separated environment variable
-     *
-     * Processes environment variables like FIM_LAYERS which contain colon-separated
-     * paths. Each path can be either a file or directory. Performs shell expansion
-     * on variable values before processing.
-     *
-     * **Processing Steps:**
-     * 1. Retrieves environment variable value
-     * 2. Performs word expansion (variables, subshells)
-     * 3. Splits on ':' delimiter
-     * 4. Processes each path via push()
-     *
-     * @param var Name of environment variable to read (e.g., "FIM_LAYERS")
-     * @return Value<void> Success or error
-     */
-    [[nodiscard]] Value<void> push_from_var(std::string_view var)
-    {
-      for(fs::path const& path : ns_env::get_expected<"Q">(var)
-        // Perform word expansions (variables, run subshells...)
-        .transform([](auto&& e){ return ns_env::expand(e).value_or(std::string{e}); })
-        // Get value or default to empty
-        .value_or(std::string{})
-        // Split values variable on ':'
-        | std::views::split(':')
-        // Create a path
-        | std::views::transform([](auto&& e){ return fs::path(e.begin(), e.end()); })
-      )
-      {
-        Pop(push(path));
-      }
-      return {};
-    }
-
-    /**
-     * @brief Retrieves the collected layer file paths
-     *
-     * Returns the final list of validated layer files in the order they were added.
-     * This is used by the filesystem controller to mount layers sequentially.
-     *
-     * @return const reference to vector of layer file paths
-     */
-    std::vector<fs::path> const& get_layers() const
-    {
-      return layers;
-    }
 };
 
 struct Config
@@ -211,7 +70,7 @@ struct Config
   fs::path const path_bin_janitor;
   fs::path const path_bin_self;
   // Extra layers to mount
-  Layers const layers;
+  ns_layers::Layers const layers;
 };
 
 class Controller
@@ -224,9 +83,9 @@ class Controller
     std::vector<std::unique_ptr<ns_dwarfs::Dwarfs>> m_dwarfs;
     std::vector<std::unique_ptr<ns_filesystem::Filesystem>> m_filesystems;
     std::unique_ptr<ns_subprocess::Child> m_child_janitor;
-    Layers const m_layers;
+    ns_layers::Layers const m_layers;
 
-    [[nodiscard]] uint64_t mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_bin_self, uint64_t offset);
+    [[nodiscard]] uint64_t mount_dwarfs(fs::path const& path_dir_mount);
     void mount_ciopfs(fs::path const& path_dir_lower, fs::path const& path_dir_upper);
     void mount_unionfs(std::vector<fs::path> const& vec_path_dir_layer
       , fs::path const& path_dir_data
@@ -265,10 +124,7 @@ inline Controller::Controller(Logs const& logs , Config const& config)
   , m_layers(config.layers)
 {
   // Mount compressed layers
-  [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_layers
-    , config.path_bin_self
-    , FIM_RESERVED_OFFSET + FIM_RESERVED_SIZE
-  );
+  [[maybe_unused]] uint64_t index_fs = mount_dwarfs(config.path_dir_layers);
   // Use unionfs-fuse
   if ( config.overlay_type == ns_reserved::ns_overlay::OverlayType::UNIONFS )
   {
@@ -356,18 +212,17 @@ inline Controller::~Controller()
 }
 
 /**
- * @brief Mounts a dwarfs filesystem
+ * @brief Mounts all dwarfs filesystems from the layers collection
  *
- * @param path_dir_mount Path to the directory to mount the filesystem
- * @param path_bin_self Path to the file which contains the dwarfs filesystem
- * @param offset Offset in the 'path_bin_self' in which the filesystem starts
+ * Iterates through the pre-populated layers (from m_layers) and mounts each one.
+ * Layers should be populated before Controller construction using Layers::push_binary()
+ * for embedded filesystems and Layers::push() for external layer files.
+ *
+ * @param path_dir_mount Path to the directory to mount the filesystems
  * @return uint64_t The index of the last mounted dwarfs filesystem + 1
  */
-inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::path const& path_bin_self, uint64_t offset)
+inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount)
 {
-  // Open the main binary
-  std::ifstream file_binary(path_bin_self, std::ios::binary);
-
   // Filesystem index
   uint64_t index_fs{};
 
@@ -377,7 +232,6 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     , uint64_t _offset
     , uint64_t _size_fs) -> Value<void>
   {
-    logger("D::Offset to filesystem is '{}'", _offset);
     // Create mountpoint
     fs::path path_dir_mount_index = _path_dir_mount / std::to_string(_index_fs);
     Try(fs::create_directories(path_dir_mount_index));
@@ -397,53 +251,16 @@ inline uint64_t Controller::mount_dwarfs(fs::path const& path_dir_mount, fs::pat
     return {};
   };
 
-  // Advance offset
-  file_binary.seekg(offset);
-
-  // Mount filesystem concatenated in the image itself
-  while (true)
+  // Mount all filesystems (both embedded and external)
+  for (auto const& [path_file_layer, offset, size] : m_layers.get_layers())
   {
-    // Read filesystem size
-    int64_t size_fs;
-    break_if(not file_binary.read(reinterpret_cast<char*>(&size_fs), sizeof(size_fs))
-      , "D::Stopped reading at index {}", index_fs
-    );
-    logger("D::Filesystem size is '{}'", size_fs);
-    // Validate filesystem size
-    break_if(size_fs <= 0, "E::Invalid filesystem size '{}' at index {}", size_fs, index_fs);
-    // Skip size bytes
-    offset += 8;
+    logger("D::Mounting layer from '{}' with offset '{}'", path_file_layer.filename(), offset);
     // Check if filesystem is of type 'DWARFS'
-    break_if(not ns_dwarfs::is_dwarfs(path_bin_self, offset)
-      , "E::Invalid dwarfs filesystem appended on the image"
-    );
-    // Mount filesystem
-    break_if(not f_mount(path_bin_self, path_dir_mount, index_fs, offset, size_fs)
-      , "E::Failed to mount filesystem at index {}", index_fs
-    );
-    // Go to next filesystem if exists
-    index_fs += 1;
-    offset += size_fs;
-    file_binary.seekg(offset);
-  } // while
-  file_binary.close();
-
-  // Mount external filesystems
-  for (fs::path const& path_file_layer : m_layers.get_layers())
-  {
-    // Check if filesystem is of type 'DWARFS'
-    continue_if(not ns_dwarfs::is_dwarfs(path_file_layer, 0)
+    continue_if(not ns_dwarfs::is_dwarfs(path_file_layer, offset)
       , "E::Invalid dwarfs filesystem appended on the image"
     );
     // Mount file as a filesystem
-    auto size_result = Catch(fs::file_size(path_file_layer));
-    if (!size_result)
-    {
-      logger("E::Failed to get file size for layer: {}", path_file_layer.string());
-      continue;
-    }
-    auto mount_result = f_mount(path_file_layer, path_dir_mount, index_fs, 0, size_result.value());
-    if (!mount_result)
+    if (not f_mount(path_file_layer, path_dir_mount, index_fs, offset, size))
     {
       logger("E::Failed to mount filesystem at index {}", index_fs);
       continue;
