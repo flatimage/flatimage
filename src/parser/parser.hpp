@@ -413,7 +413,7 @@ class VecArgs
       CmdLayer cmd;
       // Get op
       CmdLayerOp op = Pop(
-        CmdLayerOp::from_string(Pop(args.pop_front<"C::Missing op for 'fim-layer' (create,add,commit)">())), "C::Invalid layer operation"
+        CmdLayerOp::from_string(Pop(args.pop_front<"C::Missing op for 'fim-layer' (create,add,commit,list)">())), "C::Invalid layer operation"
       );
       // Process command
       switch(op)
@@ -469,6 +469,12 @@ class VecArgs
           }
           return_if(not args.empty(), Error("C::Trailing arguments for fim-layer commit: {}", args.data()));
           cmd.sub_cmd = cmd_commit;
+        }
+        break;
+        case CmdLayerOp::LIST:
+        {
+          cmd.sub_cmd = CmdLayer::List{};
+          return_if(not args.empty(), Error("C::Trailing arguments for fim-layer list: {}", args.data()));
         }
         break;
         case CmdLayerOp::NONE: return Error("C::Invalid layer operation");

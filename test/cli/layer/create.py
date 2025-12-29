@@ -60,7 +60,7 @@ class TestFimLayerCreate(LayerTestBase):
     # Missing op
     out,err,code = run_cmd(self.file_image, "fim-layer")
     self.assertEqual(out, "")
-    self.assertIn("Missing op for 'fim-layer' (create,add,commit)", err)
+    self.assertIn("Missing op for 'fim-layer' (create,add,commit,list)", err)
     self.assertEqual(code, 125)
     # Missing source
     out,err,code = run_cmd(self.file_image, "fim-layer", "create")

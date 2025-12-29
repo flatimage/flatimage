@@ -12,10 +12,13 @@
 #include <filesystem>
 #include <regex>
 #include <unistd.h>
+#include <iostream>
+#include <format>
 
 #include "../../lib/subprocess.hpp"
 #include "../../lib/env.hpp"
 #include "../../std/expected.hpp"
+#include "../../filesystems/layers.hpp"
 
 namespace
 {
@@ -261,6 +264,20 @@ enum class CommitMode { BINARY, LAYER, FILE };
     }
   }
   return {};
+}
+
+/**
+ * @brief Lists all layers in the format index:offset:size:path
+ *
+ * @param layers The Layers object containing all filesystem layers
+ */
+inline void list(ns_filesystems::ns_layers::Layers const& layers)
+{
+  for(uint64_t index = 0; auto const& layer : layers.get_layers())
+  {
+    std::cout << std::format("{}:{}:{}:{}\n", index, layer.offset, layer.size, layer.path.string());
+    ++index;
+  }
 }
 
 } // namespace ns_layers

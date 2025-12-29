@@ -182,7 +182,7 @@ struct CmdRecipe
   std::variant<Fetch,Info,Install> sub_cmd;
 };
 
-ENUM(CmdLayerOp,ADD,COMMIT,CREATE);
+ENUM(CmdLayerOp,ADD,COMMIT,CREATE,LIST);
 ENUM(CmdLayerCommitOp,BINARY,LAYER,FILE);
 struct CmdLayer
 {
@@ -209,7 +209,10 @@ struct CmdLayer
     fs::path path_dir_src;
     fs::path path_file_target;
   };
-  std::variant<Add,Commit,Create> sub_cmd;
+  struct List
+  {
+  };
+  std::variant<Add,Commit,Create,List> sub_cmd;
 };
 
 ENUM(CmdBindOp,ADD,DEL,LIST);

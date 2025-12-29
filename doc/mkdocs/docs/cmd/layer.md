@@ -23,6 +23,8 @@ Usage: fim-layer <commit> <binary|layer|file> [path]
   <layer> : Saves the layer to $FIM_DIR_DATA/layers with auto-increment naming
   <file> : Saves the layer to the specified file path
   <path> : File path (required when using 'file' mode)
+Usage: fim-layer <list>
+  <list> : Lists all embedded and external layers in the format index:offset:size:path
 ```
 
 ### Commit Changes into a New Layer
@@ -93,6 +95,47 @@ Saves the layer to a specific file path you provide.
 - Sharing layers with other users or systems
 - Version control of individual layers
 - Custom organization schemes
+
+---
+
+### List All Layers
+
+The `fim-layer list` command displays all active layers in your FlatImage, including both embedded layers (stored in the binary) and external layers (loaded from files).
+
+**Example: Viewing all layers**
+
+```bash
+./app.flatimage fim-layer list
+```
+
+**Output format:** `index:offset:size:path`
+
+- **index** - Sequential layer number (0-based), indicating stacking order
+- **offset** - Byte offset within the file (0 for standalone files, actual offset for embedded filesystems)
+- **size** - Size of the layer in bytes
+- **path** - Full filesystem path to the layer file
+
+**Example output:**
+
+```txt
+0:4194304:62914560:/path/to/app.flatimage
+1:67108864:31457280:/path/to/app.flatimage
+2:0:10485760:/home/user/.app.flatimage.data/layers/layer-001.layer
+3:0:5242880:/custom/layers/dev-tools.layer
+```
+
+In this example:
+
+- Layers 0 and 1 are embedded in the binary at different offsets (60MB and 30MB respectively)
+- Layer 2 is an external layer from the managed layers directory (10MB)
+- Layer 3 is an external layer from a custom location (5MB)
+
+**Use cases:**
+
+- Inspecting which layers are currently active
+- Verifying layer loading order
+- Debugging layer-related issues
+- Understanding the composition of your FlatImage
 
 ---
 
@@ -250,3 +293,4 @@ flowchart TD
 
 - `fim-layer commit` - Automatically creates and adds a layer from your current uncommitted changes
 - `fim-layer create` + `fim-layer add` - Manually create a layer from a specific directory, then add it. This gives you precise control over what goes into each layer
+- `fim-layer list` - View all active layers (both embedded and external) to understand your FlatImage's composition

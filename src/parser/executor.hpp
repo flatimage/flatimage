@@ -322,6 +322,10 @@ using namespace ns_parser::ns_interface;
       ), "E::Failed to create layer");
       logger("I::Filesystem created without errors");
     }
+    else if(std::get_if<CmdLayer::List>(&(cmd->sub_cmd)))
+    {
+      ns_layers::list(fuse.layers);
+    }
     else
     {
       return Error("C::Invalid layer operation");

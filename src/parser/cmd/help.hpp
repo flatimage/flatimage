@@ -261,6 +261,10 @@ inline std::string layer_usage()
       { "file", "Saves the layer to the specified file path" },
       { "path", "File path (required when using 'file' mode)" },
     })
+    .with_usage("fim-layer <list>")
+    .with_args({
+      { "list", "Lists all embedded and external layers in the format index:offset:size:path" },
+    })
     .get();
 }
 

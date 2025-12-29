@@ -48,6 +48,7 @@ from cli.instance.list import TestFimInstanceList
 # Layer tests
 from cli.layer.commit import TestFimLayerCommit
 from cli.layer.create import TestFimLayerCreate
+from cli.layer.list import TestFimLayerList
 
 # Overlay tests
 from cli.overlay.set import TestFimOverlaySet
@@ -131,6 +132,7 @@ def suite():
   # Layer tests
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimLayerCommit))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimLayerCreate))
+  suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimLayerList))
   # Overlay tests
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimOverlaySet))
   suite.addTest(unittest.TestLoader().loadTestsFromTestCase(TestFimOverlayShow))
