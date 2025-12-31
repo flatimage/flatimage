@@ -30,6 +30,7 @@ The permission system allows you to:
 # Or use set
 ./app.flatimage fim-perms set all
 ```
+
 ---
 
 ### home
