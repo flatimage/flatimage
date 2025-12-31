@@ -188,7 +188,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   {
     #embed FIM_FILE_TOOLS
   };
-  std::tie(offset_beg, offset_end) = Pop(f_write_from_header(dir.instance / "fim_boot" , 0));
+  std::tie(offset_beg, offset_end) = Pop(f_write_from_header(dir.app_bin / "fim_boot" , 0));
   // TODO: Make this compile-time with C++26 reflection features
   for(auto&& tool : Pop(Pop(ns_db::from_string(str_raw_json)).template value<std::vector<std::string>>()))
   {
@@ -228,7 +228,7 @@ constexpr std::array<const char*,403> const arr_busybox_applet
   } // if
 
   // Launch Runner
-  int code = execve(std::format("{}/fim_boot", dir.instance.string()).c_str(), argv, environ);
+  int code = execve(std::format("{}/fim_boot", dir.app_bin.string()).c_str(), argv, environ);
   return Error("E::Could not perform 'evecve({})': {}", code, strerror(errno));
 }
 
