@@ -15,24 +15,24 @@ class TestFimRemoteShow(RemoteTestBase):
 
   def test_remote_show(self):
     """Test displaying remote URLs."""
-    # Show when no URL is set
+    # Show default URL
     out,err,code = run_cmd(self.file_image, "fim-remote", "show")
-    self.assertEqual(out, "")
-    self.assertIn("No remote URL configured", err)
-    self.assertEqual(code, 125)
-    
+    self.assertEqual(out, "https://github.com/flatimage/recipes")
+    self.assertEqual(err, "")
+    self.assertEqual(code, 0)
+
     # Set a URL
     out,err,code = run_cmd(self.file_image, "fim-remote", "set", "https://cdn.example.net/flatimage")
     self.assertIn("Set remote URL to 'https://cdn.example.net/flatimage'", out)
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
-    
+
     # Show the URL
     out,err,code = run_cmd(self.file_image, "fim-remote", "show")
     self.assertEqual(out, "https://cdn.example.net/flatimage")
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
-    
+
     # Trailing arguments to show
     out,err,code = run_cmd(self.file_image, "fim-remote", "show", "hello")
     self.assertEqual(out, "")

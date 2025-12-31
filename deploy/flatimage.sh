@@ -175,6 +175,9 @@ function _package()
   _create_elf "$dist".layer "$dist".flatimage
   # Create sha256sum
   sha256sum "$dist.flatimage" > "$dir_dist/$dist.flatimage.sha256sum"
+  # Add default flatimage remote
+  ./"$dist".flatimage fim-remote set https://github.com/flatimage/recipes
+  # Move to distribution directory
   mv "$dist.flatimage" "$dir_dist"
 }
 
