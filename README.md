@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/flatimage/docs/master/docs/image/icon.png" width=150px/>
+  <img src="https://raw.githubusercontent.com/flatimage/flatimage/master/doc/image/icon.png" width=150px/>
 </p>
 
 # What is FlatImage?
