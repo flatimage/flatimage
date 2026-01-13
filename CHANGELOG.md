@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.0.1
+
+### Changed
+
+- **Documentation** - Updated logo URL in README.md.
+
+### Fixed
+
+- **Boot Startup** - Check for fusermount3 on startup to ensure FUSE compatibility.
+- **Default Recipe URL** - Fixed default recipe URL configuration.
+- **Layer Commit Cleanup** - Made commit cleanup more permissive to handle file erasure failures gracefully.
+
 ## v2.0.0
 
 ### Added
