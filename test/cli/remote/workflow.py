@@ -19,7 +19,7 @@ class TestFimRemoteWorkflow(RemoteTestBase):
 
     # Initial state be the default repository
     out,err,code = run_cmd(self.file_image, "fim-remote", "show")
-    self.assertEqual(out, "https://github.com/flatimage/recipes")
+    self.assertEqual(out, "https://raw.githubusercontent.com/flatimage/recipes/master")
     self.assertEqual(code, 0)
 
     # Set a remote URL

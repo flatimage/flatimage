@@ -176,7 +176,7 @@ function _package()
   # Create sha256sum
   sha256sum "$dist.flatimage" > "$dir_dist/$dist.flatimage.sha256sum"
   # Add default flatimage remote
-  ./"$dist".flatimage fim-remote set https://github.com/flatimage/recipes
+  ./"$dist".flatimage fim-remote set https://raw.githubusercontent.com/flatimage/recipes/master
   # Move to distribution directory
   mv "$dist.flatimage" "$dir_dist"
 }

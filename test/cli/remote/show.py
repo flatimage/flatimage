@@ -17,7 +17,7 @@ class TestFimRemoteShow(RemoteTestBase):
     """Test displaying remote URLs."""
     # Show default URL
     out,err,code = run_cmd(self.file_image, "fim-remote", "show")
-    self.assertEqual(out, "https://github.com/flatimage/recipes")
+    self.assertEqual(out, "https://raw.githubusercontent.com/flatimage/recipes/master")
     self.assertEqual(err, "")
     self.assertEqual(code, 0)
 
