@@ -94,8 +94,6 @@ int main(int argc, char** argv)
   ns_env::set("FIM_COMMIT", FIM_COMMIT, ns_env::Replace::Y);
   ns_env::set("FIM_DIST", FIM_DIST, ns_env::Replace::Y);
   ns_env::set("FIM_TIMESTAMP", FIM_TIMESTAMP, ns_env::Replace::Y);
-  // Check if linux has the fuse module loaded
-  ns_linux::module_check("fuse").discard("W::'fuse' module might not be loaded");
   // If it is outside /tmp, move the binary
   Pop(ns_relocate::relocate(argv, FIM_RESERVED_OFFSET), "C::Failure to relocate binary");
   // Launch flatimage

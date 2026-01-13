@@ -71,6 +71,10 @@ using namespace ns_parser::ns_interface;
 
   auto f_bwrap_impl = [&](auto&& program, auto&& args) -> Value<ns_bwrap::bwrap_run_ret_t>
   {
+    // Check if linux has the fuse module loaded
+    ns_linux::module_check("fuse").discard("W::'fuse' module might not be loaded");
+    // Check for fusermount
+    Pop(ns_env::search_path("fusermount3"), "C::Could not find 'fusermount3'");
     // Check if the data directory is busy
     Pop(ns_filesystems::ns_utils::wait_busy(fim.path.dir.host_data, std::chrono::seconds(60)));
     // Mount filesystems
