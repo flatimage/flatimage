@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import subprocess
 from .common import LayerTestBase
 from cli.test_runner import run_cmd
 
@@ -122,3 +123,54 @@ class TestFimLayerCommit(LayerTestBase):
     _, err, code = run_cmd(self.file_image, "fim-layer", "commit", "layer")
     self.assertIn("Maximum number of layers exceeded", err)
     self.assertEqual(code, 125)
+
+  def test_commit_permissive_file_erasure(self):
+    """Test permissive file erasure warnings during commit"""
+    # Enable debug mode to capture warning messages
+    os.environ["FIM_DEBUG"] = "1"
+
+    try:
+      # Create script in overlay
+      self.create_script("permissive erasure test")
+
+      # Test case 1: File that cannot be removed
+      test_dir = self.dir_image / "root" / "test"
+      test_dir.mkdir(parents=True, exist_ok=False)
+      test_file = test_dir / "locked_file.txt"
+      with open(test_file, "w") as f:
+        f.write("This file will be protected")
+      # Make the parent directory root-owned so file cannot be removed
+      subprocess.run(["sudo", "chown", "root:root", str(test_dir)], check=True)
+
+      # Test case 2: Empty directory that cannot be removed
+      # Create a directory that will be empty after its files are removed
+      empty_parent = self.dir_image / "root" / "empty_parent"
+      empty_dir = empty_parent / "empty_dir"
+      empty_dir.mkdir(parents=True, exist_ok=False)
+      removable_file = empty_dir / "removable.txt"
+      with open(removable_file, "w") as f:
+        f.write("This file can be removed")
+      # Make only the parent directory root-owned, so:
+      # 1. The file CAN be removed (it's user-owned)
+      # 2. The directory will be empty after file removal
+      # 3. But the directory CANNOT be removed (parent is root-owned)
+      subprocess.run(["sudo", "chown", "root:root", str(empty_parent)], check=True)
+
+      # Commit to binary - this should trigger warnings but still succeed
+      out, err, code = run_cmd(self.file_image, "fim-layer", "commit", "binary")
+
+      # Check that commit succeeded despite erasure warnings
+      self.assertEqual(code, 0)
+      self.assertIn("Filesystem appended to binary", out)
+
+      # Check that we reached the "Finished erasing files" line (line 274)
+      self.assertIn("Finished erasing files", out)
+
+      # Verify permissive warning messages appear
+      self.assertRegex(err, "Could not remove file.*locked_file.txt")
+      self.assertRegex(err, "Could not remove directory.*empty_dir")
+
+    finally:
+      os.environ["FIM_DEBUG"] = "0"
+      # Clean up: restore ownership so tearDown can clean up properly
+      subprocess.run(["sudo", "chown", "-R", f"{os.getuid()}:{os.getgid()}", str(self.dir_image / "root")], check=False)

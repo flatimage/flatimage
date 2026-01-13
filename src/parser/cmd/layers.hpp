@@ -63,10 +63,10 @@ namespace ns_layers
     , Error("E::Could not open list of files '{}' to compress", path_file_list)
   );
   // Check if source directory exists and is a directory
-  return_if(not fs::exists(path_dir_src), Error("E::Source directory '{}' does not exist", path_dir_src));
-  return_if(not fs::is_directory(path_dir_src), Error("E::Source '{}' is not a directory", path_dir_src));
+  return_if(not Catch(fs::exists(path_dir_src)).value_or(false), Error("E::Source directory '{}' does not exist", path_dir_src));
+  return_if(not Catch(fs::is_directory(path_dir_src)).value_or(false), Error("E::Source '{}' is not a directory", path_dir_src));
   // Gather files to compress
-  for(auto&& entry = fs::recursive_directory_iterator(path_dir_src)
+  for(auto&& entry = Try(fs::recursive_directory_iterator(path_dir_src))
     ; entry != fs::recursive_directory_iterator()
     ; ++entry)
   {
@@ -90,7 +90,7 @@ namespace ns_layers
         continue;
       }
       // Add empty directory to the list
-      if(fs::is_empty(path_entry))
+      if(Catch(fs::is_empty(path_entry)).value_or(false))
       {
         file_list
           << path_entry.lexically_relative(path_dir_src).string()
@@ -174,6 +174,68 @@ namespace ns_layers
 }
 
 /**
+ * @brief Handles layer placement based on commit mode
+ *
+ * @param path_file_binary Path to the FlatImage binary
+ * @param path_file_layer_tmp Temporary layer file path
+ * @param mode Commit mode (binary, layer, or file)
+ * @param path_dst Destination path (required for layer/file modes)
+ * @return Value<void> Nothing on success, or the respective error
+ */
+enum class CommitMode { BINARY, LAYER, FILE };
+
+[[nodiscard]] inline Value<void> commit_mode(
+    fs::path const& path_file_binary
+  , fs::path const& path_file_layer_tmp
+  , CommitMode mode
+  , std::optional<fs::path> const& path_dst = std::nullopt)
+{
+  switch(mode)
+  {
+    case CommitMode::BINARY:
+    {
+      // Include filesystem in the image
+      Pop(add(path_file_binary, path_file_layer_tmp));
+      // Remove layer file
+      return_if(not Catch(fs::remove(path_file_layer_tmp)).value_or(false)
+        , Error("E::Could not erase layer file '{}'", path_file_layer_tmp.string())
+      );
+      logger("I::Filesystem appended to binary without errors");
+    }
+    break;
+    case CommitMode::LAYER:
+    {
+      return_if(not path_dst.has_value(), Error("E::Layer mode requires a destination directory"));
+      return_if(not Catch(fs::is_directory(path_dst.value())).value_or(false)
+        , Error("E::Destination should be a directory")
+      );
+      // Find next available layer number, return on error
+      uint64_t layer_num = Pop(find_next_layer_number(path_dst.value()));
+      // Create layer path as layer-xxx.layer
+      fs::path layer_path = path_dst.value() / std::format("layer-{:03d}.layer", layer_num);
+      logger("I::Layer number: {}", layer_num);
+      logger("I::Layer path: {}", layer_path);
+      // Move layer file to layers directory, or return on error
+      Try(fs::rename(path_file_layer_tmp, layer_path));
+      logger("I::Layer saved to '{}'", layer_path.string());
+    }
+    break;
+    case CommitMode::FILE:
+    {
+      // Return if no destination file was specified
+      return_if(not path_dst.has_value(), Error("E::File mode requires a destination path"));
+      // Return if file exists or check fails
+      return_if(Try(fs::exists(path_dst.value())), Error("E::Destination file already exists"));
+      // Move layer file to destination, or return on error
+      Try(fs::rename(path_file_layer_tmp, path_dst.value()));
+      logger("I::Layer saved to '{}'", path_dst.value().string());
+    }
+    break;
+  }
+  return {};
+}
+
+/**
  * @brief Commit changes into a novel layer (binary/layer/file modes)
  *
  * @param path_file_binary Path to the FlatImage binary
@@ -181,13 +243,10 @@ namespace ns_layers
  * @param path_file_layer_tmp Temporary layer file path
  * @param path_file_list_tmp Temporary file list path
  * @param layer_compression_level Compression level for the layer
- * @param path_dir_layers Path to the layers directory (for layer mode)
  * @param mode Commit mode (binary, layer, or file)
- * @param path_file_dst Destination path (only for file mode)
+ * @param path_dst Destination path (only for file mode)
  * @return Value<void> Nothing on success, or the respective error
  */
-enum class CommitMode { BINARY, LAYER, FILE };
-
 [[nodiscard]] inline Value<void> commit(
     fs::path const& path_file_binary
   , fs::path const& path_dir_src
@@ -203,46 +262,8 @@ enum class CommitMode { BINARY, LAYER, FILE };
     , path_file_list_tmp
     , layer_compression_level
   ));
-
   // Handle the layer based on the commit mode
-  switch(mode)
-  {
-    case CommitMode::BINARY:
-    {
-      // Include filesystem in the image
-      Pop(add(path_file_binary, path_file_layer_tmp));
-      // Remove layer file
-      if(not Try(fs::remove(path_file_layer_tmp)))
-      {
-        logger("E::Could not erase layer file '{}'", path_file_layer_tmp.string());
-      }
-      logger("I::Filesystem appended to binary without errors");
-    }
-    break;
-    case CommitMode::LAYER:
-    {
-      return_if(not path_dst.has_value(), Error("E::Layer mode requires a destination directory"));
-      return_if(not Try(fs::is_directory(path_dst.value())), Error("E::Destination should be a directory"));
-      // Find next available layer number
-      uint64_t layer_num = Pop(find_next_layer_number(path_dst.value()));
-      fs::path layer_path = path_dst.value() / std::format("layer-{:03d}.layer", layer_num);
-      logger("I::Layer number: {}", layer_num);
-      logger("I::Layer path: {}", layer_path);
-      // Move layer file to layers directory
-      Try(fs::rename(path_file_layer_tmp, layer_path));
-      logger("I::Layer saved to '{}'", layer_path.string());
-    }
-    break;
-    case CommitMode::FILE:
-    {
-      return_if(not path_dst.has_value(), Error("E::File mode requires a destination path"));
-      return_if(Try(fs::exists(path_dst.value())), Error("E::Destination file already exists"));
-      // Move layer file to destination
-      Try(fs::rename(path_file_layer_tmp, path_dst.value()));
-      logger("I::Layer saved to '{}'", path_dst.value().string());
-    }
-    break;
-  }
+  Pop(commit_mode(path_file_binary, path_file_layer_tmp, mode, path_dst));
   // Remove files from the compression list
   std::ifstream file_list(path_file_list_tmp);
   return_if(not file_list.is_open(), Error("E::Could not open file list for erasing files..."));
@@ -252,17 +273,21 @@ enum class CommitMode { BINARY, LAYER, FILE };
   {
     fs::path path_file_target = path_dir_src / line;
     fs::path path_dir_parent = path_file_target.parent_path();
-    // Remove target file (with error_code - doesn't throw)
-    if(not Try(fs::remove(path_file_target)))
+    // Remove target file, permissive
+    if(not Catch(fs::remove(path_file_target)).value_or(false))
     {
-      logger("E::Could not remove file {}", path_file_target.string());
+      logger("W::Could not remove file {}", path_file_target.string());
     }
-    // Remove empty directory (with error_code - doesn't throw)
-    if(Try(fs::is_empty(path_dir_parent)) and not Try(fs::remove(path_dir_parent)))
+    // Remove empty directory, permissive
+    if(Catch(fs::is_empty(path_dir_parent)).value_or(false))
     {
-      logger("E::Could not remove directory {}", path_dir_parent.string());
+      if(not Catch(fs::remove(path_dir_parent)).value_or(false))
+      {
+        logger("W::Could not remove directory {}", path_dir_parent.string());
+      }
     }
   }
+  logger("I::Finished erasing files");
   return {};
 }
 
